@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import SpinWheel from "@/pages/SpinWheel";
 
 const CATEGORIES = ["All Games", "Casual", "Action", "Card Games", "E-Sports", "Cricket"];
 
@@ -129,6 +130,7 @@ export default function Dashboard({ onSpin }: DashboardProps) {
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [activeNav, setActiveNav] = useState("home");
   const [currentBanner, setCurrentBanner] = useState(0);
+  const [showSpinModal, setShowSpinModal] = useState(false);
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -188,7 +190,7 @@ export default function Dashboard({ onSpin }: DashboardProps) {
           </span>
         </h1>
 
-        {/* Right: Bell + Wallet */}
+        {/* Right: Bell + Spin + Wallet */}
         <div className="flex items-center gap-2">
           {/* Bell */}
           <motion.button
@@ -201,6 +203,71 @@ export default function Dashboard({ onSpin }: DashboardProps) {
               className="absolute top-0 right-0 w-2 h-2 rounded-full"
               style={{ background: "#ff4e00" }}
             />
+          </motion.button>
+
+          {/* Daily Spin Icon */}
+          <motion.button
+            data-testid="button-daily-spin"
+            onClick={() => setShowSpinModal(true)}
+            whileTap={{ scale: 0.88 }}
+            className="relative w-8 h-8 flex items-center justify-center cursor-pointer rounded-full"
+            style={{
+              background: "rgba(139,92,246,0.15)",
+              border: "1px solid rgba(139,92,246,0.35)",
+            }}
+            animate={{
+              boxShadow: [
+                "0 0 6px rgba(139,92,246,0.5), 0 0 12px rgba(255,215,0,0.2)",
+                "0 0 12px rgba(255,215,0,0.7), 0 0 20px rgba(139,92,246,0.4)",
+                "0 0 6px rgba(139,92,246,0.5), 0 0 12px rgba(255,215,0,0.2)",
+              ],
+            }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          >
+            {/* SVG Fortune Wheel */}
+            <motion.svg
+              width="20" height="20" viewBox="0 0 20 20" fill="none"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+            >
+              {/* 8 pie segments */}
+              {[
+                { start: 0,   end: 45,  color: "#FFD700" },
+                { start: 45,  end: 90,  color: "#EF4444" },
+                { start: 90,  end: 135, color: "#3B82F6" },
+                { start: 135, end: 180, color: "#10B981" },
+                { start: 180, end: 225, color: "#8B5CF6" },
+                { start: 225, end: 270, color: "#F97316" },
+                { start: 270, end: 315, color: "#EC4899" },
+                { start: 315, end: 360, color: "#06B6D4" },
+              ].map((seg, i) => {
+                const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
+                const x1 = 10 + 9 * Math.cos(toRad(seg.start));
+                const y1 = 10 + 9 * Math.sin(toRad(seg.start));
+                const x2 = 10 + 9 * Math.cos(toRad(seg.end));
+                const y2 = 10 + 9 * Math.sin(toRad(seg.end));
+                return (
+                  <path
+                    key={i}
+                    d={`M10,10 L${x1},${y1} A9,9 0 0,1 ${x2},${y2} Z`}
+                    fill={seg.color}
+                    stroke="#07070d"
+                    strokeWidth="0.8"
+                  />
+                );
+              })}
+              {/* Center dot */}
+              <circle cx="10" cy="10" r="2.5" fill="#07070d" />
+              <circle cx="10" cy="10" r="1.5" fill="#FFD700" />
+            </motion.svg>
+
+            {/* "FREE" dot badge */}
+            <span
+              className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", fontSize: "5px", fontWeight: 900, color: "#000" }}
+            >
+              !
+            </span>
           </motion.button>
 
           {/* Wallet Card */}
@@ -529,6 +596,39 @@ export default function Dashboard({ onSpin }: DashboardProps) {
           )
         )}
       </nav>
+
+      {/* ─── SPIN WHEEL OVERLAY MODAL ─── */}
+      <AnimatePresence>
+        {showSpinModal && (
+          <>
+            {/* Blurred backdrop */}
+            <motion.div
+              className="fixed inset-0 z-[60]"
+              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSpinModal(false)}
+            />
+
+            {/* Wheel panel — pops up from bottom */}
+            <motion.div
+              className="fixed inset-x-0 bottom-0 z-[70] overflow-y-auto"
+              style={{ maxWidth: "480px", margin: "0 auto", maxHeight: "96vh", borderRadius: "28px 28px 0 0" }}
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            >
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1" style={{ background: "#07070d", borderRadius: "28px 28px 0 0" }}>
+                <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
+              </div>
+              <SpinWheel onBack={() => setShowSpinModal(false)} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
