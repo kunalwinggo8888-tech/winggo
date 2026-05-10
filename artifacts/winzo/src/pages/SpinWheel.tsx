@@ -19,7 +19,7 @@ const CY = 160;
 const R = 148;
 const INNER_R = 40;
 
-const DAILY_KEY = "winzo_last_spin_date";
+const DAILY_KEY = "winggo_last_spin_date";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);

@@ -2,40 +2,48 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SpinWheel from "@/pages/SpinWheel";
 
-const CATEGORIES = ["All Games", "Casual", "Action", "Card Games", "E-Sports", "Cricket"];
+const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports"];
 
 const BANNERS = [
   {
     id: 1,
-    title: "Win ₹10 Lakhs",
-    subtitle: "Daily Tournaments — Join Now",
+    title: "Play More Win More",
+    subtitle: "100+ Games · Instant Withdrawals",
     gradient: "linear-gradient(135deg, #ff4e00 0%, #ec9f05 100%)",
     accent: "#fff",
-    tag: "MEGA EVENT",
+    tag: "🔥 WINGGO",
   },
   {
     id: 2,
     title: "Refer & Earn",
-    subtitle: "Get ₹50 per friend • No limit",
+    subtitle: "Earn unlimited bonus — no cap!",
     gradient: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
     accent: "#FFD700",
-    tag: "TRENDING",
+    tag: "💸 TRENDING",
   },
   {
     id: 3,
-    title: "100% Bonus",
-    subtitle: "On your first deposit today",
+    title: "New User Bonus",
+    subtitle: "Get ₹50 free on first signup",
     gradient: "linear-gradient(135deg, #134e5e 0%, #71b280 100%)",
     accent: "#fff",
-    tag: "NEW OFFER",
+    tag: "🎁 NEW OFFER",
   },
   {
     id: 4,
-    title: "World War Live",
-    subtitle: "Battle royale starts in 2h 30m",
+    title: "Daily Deposit Offer",
+    subtitle: "100% bonus on every deposit today",
     gradient: "linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%)",
     accent: "#fff",
-    tag: "LIVE",
+    tag: "⚡ HOT DEAL",
+  },
+  {
+    id: 5,
+    title: "Real Players. Real Battles.",
+    subtitle: "Fast matchmaking — join in seconds",
+    gradient: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
+    accent: "#FFD700",
+    tag: "👥 LIVE",
   },
 ];
 
@@ -47,25 +55,25 @@ const GAMES = [
     players: "2.4L playing",
     prize: "₹5,000",
     gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-    icon: "🫧",
+    icon: "🎈",
   },
   {
     id: 2,
-    name: "Knife Up",
-    category: "Action",
-    players: "1.8L playing",
-    prize: "₹10,000",
-    gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-    icon: "🗡️",
+    name: "Snakes & Ladders",
+    category: "Board",
+    players: "1.9L playing",
+    prize: "₹8,000",
+    gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+    icon: "🐍",
   },
   {
     id: 3,
-    name: "Fruit Samurai",
-    category: "Action",
-    players: "3.1L playing",
-    prize: "₹2,500",
-    gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-    icon: "🍉",
+    name: "Carrom",
+    category: "Board",
+    players: "2.9L playing",
+    prize: "₹3,000",
+    gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
+    icon: "🎯",
   },
   {
     id: 4,
@@ -78,8 +86,8 @@ const GAMES = [
   },
   {
     id: 5,
-    name: "Ludo King",
-    category: "Casual",
+    name: "Ludo Classic",
+    category: "Board",
     players: "4.2L playing",
     prize: "₹1,000",
     gradient: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
@@ -87,12 +95,12 @@ const GAMES = [
   },
   {
     id: 6,
-    name: "Carrom",
-    category: "Casual",
-    players: "2.9L playing",
-    prize: "₹3,000",
-    gradient: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
-    icon: "🎯",
+    name: "8-Ball Pool",
+    category: "Sports",
+    players: "3.3L playing",
+    prize: "₹4,500",
+    gradient: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+    icon: "🎱",
   },
   {
     id: 7,
@@ -111,6 +119,24 @@ const GAMES = [
     prize: "₹25,000",
     gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
     icon: "🏏",
+  },
+  {
+    id: 9,
+    name: "Fruit Samurai",
+    category: "Casual",
+    players: "3.1L playing",
+    prize: "₹2,500",
+    gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+    icon: "🍉",
+  },
+  {
+    id: 10,
+    name: "Knife Up",
+    category: "Casual",
+    players: "1.8L playing",
+    prize: "₹10,000",
+    gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    icon: "🗡️",
   },
 ];
 
@@ -178,7 +204,7 @@ export default function Dashboard({ onSpin, onLudo }: DashboardProps) {
           A
         </motion.button>
 
-        {/* WINZO Logo */}
+        {/* WINGGO Logo */}
         <h1 className="font-black text-2xl tracking-tighter leading-none">
           <span className="text-white">WIN</span>
           <span
@@ -187,7 +213,7 @@ export default function Dashboard({ onSpin, onLudo }: DashboardProps) {
               textShadow: "0 0 8px rgba(255,215,0,0.8), 0 0 20px rgba(255,215,0,0.4)",
             }}
           >
-            ZO
+            GGO
           </span>
         </h1>
 
@@ -402,9 +428,10 @@ export default function Dashboard({ onSpin, onLudo }: DashboardProps) {
         {/* ─── QUICK STATS STRIP ─── */}
         <div className="flex gap-3 mx-4 mt-4 overflow-x-auto pb-1 no-scrollbar">
           {[
-            { label: "Winners Today", value: "2.4L+", icon: "🏆" },
-            { label: "Prize Pool", value: "₹10L", icon: "💎" },
-            { label: "Live Games", value: "48", icon: "🔴" },
+            { label: "Winners Today", value: "4.7L+", icon: "🏆" },
+            { label: "Prize Pool", value: "₹50L", icon: "💎" },
+            { label: "Live Games", value: "100+", icon: "🔴" },
+            { label: "Online Players", value: "4.2L", icon: "👥" },
           ].map((stat) => (
             <div
               key={stat.label}
