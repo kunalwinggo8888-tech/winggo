@@ -10,10 +10,11 @@ import SpinWheel from "@/pages/SpinWheel";
 import LudoGame from "@/pages/LudoGame";
 import WorldWarGame from "@/pages/WorldWarGame";
 import ReferEarn from "@/pages/ReferEarn";
+import WalletScreen from "@/pages/WalletScreen";
 
 const queryClient = new QueryClient();
 
-type Screen = "splash" | "login" | "dashboard" | "spinwheel" | "ludo" | "worldwar" | "refer";
+type Screen = "splash" | "login" | "dashboard" | "spinwheel" | "ludo" | "worldwar" | "refer" | "wallet";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("splash");
@@ -41,6 +42,7 @@ function App() {
               onLudo={() => setScreen("ludo")}
               onWorldWar={() => setScreen("worldwar")}
               onRefer={() => setScreen("refer")}
+              onWallet={() => setScreen("wallet")}
             />
           )}
           {screen === "spinwheel" && (
@@ -54,6 +56,9 @@ function App() {
           )}
           {screen === "refer" && (
             <ReferEarn key="refer" onBack={() => setScreen("dashboard")} />
+          )}
+          {screen === "wallet" && (
+            <WalletScreen key="wallet" onBack={() => setScreen("dashboard")} />
           )}
         </AnimatePresence>
         <Toaster />
