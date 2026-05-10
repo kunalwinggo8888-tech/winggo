@@ -6,10 +6,11 @@ import { AnimatePresence } from "framer-motion";
 import SplashScreen from "@/pages/SplashScreen";
 import LoginScreen from "@/pages/LoginScreen";
 import Dashboard from "@/pages/Dashboard";
+import SpinWheel from "@/pages/SpinWheel";
 
 const queryClient = new QueryClient();
 
-type Screen = "splash" | "login" | "dashboard";
+type Screen = "splash" | "login" | "dashboard" | "spinwheel";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("splash");
@@ -31,7 +32,10 @@ function App() {
             <LoginScreen key="login" onLogin={() => setScreen("dashboard")} />
           )}
           {screen === "dashboard" && (
-            <Dashboard key="dashboard" />
+            <Dashboard key="dashboard" onSpin={() => setScreen("spinwheel")} />
+          )}
+          {screen === "spinwheel" && (
+            <SpinWheel key="spinwheel" onBack={() => setScreen("dashboard")} />
           )}
         </AnimatePresence>
         <Toaster />

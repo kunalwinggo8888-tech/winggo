@@ -121,7 +121,11 @@ const NAV_ITEMS = [
   { id: "profile", label: "Profile", icon: "👤" },
 ];
 
-export default function Dashboard() {
+interface DashboardProps {
+  onSpin?: () => void;
+}
+
+export default function Dashboard({ onSpin }: DashboardProps) {
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [activeNav, setActiveNav] = useState("home");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -290,6 +294,42 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* ─── SPIN & WIN PROMO CARD ─── */}
+        <motion.button
+          data-testid="button-spin-promo"
+          onClick={onSpin}
+          whileTap={{ scale: 0.97 }}
+          className="mx-4 mt-4 w-[calc(100%-2rem)] rounded-2xl overflow-hidden cursor-pointer flex items-center justify-between px-5 py-4 relative"
+          style={{
+            background: "linear-gradient(135deg, #1a0a3e 0%, #2d1060 50%, #1a0a3e 100%)",
+            border: "1.5px solid rgba(139,92,246,0.4)",
+            boxShadow: "0 0 24px rgba(139,92,246,0.2)",
+          }}
+          animate={{
+            boxShadow: [
+              "0 0 20px rgba(139,92,246,0.2)",
+              "0 0 36px rgba(255,215,0,0.25)",
+              "0 0 20px rgba(139,92,246,0.2)",
+            ],
+          }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <div>
+            <div className="text-xs font-bold uppercase tracking-widest text-purple-400 mb-1">Daily Reward</div>
+            <div className="text-white font-black text-lg leading-tight">Spin &amp; Win!</div>
+            <div className="text-zinc-400 text-xs mt-0.5">Win up to ₹20 Cash every day</div>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-4xl">🎡</span>
+            <span
+              className="text-xs font-black px-2 py-0.5 rounded-full text-black"
+              style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}
+            >
+              FREE
+            </span>
+          </div>
+        </motion.button>
 
         {/* ─── QUICK STATS STRIP ─── */}
         <div className="flex gap-3 mx-4 mt-4 overflow-x-auto pb-1 no-scrollbar">
@@ -464,7 +504,7 @@ export default function Dashboard() {
               key={item.id}
               data-testid={`nav-${item.id}`}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setActiveNav(item.id)}
+              onClick={() => { setActiveNav(item.id); if (item.id === "refer") onSpin?.(); }}
               className="flex flex-col items-center gap-0.5 cursor-pointer"
             >
               <span
