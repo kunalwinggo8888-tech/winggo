@@ -152,9 +152,10 @@ interface DashboardProps {
   onSpin?: () => void;
   onLudo?: () => void;
   onWorldWar?: () => void;
+  onRefer?: () => void;
 }
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onRefer }: DashboardProps) {
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [activeNav, setActiveNav] = useState("home");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -612,7 +613,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar }: DashboardProps
               key={item.id}
               data-testid={`nav-${item.id}`}
               whileTap={{ scale: 0.9 }}
-              onClick={() => { setActiveNav(item.id); if (item.id === "refer") onSpin?.(); }}
+              onClick={() => { setActiveNav(item.id); if (item.id === "refer") onRefer?.(); }}
               className="flex flex-col items-center gap-0.5 cursor-pointer"
             >
               <span
