@@ -124,9 +124,10 @@ const NAV_ITEMS = [
 
 interface DashboardProps {
   onSpin?: () => void;
+  onLudo?: () => void;
 }
 
-export default function Dashboard({ onSpin }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo }: DashboardProps) {
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [activeNav, setActiveNav] = useState("home");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -474,11 +475,16 @@ export default function Dashboard({ onSpin }: DashboardProps) {
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.25, delay: i * 0.04 }}
                   whileTap={{ scale: 0.97 }}
+                  onClick={() => game.id === 5 && onLudo?.()}
                   className="rounded-2xl overflow-hidden cursor-pointer"
                   style={{
                     background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+                    border: game.id === 5
+                      ? "1.5px solid rgba(161,112,255,0.5)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                    boxShadow: game.id === 5
+                      ? "0 4px 20px rgba(161,112,255,0.2)"
+                      : "0 4px 20px rgba(0,0,0,0.4)",
                   }}
                 >
                   {/* Game art area */}

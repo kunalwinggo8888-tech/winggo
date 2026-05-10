@@ -7,10 +7,11 @@ import SplashScreen from "@/pages/SplashScreen";
 import LoginScreen from "@/pages/LoginScreen";
 import Dashboard from "@/pages/Dashboard";
 import SpinWheel from "@/pages/SpinWheel";
+import LudoGame from "@/pages/LudoGame";
 
 const queryClient = new QueryClient();
 
-type Screen = "splash" | "login" | "dashboard" | "spinwheel";
+type Screen = "splash" | "login" | "dashboard" | "spinwheel" | "ludo";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("splash");
@@ -32,10 +33,17 @@ function App() {
             <LoginScreen key="login" onLogin={() => setScreen("dashboard")} />
           )}
           {screen === "dashboard" && (
-            <Dashboard key="dashboard" onSpin={() => setScreen("spinwheel")} />
+            <Dashboard
+              key="dashboard"
+              onSpin={() => setScreen("spinwheel")}
+              onLudo={() => setScreen("ludo")}
+            />
           )}
           {screen === "spinwheel" && (
             <SpinWheel key="spinwheel" onBack={() => setScreen("dashboard")} />
+          )}
+          {screen === "ludo" && (
+            <LudoGame key="ludo" onBack={() => setScreen("dashboard")} />
           )}
         </AnimatePresence>
         <Toaster />
