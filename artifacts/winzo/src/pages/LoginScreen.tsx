@@ -1,6 +1,10 @@
 import { motion } from "framer-motion";
 
-export default function LoginScreen() {
+interface LoginScreenProps {
+  onLogin?: () => void;
+}
+
+export default function LoginScreen({ onLogin }: LoginScreenProps) {
   return (
     <motion.div
       className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
@@ -54,7 +58,7 @@ export default function LoginScreen() {
           </p>
         </div>
 
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-5">
+        <form onSubmit={(e) => { e.preventDefault(); onLogin?.(); }} className="space-y-5">
           {/* Mobile Number label */}
           <div>
             <label className="block text-zinc-300 text-sm font-medium mb-2">
