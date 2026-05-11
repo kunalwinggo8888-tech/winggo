@@ -1,14 +1,15 @@
 import { motion, AnimatePresence } from "framer-motion";
 
 export type AdminPage =
-  | "dashboard" | "users" | "wallet" | "games" | "worldwar"
-  | "kyc" | "promotions" | "analytics" | "settings";
+  | "dashboard" | "users" | "wallet" | "gameapi" | "updateapi"
+  | "worldwar" | "kyc" | "promotions" | "analytics" | "settings";
 
 const NAV = [
   { id: "dashboard",  icon: "📊", label: "Dashboard"        },
   { id: "users",      icon: "👥", label: "Users"             },
   { id: "wallet",     icon: "💰", label: "Wallet"            },
-  { id: "games",      icon: "🎮", label: "Games"             },
+  { id: "gameapi",    icon: "🎮", label: "Games API"         },
+  { id: "updateapi",  icon: "🔄", label: "Update API"        },
   { id: "worldwar",   icon: "⚔️", label: "World War"         },
   { id: "kyc",        icon: "🪪", label: "KYC Panel"         },
   { id: "promotions", icon: "📢", label: "Promotions"        },
@@ -92,6 +93,14 @@ export default function AdminSidebar({ active, onNav, onLogout, collapsed }: Pro
                   </motion.span>
                 )}
               </AnimatePresence>
+
+              {/* New badge for API pages */}
+              {!collapsed && (item.id === "gameapi" || item.id === "updateapi") && (
+                <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.25)" }}>
+                  API
+                </span>
+              )}
             </motion.button>
           );
         })}
