@@ -6,6 +6,7 @@ import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getAuth, Auth, signInWithEmailAndPassword } from "firebase/auth";
 import { getStorage, FirebaseStorage } from "firebase/storage";
+import { getDatabase, Database } from "firebase/database";
 
 /** Strip any child path — Firebase RTDB requires the root URL only */
 function sanitizeDbUrl(raw: string): string {
@@ -37,6 +38,7 @@ let app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 let _storage: FirebaseStorage | null = null;
+let _rtdb: Database | null = null;
 
 if (FIREBASE_ENABLED) {
   app = getApps().length === 0
@@ -45,11 +47,15 @@ if (FIREBASE_ENABLED) {
   _auth    = getAuth(app);
   _db      = getFirestore(app);
   _storage = getStorage(app);
+  if (firebaseConfig.databaseURL) {
+    _rtdb = getDatabase(app);
+  }
 }
 
 export const adminAuth    = _auth;
 export const adminDb      = _db;
 export const adminStorage = _storage;
+export const adminRtdb    = _rtdb;
 export { app };
 
 /** Admin email/password login (separate from player phone auth) */

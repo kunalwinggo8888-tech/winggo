@@ -1,0 +1,146 @@
+Rebuild the complete backend system again for WINGGO gaming app using Firebase exactly like WinZO style.
+
+Create a fresh Firebase backend setup from beginning with proper structure and realtime sync.
+
+━━━━━━━━━━━━━━━
+🔥 SETUP FIREBASE AGAIN
+━━━━━━━━━━━━━━━
+
+Configure:
+
+- Firebase Authentication
+- Firebase Firestore
+- Firebase Realtime Database
+- Firebase Storage
+- Firebase Functions
+- Firebase Cloud Messaging
+- Firebase Hosting
+
+━━━━━━━━━━━━━━━
+👤 AUTHENTICATION SYSTEM
+━━━━━━━━━━━━━━━
+
+Create:
+
+- OTP Login system
+- Phone number verification
+- Auto user registration
+- Secure session handling
+- User profile database
+
+━━━━━━━━━━━━━━━
+💰 REALTIME WALLET SYSTEM
+━━━━━━━━━━━━━━━
+
+Features:
+
+- Live wallet sync
+- Winning amount auto add
+- Losing amount auto deduct
+- Deposit history
+- Withdraw system
+- Bonus wallet
+- Cashback system
+
+Balance should sync on:
+✔ Home Page
+✔ Wallet Page
+✔ Game Result Page
+
+━━━━━━━━━━━━━━━
+🎮 GAME BACKEND SYSTEM
+━━━━━━━━━━━━━━━
+
+Create:
+
+- Matchmaking system
+- Bot auto join
+- Multiplayer room system
+- Match timer
+- Realtime gameplay sync
+- Result calculation
+- Leaderboard
+
+Games:
+
+- Ludo
+- Carrom
+- Bubble Shooter
+- Snake & Ladder
+- World War
+
+━━━━━━━━━━━━━━━
+⚔️ WORLD WAR SYSTEM
+━━━━━━━━━━━━━━━
+
+Features:
+
+- Team battle
+- Karan vs Arjun mode
+- Live rankings
+- Prize pool
+- Match result system
+
+━━━━━━━━━━━━━━━
+🔄 UPDATE API SYSTEM
+━━━━━━━━━━━━━━━
+
+Create:
+
+- App version check
+- Force update popup
+- Maintenance mode
+- Remote config
+- Live event banner updates
+
+━━━━━━━━━━━━━━━
+🎮 GAME API SYSTEM
+━━━━━━━━━━━━━━━
+
+Create:
+
+- Add/Edit/Delete games
+- Game ON/OFF
+- Entry fee settings
+- Prize amount settings
+- Upload game images
+- Featured game control
+
+━━━━━━━━━━━━━━━
+💳 PAYMENT SYSTEM
+━━━━━━━━━━━━━━━
+
+Integrate:
+
+- Razorpay gateway
+- Add money system
+- Withdraw request system
+- Transaction verification
+- Instant wallet update
+
+━━━━━━━━━━━━━━━
+🛡️ ADMIN PANEL
+━━━━━━━━━━━━━━━
+
+Create:
+
+- Admin login
+- Staff roles
+- User management
+- KYC approval
+- Withdraw approval
+- Notification system
+- Analytics dashboard
+
+━━━━━━━━━━━━━━━
+🎨 SYSTEM DESIGN
+━━━━━━━━━━━━━━━
+
+- Premium WinZO style backend
+- Secure Firebase rules
+- Fast realtime sync
+- Mobile optimized architecture
+- Smooth performance
+- Proper database structure
+
+Use React + Firebase + JavaScript architecture and rebuild the complete backend correctly from scratch.

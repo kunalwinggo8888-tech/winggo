@@ -92,6 +92,7 @@ export interface GameConfig {
   isActive: boolean;
   isBotEnabled: boolean;
   botJoinDelaySec: number;
+  isFeatured?: boolean;
   description?: string;
 }
 
@@ -335,6 +336,49 @@ export function subscribeLiveStats(
     () => {}
   );
   return () => { unsubUsers(); unsubWD(); unsubKYC(); };
+}
+
+// ─── PUSH NOTIFICATIONS ───────────────────────────────────────────────────────
+
+export interface NotificationQueueItem {
+  id?: string;
+  message: string;
+  title: string;
+  target: "all" | "active" | "deposited";
+  scheduledFor: "now" | string;
+  status: "queued" | "sent" | "failed";
+  sentAt?: number;
+  recipientCount?: number;
+  createdAt: number;
+  createdBy?: string;
+}
+
+export async function queueNotification(
+  item: Omit<NotificationQueueItem, "id" | "status" | "createdAt">
+): Promise<string> {
+  if (!FIREBASE_ENABLED || !adminDb) {
+    return `demo-notif-${Date.now()}`;
+  }
+  const ref = await addDoc(collection(adminDb, "notificationQueue"), {
+    ...item,
+    status: "queued",
+    createdAt: Date.now(),
+  });
+  return ref.id;
+}
+
+export function subscribeNotificationHistory(
+  cb: (items: NotificationQueueItem[]) => void
+): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  const q = query(
+    collection(adminDb, "notificationQueue"),
+    orderBy("createdAt", "desc"),
+    limit(20)
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as NotificationQueueItem)));
+  }, () => cb([]));
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────

@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
 
 const NAV_ITEMS = [
-  { id: "home",     label: "Home",      icon: "🏠",  screen: "dashboard" },
-  { id: "worldwar", label: "World War", icon: "⚔️",  screen: "worldwar",  featured: true },
-  { id: "wallet",   label: "Wallet",    icon: "💰",  screen: "wallet" },
-  { id: "refer",    label: "Refer",     icon: "🎁",  screen: "refer" },
-  { id: "profile",  label: "Profile",   icon: "👤",  screen: "profile" },
+  { id: "home",        label: "Home",       icon: "🏠",  screen: "dashboard" },
+  { id: "leaderboard", label: "Rankings",   icon: "🏆",  screen: "leaderboard" },
+  { id: "worldwar",    label: "War",        icon: "⚔️",  screen: "worldwar",  featured: true },
+  { id: "wallet",      label: "Wallet",     icon: "💰",  screen: "wallet" },
+  { id: "profile",     label: "Profile",    icon: "👤",  screen: "profile" },
 ] as const;
 
 interface BottomNavProps {
@@ -13,16 +13,17 @@ interface BottomNavProps {
   onNavigate: (screen: string) => void;
 }
 
-const SCREENS_WITH_NAV = ["dashboard", "worldwar", "wallet", "refer", "profile", "kyc"];
+const SCREENS_WITH_NAV = ["dashboard", "leaderboard", "worldwar", "wallet", "refer", "profile", "kyc"];
 
 export { SCREENS_WITH_NAV };
 
 export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) {
   const activeId =
-    activeScreen === "dashboard"          ? "home"     :
-    activeScreen === "worldwar"           ? "worldwar" :
-    activeScreen === "wallet"             ? "wallet"   :
-    activeScreen === "refer"              ? "refer"    :
+    activeScreen === "dashboard"          ? "home"        :
+    activeScreen === "leaderboard"        ? "leaderboard" :
+    activeScreen === "worldwar"           ? "worldwar"    :
+    activeScreen === "wallet"             ? "wallet"      :
+    activeScreen === "refer"              ? "refer"       :
     activeScreen === "profile" || activeScreen === "kyc" ? "profile" : "";
 
   return (

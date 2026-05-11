@@ -97,6 +97,7 @@ export interface GameConfig {
   isActive: boolean;
   isBotEnabled: boolean;
   botJoinDelaySec: number;
+  isFeatured?: boolean;
   description?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

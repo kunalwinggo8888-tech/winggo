@@ -160,9 +160,11 @@ interface DashboardProps {
   onLudo?: () => void;
   onWorldWar?: () => void;
   onWallet?: () => void;
+  onLeaderboard?: () => void;
+  appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -448,6 +450,65 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet }: Dash
             ))}
           </div>
         </div>
+
+        {/* ─── ANNOUNCEMENT BANNER TICKER ─── */}
+        {(appConfig?.announcementActive !== false) && (
+          <motion.div className="mx-4 mt-3 px-4 py-2.5 rounded-2xl flex items-center gap-3 overflow-hidden cursor-pointer"
+            style={{ background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.2)" }}
+            whileTap={{ scale: 0.98 }}>
+            <motion.div className="w-2 h-2 rounded-full shrink-0"
+              style={{ background: "#FFD700" }}
+              animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }}
+              transition={{ duration: 1.4, repeat: Infinity }} />
+            <div className="flex-1 overflow-hidden">
+              <motion.p className="text-xs font-bold whitespace-nowrap"
+                style={{ color: "#FFD700" }}
+                animate={{ x: ["100%", "-100%"] }}
+                transition={{ duration: 18, repeat: Infinity, ease: "linear" }}>
+                {appConfig?.announcementBanner ?? "🏆 Play & Win Real Cash! Grand Ludo Tournament every Sunday at 8 PM IST"}
+              </motion.p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ─── FEATURED GAME HERO CARD ─── */}
+        {(() => {
+          const featured = liveGames.find((g) => g.isFeatured && g.isActive);
+          if (!featured) return null;
+          const v = GAME_VISUALS[featured.id ?? ""] ?? {};
+          return (
+            <motion.div
+              className="mx-4 mt-3 rounded-2xl overflow-hidden cursor-pointer"
+              style={{ background: v.gradient ?? "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)", boxShadow: "0 0 30px rgba(255,215,0,0.3)" }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                if (featured.id === "ludo") onLudo?.();
+                else if (featured.id === "worldwar") onWorldWar?.();
+              }}
+              animate={{ boxShadow: ["0 0 20px rgba(255,215,0,0.2)", "0 0 40px rgba(255,215,0,0.5)", "0 0 20px rgba(255,215,0,0.2)"] }}
+              transition={{ duration: 2.5, repeat: Infinity }}>
+              <div className="flex items-center justify-between px-5 py-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(0,0,0,0.35)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}>
+                      ⭐ FEATURED
+                    </span>
+                  </div>
+                  <h3 className="text-white font-black text-xl leading-tight">{featured.name}</h3>
+                  <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.75)" }}>
+                    Win up to ₹{(Math.max(...featured.entryFees) * featured.prizeMultiplier * 10).toFixed(0)} · Entry from ₹{Math.min(...featured.entryFees)}
+                  </p>
+                  <div className="mt-3 px-4 py-2 rounded-full inline-block font-black text-sm"
+                    style={{ background: "#fff", color: "#000" }}>
+                    Play Now →
+                  </div>
+                </div>
+                <span className="text-7xl">{v.icon ?? featured.thumbnail}</span>
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* ─── SPIN & WIN PROMO CARD ─── */}
         <motion.button

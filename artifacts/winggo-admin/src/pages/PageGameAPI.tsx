@@ -344,8 +344,9 @@ export default function PageGameAPI() {
               {/* Toggles */}
               <div className="grid grid-cols-2 gap-2 mb-5">
                 {[
-                  { label: "Active / Live",    key: "isActive",      color: "#34d399" },
-                  { label: "Bot Auto-Fill 🤖", key: "isBotEnabled",  color: "#60a5fa" },
+                  { label: "Active / Live",      key: "isActive",    color: "#34d399" },
+                  { label: "Bot Auto-Fill 🤖",   key: "isBotEnabled",color: "#60a5fa" },
+                  { label: "⭐ Featured Game",   key: "isFeatured",  color: "#FFD700" },
                 ].map((t) => (
                   <div key={t.key} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
                     style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
