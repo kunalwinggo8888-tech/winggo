@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/context/useAuth";
 import { WalletProvider } from "@/context/WalletContext";
+import WelcomeBonusModal from "@/components/WelcomeBonusModal";
 import SplashScreen from "@/pages/SplashScreen";
 import LoginScreen from "@/pages/LoginScreen";
 import Dashboard from "@/pages/Dashboard";
@@ -36,6 +37,7 @@ function AppInner() {
   const [splashDone, setSplash]     = useState(false);
   const [appConfig, setAppConfig]   = useState<AppConfig>(DEFAULT_APP_CONFIG);
   const [showSetup, setShowSetup]   = useState(!FIREBASE_ENABLED);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   // Subscribe to remote app config (maintenance mode, force update, announcements)
   useEffect(() => {
@@ -50,6 +52,9 @@ function AppInner() {
   async function handleLogin(uid: string, email: string, isNewUser?: boolean) {
     await login(uid, email, isNewUser);
     setScreen("dashboard");
+    if (isNewUser) {
+      setShowWelcome(true);
+    }
   }
 
   // Show setup guide when Firebase isn't configured (can be dismissed to demo mode)
@@ -169,6 +174,12 @@ function AppInner() {
           onNavigate={(s) => setScreen(s as Screen)}
         />
       )}
+
+      {/* Welcome bonus popup — shown once after new user signup */}
+      <WelcomeBonusModal
+        visible={showWelcome}
+        onClose={() => setShowWelcome(false)}
+      />
 
       <Toaster />
     </WalletProvider>

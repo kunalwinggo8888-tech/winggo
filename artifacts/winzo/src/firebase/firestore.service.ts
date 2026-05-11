@@ -154,7 +154,7 @@ export function subscribeUserProfile(uid: string, cb: (p: UserProfile) => void):
 
 // ─── WALLET ───────────────────────────────────────────────────────────────────
 
-const INITIAL_BALANCE: WalletBalance = { winning: 0, deposit: 50, bonus: 50 };
+const INITIAL_BALANCE: WalletBalance = { winning: 0, deposit: 0, bonus: 50 };
 
 async function initWallet(uid: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;

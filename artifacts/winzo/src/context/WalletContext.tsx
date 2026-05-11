@@ -79,7 +79,7 @@ function nextId() { return ++_txId; }
 
 // ─── DEMO / INITIAL STATE ────────────────────────────────────────────────────
 
-const DEMO_WALLET: WalletData = { winning: 1240, deposit: 300, bonus: 150 };
+const DEMO_WALLET: WalletData = { winning: 0, deposit: 0, bonus: 50 };
 
 const DEMO_TX: Transaction[] = [
   { id: 1, type: "win",      title: "Ludo Classic Win",    rawAmount:  250, display: "+₹250", time: "Today, 3:12 PM",     color: "#27ae60" },
