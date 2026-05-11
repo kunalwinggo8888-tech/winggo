@@ -1,0 +1,120 @@
+Create a complete Firebase Backend System for WINGGO gaming app exactly like WinZO style.
+
+Use Firebase as the main backend system with realtime sync support.
+
+━━━━━━━━━━━━━━━
+🔥 FIREBASE FEATURES
+━━━━━━━━━━━━━━━
+
+Use:
+
+Firebase Authentication
+Firebase Firestore Database
+Firebase Realtime Database
+Firebase Storage
+Firebase Cloud Messaging
+Firebase Functions
+Firebase Hosting
+━━━━━━━━━━━━━━━
+👤 LOGIN SYSTEM
+━━━━━━━━━━━━━━━
+
+OTP login with phone number
+Auto account creation
+Secure Firebase authentication
+User session management
+Device login tracking
+━━━━━━━━━━━━━━━
+💰 WALLET SYSTEM
+━━━━━━━━━━━━━━━
+
+Live wallet balance sync
+Auto reward add on win
+Auto entry fee deduct on loss
+Deposit & withdraw history
+Bonus wallet
+Cashback rewards
+Wallet should update instantly on:
+✔ Home Page
+✔ Wallet Page
+✔ Game Pages
+
+━━━━━━━━━━━━━━━
+🎮 GAME BACKEND
+━━━━━━━━━━━━━━━
+
+Realtime multiplayer support
+Matchmaking system
+Bot auto join system
+Room management
+Match timer
+Live game sync
+Leaderboard system
+Game result management
+Games:
+
+Ludo
+Carrom
+Bubble Shooter
+Snake & Ladder
+World War
+━━━━━━━━━━━━━━━
+⚔️ WORLD WAR SYSTEM
+━━━━━━━━━━━━━━━
+
+Team battle rooms
+Karan vs Arjun teams
+Live score updates
+Prize pool system
+Realtime ranking
+━━━━━━━━━━━━━━━
+🔄 UPDATE API SYSTEM
+━━━━━━━━━━━━━━━
+
+Force update
+Maintenance mode
+Remote config
+Event banner control
+Feature ON/OFF system
+━━━━━━━━━━━━━━━
+🎮 GAME API SYSTEM
+━━━━━━━━━━━━━━━
+
+Add new games dynamically
+Edit games
+Delete games
+Game ON/OFF toggle
+Entry fee control
+Prize settings
+Upload game thumbnails
+━━━━━━━━━━━━━━━
+🛡️ ADMIN PANEL
+━━━━━━━━━━━━━━━
+
+Admin login
+Staff roles
+User management
+KYC verification
+Withdraw approval
+Notifications
+Analytics dashboard
+━━━━━━━━━━━━━━━
+💳 PAYMENT SYSTEM
+━━━━━━━━━━━━━━━
+
+Razorpay payment gateway
+Add money system
+Instant wallet update
+Withdraw request system
+Transaction verification
+━━━━━━━━━━━━━━━
+🎨 UI & PERFORMANCE
+━━━━━━━━━━━━━━━
+
+Premium WinZO style backend architecture
+Fast realtime sync
+Secure Firebase rules
+Mobile optimized
+Smooth API performance
+Realtime database updates
+Use React + Firebase + JavaScript with realtime gaming architecture.

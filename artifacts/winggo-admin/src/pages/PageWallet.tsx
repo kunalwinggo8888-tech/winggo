@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   subscribeWithdrawRequests, approveWithdraw, rejectWithdraw,
-  WithdrawRequest,
+  subscribeRecentDeposits, WithdrawRequest,
 } from "@/firebase/admin.service";
 import { MOCK_WITHDRAWALS } from "@/data/mockData";
 import { FIREBASE_ENABLED } from "@/firebase/config";
@@ -35,18 +35,33 @@ function toLocal(r: WithdrawRequest): LocalWD {
   };
 }
 
+type DepositRow = { user: string; amount: number; date: string; method: string };
+
+const MOCK_DEPOSITS: DepositRow[] = [
+  { user: "Rahul Sharma",  amount: 500,  date: "Today 09:15",      method: "GPay"    },
+  { user: "Amit Kumar",    amount: 2000, date: "Today 08:52",      method: "Bank"    },
+  { user: "Vikram Singh",  amount: 1000, date: "Today 08:30",      method: "PhonePe" },
+  { user: "Arjun Menon",   amount: 5000, date: "Yesterday 07:45",  method: "Bank"    },
+  { user: "Priya Patel",   amount: 200,  date: "Yesterday 07:10",  method: "UPI"     },
+];
+
 export default function PageWallet() {
   const [withdrawals, setWithdrawals] = useState<LocalWD[]>(
     FIREBASE_ENABLED ? [] : (MOCK_WITHDRAWALS as LocalWD[])
   );
-  const [tab, setTab]           = useState<"withdrawals" | "deposits">("withdrawals");
-  const [actionId, setActionId] = useState<string | null>(null);
+  const [deposits, setDeposits]   = useState<DepositRow[]>(FIREBASE_ENABLED ? [] : MOCK_DEPOSITS);
+  const [tab, setTab]             = useState<"withdrawals" | "deposits">("withdrawals");
+  const [actionId, setActionId]   = useState<string | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeWithdrawRequests("all", (reqs) => {
+    const unsubWD = subscribeWithdrawRequests("all", (reqs) => {
       if (reqs.length > 0) setWithdrawals(reqs.map(toLocal));
     });
-    return unsub;
+    const unsubDep = subscribeRecentDeposits((deps) => {
+      if (deps.length > 0) setDeposits(deps);
+      else if (!FIREBASE_ENABLED) setDeposits(MOCK_DEPOSITS);
+    });
+    return () => { unsubWD(); unsubDep(); };
   }, []);
 
   async function handleApprove(id: string) {
@@ -178,22 +193,37 @@ export default function PageWallet() {
 
       {/* Deposit history */}
       {tab === "deposits" && (
-        <div className="rounded-2xl p-8 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-          <div className="text-4xl mb-3">📥</div>
-          <p className="text-white font-black text-sm mb-1">Deposit History</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>All deposits are logged here after Firebase integration</p>
-          <div className="mt-4 space-y-2">
-            {["Rahul Sharma — ₹500 via GPay — 09:15", "Amit Kumar — ₹2,000 via Bank — 08:52",
-              "Vikram Singh — ₹1,000 via PhonePe — 08:30", "Arjun Menon — ₹5,000 via Bank — 07:45",
-              "Priya Patel — ₹200 via UPI — 07:10"].map((d, i) => (
-              <div key={i} className="flex items-center justify-between px-4 py-2.5 rounded-xl text-xs"
-                style={{ background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.12)" }}>
-                <span style={{ color: "rgba(255,255,255,0.65)" }}>{d.split(" — ")[0]}</span>
-                <span className="font-black" style={{ color: "#34d399" }}>{d.split(" — ")[1]}</span>
-                <span style={{ color: "rgba(255,255,255,0.3)" }}>{d.split(" — ")[2]}</span>
-              </div>
-            ))}
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="grid grid-cols-4 gap-2 px-4 py-3 text-[10px] font-black tracking-widest uppercase"
+            style={{ background: "rgba(52,211,153,0.05)", color: "rgba(52,211,153,0.6)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span className="col-span-2">User / UID</span><span>Amount</span><span>Date · Method</span>
           </div>
+
+          {deposits.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+              {FIREBASE_ENABLED ? "No deposits yet — deposits will appear here as users add money" : "Loading demo deposits…"}
+            </div>
+          )}
+
+          {deposits.map((d, i) => (
+            <motion.div key={`${d.user}-${i}`}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+              className="grid grid-cols-4 gap-2 items-center px-4 py-3"
+              style={{
+                background: i % 2 === 0 ? "rgba(255,255,255,0.01)" : "transparent",
+                borderBottom: i < deposits.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+              }}>
+              <div className="col-span-2">
+                <p className="text-xs font-bold text-white truncate">{d.user}</p>
+                <p className="text-[10px] truncate font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>{d.user.length > 8 ? d.user.slice(0, 8) + "…" : d.user}</p>
+              </div>
+              <span className="text-sm font-black" style={{ color: "#34d399" }}>₹{d.amount.toLocaleString("en-IN")}</span>
+              <div>
+                <p className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>{d.date}</p>
+                <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>{d.method}</p>
+              </div>
+            </motion.div>
+          ))}
         </div>
       )}
     </div>

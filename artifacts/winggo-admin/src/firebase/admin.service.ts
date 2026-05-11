@@ -3,10 +3,10 @@
  * All Firestore admin operations — no cross-package imports.
  */
 import {
-  collection, query, orderBy, limit, where,
+  collection, collectionGroup, query, orderBy, limit, where,
   getDocs, getDoc, setDoc, updateDoc, addDoc,
   onSnapshot, serverTimestamp, increment,
-  doc, writeBatch, Timestamp, DocumentData,
+  doc, writeBatch, Timestamp, DocumentData, deleteDoc,
 } from "firebase/firestore";
 import { adminDb, FIREBASE_ENABLED } from "./config";
 
@@ -235,11 +235,37 @@ export async function updateAppConfig(data: Partial<AppConfig>): Promise<void> {
 
 // ─── GAMES ────────────────────────────────────────────────────────────────────
 
+/** Live subscription to games collection */
+export function subscribeGames(cb: (games: GameConfig[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb(DEFAULT_GAMES); return () => {}; }
+  return onSnapshot(
+    collection(adminDb, "games"),
+    (snap) => {
+      if (snap.empty) cb(DEFAULT_GAMES);
+      else cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GameConfig)));
+    },
+    () => cb(DEFAULT_GAMES)
+  );
+}
+
 export async function getGames(): Promise<GameConfig[]> {
   if (!FIREBASE_ENABLED || !adminDb) return DEFAULT_GAMES;
   const snap = await getDocs(collection(adminDb, "games"));
   if (snap.empty) return DEFAULT_GAMES;
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as GameConfig));
+}
+
+/** Seed default games into Firestore on first run */
+export async function seedGamesIfEmpty(): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  const snap = await getDocs(collection(adminDb, "games"));
+  if (!snap.empty) return;
+  const batch = writeBatch(adminDb);
+  DEFAULT_GAMES.forEach((g) => {
+    const ref = g.id ? doc(adminDb!, "games", g.id) : doc(collection(adminDb!, "games"));
+    batch.set(ref, { ...g, createdAt: serverTimestamp() });
+  });
+  await batch.commit();
 }
 
 export async function upsertGame(data: GameConfig): Promise<void> {
@@ -251,10 +277,64 @@ export async function upsertGame(data: GameConfig): Promise<void> {
   }
 }
 
-export async function deleteGame(gameId: string): Promise<void> {
+export async function removeGame(gameId: string): Promise<void> {
   if (!FIREBASE_ENABLED || !adminDb) return;
-  const { deleteDoc } = await import("firebase/firestore");
   await deleteDoc(doc(adminDb, "games", gameId));
+}
+
+/** Subscribe to all deposit transactions (across all users via collectionGroup) */
+export function subscribeRecentDeposits(
+  cb: (deps: Array<{ user: string; amount: number; date: string; method: string }>) => void
+): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  const q = query(
+    collectionGroup(adminDb, "transactions"),
+    where("type", "==", "deposit"),
+    orderBy("createdAt", "desc"),
+    limit(50)
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        user: d.ref.parent.parent?.id ?? "Unknown",
+        amount: data.rawAmount as number,
+        date: data.createdAt?.seconds
+          ? new Date(data.createdAt.seconds * 1000).toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })
+          : "—",
+        method: "UPI",
+      };
+    }));
+  }, () => cb([]));
+}
+
+/** Subscribe to live platform stats (user count, pending withdrawals, KYC) */
+export function subscribeLiveStats(
+  cb: (stats: { totalUsers: number; pendingWithdrawals: number; pendingKYC: number }) => void
+): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) {
+    cb({ totalUsers: 74218, pendingWithdrawals: 6, pendingKYC: 4 });
+    return () => {};
+  }
+  let users = 0, pendingWD = 0, pendingKYC = 0;
+  const emit = () => cb({ totalUsers: users, pendingWithdrawals: pendingWD, pendingKYC });
+
+  const unsubUsers = onSnapshot(
+    query(collection(adminDb, "users"), limit(1)),
+    (snap) => { users = snap.size; emit(); },
+    () => {}
+  );
+  const unsubWD = onSnapshot(
+    query(collection(adminDb, "withdrawRequests"), where("status", "==", "pending")),
+    (snap) => { pendingWD = snap.size; emit(); },
+    () => {}
+  );
+  const unsubKYC = onSnapshot(
+    query(collection(adminDb, "kycRequests"), where("status", "==", "pending")),
+    (snap) => { pendingKYC = snap.size; emit(); },
+    () => {}
+  );
+  return () => { unsubUsers(); unsubWD(); unsubKYC(); };
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────

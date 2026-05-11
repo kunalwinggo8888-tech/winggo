@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SpinWheel from "@/pages/SpinWheel";
 import { useWallet } from "@/context/WalletContext";
+import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firestore.service";
+import { FIREBASE_ENABLED } from "@/firebase/config";
 
-const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports"];
+const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports", "Battle", "Arcade"];
 
 const BANNERS = [
   {
@@ -141,6 +143,18 @@ const GAMES = [
   },
 ];
 
+// Visual overrides per Firestore game ID — gradient, players, prize text, display category
+const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: string; category: string; icon: string }> = {
+  ludo:     { gradient: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)", players: "4.2L playing", prize: "₹1,000",    category: "Board",     icon: "🎲" },
+  worldwar: { gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", players: "8.4L playing", prize: "₹1,00,000", category: "E-Sports",  icon: "⚔️" },
+  carrom:   { gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)", players: "2.9L playing", prize: "₹3,000",    category: "Board",     icon: "🎯" },
+  snakes:   { gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", players: "1.9L playing", prize: "₹8,000",    category: "Board",     icon: "🐍" },
+  bubble:   { gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", players: "2.4L playing", prize: "₹5,000",    category: "Casual",    icon: "🫧" },
+  cricket:  { gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)", players: "6.1L playing", prize: "₹25,000",   category: "Cricket",   icon: "🏏" },
+};
+
+const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
+
 interface DashboardProps {
   onSpin?: () => void;
   onLudo?: () => void;
@@ -153,8 +167,10 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet }: Dash
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
+  const [liveGames, setLiveGames] = useState<GameConfig[]>([]);
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Auto-scroll banners
   useEffect(() => {
     bannerRef.current = setInterval(() => {
       setCurrentBanner((prev) => (prev + 1) % BANNERS.length);
@@ -164,10 +180,37 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet }: Dash
     };
   }, []);
 
+  // Seed + subscribe to Firestore games catalog
+  useEffect(() => {
+    if (FIREBASE_ENABLED) {
+      seedGamesIfEmpty().catch(() => {});
+    }
+    return subscribeGames(setLiveGames);
+  }, []);
+
+  // Merge Firestore data with local visual overrides
+  const allDisplayGames = liveGames
+    .filter((g) => g.isActive)
+    .map((g) => {
+      const v = GAME_VISUALS[g.id ?? ""] ?? {};
+      return {
+        id:       g.id ?? "",
+        name:     g.name,
+        category: v.category ?? g.category,
+        players:  v.players ?? "1L+ playing",
+        prize:    v.prize ?? `₹${Math.max(...g.entryFees) * g.prizeMultiplier * 10}`,
+        gradient: v.gradient ?? FALLBACK_GRADIENT,
+        icon:     v.icon ?? g.thumbnail,
+      };
+    });
+
+  // Fallback to static GAMES when Firestore is loading (empty)
+  const displayGames = allDisplayGames.length > 0 ? allDisplayGames : GAMES.map((g) => ({ ...g, id: String(g.id) }));
+
   const filteredGames =
     activeCategory === "All Games"
-      ? GAMES
-      : GAMES.filter((g) => g.category === activeCategory);
+      ? displayGames
+      : displayGames.filter((g) => g.category.toLowerCase() === activeCategory.toLowerCase());
 
   return (
     <div
@@ -520,20 +563,20 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet }: Dash
                   transition={{ duration: 0.25, delay: i * 0.04 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={() => {
-                    if (game.id === 5) onLudo?.();
-                    if (game.id === 7) onWorldWar?.();
+                    if (game.id === "ludo" || game.id === "5") onLudo?.();
+                    else if (game.id === "worldwar" || game.id === "7") onWorldWar?.();
                   }}
                   className="rounded-2xl overflow-hidden cursor-pointer"
                   style={{
                     background: "rgba(255,255,255,0.04)",
-                    border: game.id === 5
+                    border: (game.id === "ludo" || game.id === "5")
                       ? "1.5px solid rgba(161,112,255,0.5)"
-                      : game.id === 7
+                      : (game.id === "worldwar" || game.id === "7")
                       ? "1.5px solid rgba(231,76,60,0.5)"
                       : "1px solid rgba(255,255,255,0.08)",
-                    boxShadow: game.id === 5
+                    boxShadow: (game.id === "ludo" || game.id === "5")
                       ? "0 4px 20px rgba(161,112,255,0.2)"
-                      : game.id === 7
+                      : (game.id === "worldwar" || game.id === "7")
                       ? "0 4px 20px rgba(231,76,60,0.2)"
                       : "0 4px 20px rgba(0,0,0,0.4)",
                   }}

@@ -1,3 +1,4 @@
+// @refresh reset
 /**
  * Auth Context — WINGGO
  * Wraps Firebase phone auth state and exposes user info to the whole app.

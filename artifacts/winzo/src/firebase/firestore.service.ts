@@ -519,6 +519,37 @@ export async function getDailyStats(days = 7): Promise<DailyStats[]> {
   return snap.docs.map((d) => d.data() as DailyStats).reverse();
 }
 
+// ─── GAMES (admin-managed, read by player app) ───────────────────────────────
+
+/** Subscribe to live game catalog — admin can toggle games on/off */
+export function subscribeGames(cb: (games: GameConfig[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb(DEFAULT_GAMES); return () => {}; }
+  return onSnapshot(
+    query(collection(db, "games"), orderBy("name")),
+    (snap) => {
+      if (snap.empty) {
+        cb(DEFAULT_GAMES);
+      } else {
+        cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GameConfig)));
+      }
+    },
+    () => cb(DEFAULT_GAMES)
+  );
+}
+
+/** Write game catalog seed to Firestore if empty */
+export async function seedGamesIfEmpty(): Promise<void> {
+  if (!FIREBASE_ENABLED || !db) return;
+  const snap = await getDocs(collection(db, "games"));
+  if (!snap.empty) return;
+  const batch = writeBatch(db);
+  DEFAULT_GAMES.forEach((g) => {
+    const ref = g.id ? doc(db!, "games", g.id) : doc(collection(db!, "games"));
+    batch.set(ref, { ...g, createdAt: serverTimestamp() });
+  });
+  await batch.commit();
+}
+
 // ─── DEFAULT GAMES (fallback when Firestore not configured) ──────────────────
 
 export const DEFAULT_GAMES: GameConfig[] = [

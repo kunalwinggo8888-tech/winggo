@@ -1,17 +1,19 @@
 import { motion } from "framer-motion";
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useState, useEffect } from "react";
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import StatCard from "@/components/StatCard";
 import { REVENUE_DATA, USER_GROWTH_DATA, GAME_STATS_DATA, NOTIFICATIONS } from "@/data/mockData";
+import { subscribeLiveStats } from "@/firebase/admin.service";
 
-const STATS = [
-  { icon: "👥", label: "Total Users",     value: "74,218",  sub: "+1,240 today",  color: "#7c3aed", glow: "rgba(124,58,237,0.12)", trend: "8.4%",  trendUp: true  },
-  { icon: "🟢", label: "Online Now",      value: "4,821",   sub: "Live sessions", color: "#34d399", glow: "rgba(52,211,153,0.10)", trend: "12.1%", trendUp: true  },
-  { icon: "💰", label: "Today Revenue",   value: "₹1,15,600", sub: "↑ vs yesterday",color: "#FFD700", glow: "rgba(255,215,0,0.10)", trend: "24.3%", trendUp: true  },
-  { icon: "📥", label: "Deposits Today",  value: "₹81,000", sub: "382 transactions",color: "#60a5fa", glow: "rgba(96,165,250,0.10)",trend: "9.7%",  trendUp: true  },
-  { icon: "📤", label: "Withdrawals",     value: "₹42,000", sub: "6 pending review", color: "#f472b6", glow: undefined,              trend: "3.2%",  trendUp: false },
-  { icon: "🎮", label: "Live Matches",    value: "1,248",   sub: "Across 6 games", color: "#fb923c", glow: undefined,              trend: "15.8%", trendUp: true  },
-  { icon: "🪪", label: "KYC Pending",     value: "4",       sub: "Needs review",   color: "#f59e0b", glow: undefined,              trend: undefined, trendUp: undefined },
-  { icon: "🎁", label: "Referrals Today", value: "186",     sub: "₹9,300 paid",    color: "#a78bfa", glow: undefined,              trend: "5.1%",  trendUp: true  },
+const BASE_STATS = [
+  { icon: "👥", label: "Total Users",     key: "totalUsers",         baseVal: "74,218",    sub: "+1,240 today",    color: "#7c3aed", glow: "rgba(124,58,237,0.12)", trend: "8.4%",  trendUp: true  },
+  { icon: "🟢", label: "Online Now",      key: null,                 baseVal: "4,821",     sub: "Live sessions",   color: "#34d399", glow: "rgba(52,211,153,0.10)", trend: "12.1%", trendUp: true  },
+  { icon: "💰", label: "Today Revenue",   key: null,                 baseVal: "₹1,15,600", sub: "↑ vs yesterday",  color: "#FFD700", glow: "rgba(255,215,0,0.10)",  trend: "24.3%", trendUp: true  },
+  { icon: "📥", label: "Deposits Today",  key: null,                 baseVal: "₹81,000",   sub: "382 transactions",color: "#60a5fa", glow: "rgba(96,165,250,0.10)", trend: "9.7%",  trendUp: true  },
+  { icon: "📤", label: "Withdrawals",     key: "pendingWithdrawals", baseVal: "₹42,000",   sub: "pending review",  color: "#f472b6", glow: undefined,               trend: "3.2%",  trendUp: false },
+  { icon: "🎮", label: "Live Matches",    key: null,                 baseVal: "1,248",     sub: "Across 6 games",  color: "#fb923c", glow: undefined,               trend: "15.8%", trendUp: true  },
+  { icon: "🪪", label: "KYC Pending",     key: "pendingKYC",         baseVal: "4",         sub: "Needs review",    color: "#f59e0b", glow: undefined,               trend: undefined, trendUp: undefined },
+  { icon: "🎁", label: "Referrals Today", key: null,                 baseVal: "186",       sub: "₹9,300 paid",     color: "#a78bfa", glow: undefined,               trend: "5.1%",  trendUp: true  },
 ];
 
 const LIVE_MATCHES = [
@@ -39,11 +41,27 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 export default function PageDashboard() {
+  const [liveStats, setLiveStats] = useState<{ totalUsers: number; pendingWithdrawals: number; pendingKYC: number } | null>(null);
+
+  useEffect(() => {
+    return subscribeLiveStats(setLiveStats);
+  }, []);
+
+  const STATS = BASE_STATS.map((s) => {
+    if (!liveStats || !s.key) return { ...s, value: s.baseVal };
+    const raw = liveStats[s.key as keyof typeof liveStats];
+    let value = s.baseVal;
+    if (s.key === "totalUsers") value = Number(raw).toLocaleString("en-IN");
+    else if (s.key === "pendingWithdrawals") value = String(raw) + " pending";
+    else if (s.key === "pendingKYC") value = String(raw);
+    return { ...s, value };
+  });
+
   return (
     <div className="space-y-5">
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {STATS.map((s, i) => (
+        {STATS.map(({ key: _fbKey, baseVal: _bv, ...s }, i) => (
           <StatCard key={s.label} {...s} delay={i * 0.05} />
         ))}
       </div>
