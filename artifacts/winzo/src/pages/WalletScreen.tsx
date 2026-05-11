@@ -192,7 +192,7 @@ export default function WalletScreen({ onBack }: Props) {
       </div>
 
       {/* ── SCROLLABLE BODY ── */}
-      <div className="flex-1 overflow-y-auto pb-8">
+      <div className="flex-1 overflow-y-auto pb-28">
         <AnimatePresence mode="wait">
 
           {/* ═══ ADD CASH ═══ */}

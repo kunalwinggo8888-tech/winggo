@@ -692,7 +692,7 @@ function ResultPhase({ team, entryFee, onPlayAgain, onBack }: {
       </div>
 
       {/* ── CTAs ── */}
-      <div className="px-4 mt-5 mb-8 flex gap-3">
+      <div className="px-4 mt-5 mb-28 flex gap-3">
         <motion.button whileTap={{ scale: 0.97 }} onClick={onPlayAgain}
           className="flex-1 py-4 rounded-2xl font-black text-base cursor-pointer"
           style={{ background: `linear-gradient(135deg,${TEAM[team].color},${team === "karan" ? "#1d4ed8" : "#ea580c"})`, color: "#fff", boxShadow: `0 0 20px ${TEAM[team].glow}` }}>

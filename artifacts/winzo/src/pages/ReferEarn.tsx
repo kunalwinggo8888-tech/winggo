@@ -421,6 +421,8 @@ export default function ReferEarn({ onBack }: Props) {
           </motion.button>
         </div>
       </div>
+      {/* bottom nav clearance */}
+      <div style={{ height: 90 }} />
     </motion.div>
   );
 }

@@ -12,6 +12,7 @@ import LudoGame from "@/pages/LudoGame";
 import WorldWarGame from "@/pages/WorldWarGame";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
+import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
 
 const queryClient = new QueryClient();
 
@@ -43,7 +44,6 @@ function App() {
                 onSpin={() => setScreen("spinwheel")}
                 onLudo={() => setScreen("ludo")}
                 onWorldWar={() => setScreen("worldwar")}
-                onRefer={() => setScreen("refer")}
                 onWallet={() => setScreen("wallet")}
               />
             )}
@@ -63,6 +63,15 @@ function App() {
               <WalletScreen key="wallet" onBack={() => setScreen("dashboard")} />
             )}
           </AnimatePresence>
+
+          {/* Persistent bottom nav — stays mounted across all nav screens */}
+          {SCREENS_WITH_NAV.includes(screen) && (
+            <BottomNav
+              activeScreen={screen}
+              onNavigate={(s) => setScreen(s as Screen)}
+            />
+          )}
+
           <Toaster />
         </WalletProvider>
       </TooltipProvider>

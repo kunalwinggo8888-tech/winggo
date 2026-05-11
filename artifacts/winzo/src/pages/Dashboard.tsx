@@ -141,26 +141,16 @@ const GAMES = [
   },
 ];
 
-const NAV_ITEMS = [
-  { id: "home", label: "Home", icon: "🏠" },
-  { id: "worldwar", label: "World War", icon: "⚔️", featured: true },
-  { id: "wallet", label: "Wallet", icon: "💰" },
-  { id: "refer", label: "Refer", icon: "🎁" },
-  { id: "profile", label: "Profile", icon: "👤" },
-];
-
 interface DashboardProps {
   onSpin?: () => void;
   onLudo?: () => void;
   onWorldWar?: () => void;
-  onRefer?: () => void;
   onWallet?: () => void;
 }
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onRefer, onWallet }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet }: DashboardProps) {
   const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
-  const [activeNav, setActiveNav] = useState("home");
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -591,82 +581,6 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onRefer, onWalle
         </div>
       </main>
 
-      {/* ─── BOTTOM NAV ─── */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex items-end justify-around px-2 pb-safe"
-        style={{
-          maxWidth: "480px",
-          margin: "0 auto",
-          background: "rgba(10,10,15,0.95)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
-          paddingTop: "10px",
-          paddingBottom: "14px",
-        }}
-      >
-        {NAV_ITEMS.map((item) =>
-          item.featured ? (
-            /* Featured center button — elevated */
-            <motion.button
-              key={item.id}
-              data-testid={`nav-${item.id}`}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setActiveNav(item.id)}
-              className="flex flex-col items-center -mt-6 cursor-pointer"
-            >
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
-                style={{
-                  background: "linear-gradient(135deg, #ff4e00, #ec9f05)",
-                  boxShadow:
-                    "0 0 20px rgba(255,100,0,0.6), 0 -4px 12px rgba(255,100,0,0.3)",
-                  border: "3px solid rgba(255,255,255,0.15)",
-                }}
-              >
-                {item.icon}
-              </div>
-              <span
-                className="text-[10px] mt-1 font-semibold"
-                style={{ color: activeNav === item.id ? "#ff8c00" : "#52525b" }}
-              >
-                {item.label}
-              </span>
-            </motion.button>
-          ) : (
-            <motion.button
-              key={item.id}
-              data-testid={`nav-${item.id}`}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                  setActiveNav(item.id);
-                  if (item.id === "refer") onRefer?.();
-                  if (item.id === "wallet") onWallet?.();
-                }}
-              className="flex flex-col items-center gap-0.5 cursor-pointer"
-            >
-              <span
-                className="text-xl transition-all duration-200"
-                style={{
-                  filter:
-                    activeNav === item.id
-                      ? "drop-shadow(0 0 6px rgba(255,215,0,0.8))"
-                      : "none",
-                  opacity: activeNav === item.id ? 1 : 0.4,
-                }}
-              >
-                {item.icon}
-              </span>
-              <span
-                className="text-[10px] font-semibold transition-colors duration-200"
-                style={{ color: activeNav === item.id ? "#FFD700" : "#52525b" }}
-              >
-                {item.label}
-              </span>
-            </motion.button>
-          )
-        )}
-      </nav>
 
       {/* ─── SPIN WHEEL OVERLAY MODAL ─── */}
       <AnimatePresence>
