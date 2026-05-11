@@ -143,7 +143,7 @@ const GAMES = [
 
 const NAV_ITEMS = [
   { id: "home", label: "Home", icon: "🏠" },
-  { id: "worldwar", label: "War", icon: "⚔️", featured: true },
+  { id: "worldwar", label: "World War", icon: "⚔️", featured: true },
   { id: "wallet", label: "Wallet", icon: "💰" },
   { id: "refer", label: "Refer", icon: "🎁" },
   { id: "profile", label: "Profile", icon: "👤" },
