@@ -15,34 +15,37 @@ import PagePromotions from "@/pages/PagePromotions";
 import PageAnalytics from "@/pages/PageAnalytics";
 import PageSettings from "@/pages/PageSettings";
 import PageDeposits from "@/pages/PageDeposits";
+import PagePopupSettings from "@/pages/PagePopupSettings";
 import { hasAdminSession, clearAdminSession } from "@/firebase/config";
 
 const PAGE_TITLES: Record<AdminPage, string> = {
-  dashboard:  "Dashboard",
-  users:      "User Management",
-  wallet:     "Wallet & Payments",
-  deposits:   "Razorpay Deposits",
-  gameapi:    "Game API System",
-  updateapi:  "Update API System",
-  worldwar:   "World War Manager",
-  kyc:        "KYC Panel",
-  promotions: "Promotions & Banners",
-  analytics:  "Analytics",
-  settings:   "Settings",
+  dashboard:     "Dashboard",
+  users:         "User Management",
+  wallet:        "Wallet & Payments",
+  deposits:      "Razorpay Deposits",
+  gameapi:       "Game API System",
+  updateapi:     "Update API System",
+  worldwar:      "World War Manager",
+  kyc:           "KYC Panel",
+  promotions:    "Promotions & Banners",
+  analytics:     "Analytics",
+  settings:      "Settings",
+  popupsettings: "Popup Settings",
 };
 
 const PAGE_SUBTITLES: Record<AdminPage, string> = {
-  dashboard:  "Live overview of all platform metrics",
-  users:      "Search, manage and moderate users",
-  wallet:     "Deposits, withdrawals & bonus management",
-  deposits:   "Real-time Razorpay payment records with payment IDs",
-  gameapi:    "Add, edit & control games dynamically — no reinstall needed",
-  updateapi:  "Remote config, version control & feature flags",
-  worldwar:   "Tournament creation, brackets & leaderboards",
-  kyc:        "Review and approve KYC submissions",
-  promotions: "Banners, push notifications & referral settings",
-  analytics:  "Revenue trends, retention & engagement metrics",
-  settings:   "App settings, integrations & security",
+  dashboard:     "Live overview of all platform metrics",
+  users:         "Search, manage and moderate users",
+  wallet:        "Deposits, withdrawals & bonus management",
+  deposits:      "Real-time Razorpay payment records with payment IDs",
+  gameapi:       "Add, edit & control games dynamically — no reinstall needed",
+  updateapi:     "Remote config, version control & feature flags",
+  worldwar:      "Tournament creation, brackets & leaderboards",
+  kyc:           "Review and approve KYC submissions",
+  promotions:    "Banners, push notifications & referral settings",
+  analytics:     "Revenue trends, retention & engagement metrics",
+  settings:      "App settings, integrations & security",
+  popupsettings: "Control game popup entry fees, animations & live preview",
 };
 
 export default function App() {
@@ -76,17 +79,18 @@ export default function App() {
   const sidebarWidth = collapsed ? 64 : 220;
 
   const PAGE_MAP: Record<AdminPage, React.ReactNode> = {
-    dashboard:  <PageDashboard />,
-    users:      <PageUsers />,
-    wallet:     <PageWallet />,
-    deposits:   <PageDeposits />,
-    gameapi:    <PageGameAPI />,
-    updateapi:  <PageUpdateAPI />,
-    worldwar:   <PageWorldWar />,
-    kyc:        <PageKYC />,
-    promotions: <PagePromotions />,
-    analytics:  <PageAnalytics />,
-    settings:   <PageSettings />,
+    dashboard:     <PageDashboard />,
+    users:         <PageUsers />,
+    wallet:        <PageWallet />,
+    deposits:      <PageDeposits />,
+    gameapi:       <PageGameAPI />,
+    updateapi:     <PageUpdateAPI />,
+    worldwar:      <PageWorldWar />,
+    kyc:           <PageKYC />,
+    promotions:    <PagePromotions />,
+    analytics:     <PageAnalytics />,
+    settings:      <PageSettings />,
+    popupsettings: <PagePopupSettings />,
   };
 
   return (

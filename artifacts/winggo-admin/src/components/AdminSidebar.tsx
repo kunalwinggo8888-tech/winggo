@@ -2,15 +2,16 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export type AdminPage =
   | "dashboard" | "users" | "wallet" | "deposits" | "gameapi" | "updateapi"
-  | "worldwar" | "kyc" | "promotions" | "analytics" | "settings";
+  | "worldwar" | "kyc" | "promotions" | "analytics" | "settings" | "popupsettings";
 
 const NAV = [
   { id: "dashboard",  icon: "📊", label: "Dashboard"        },
   { id: "users",      icon: "👥", label: "Users"             },
   { id: "wallet",     icon: "💰", label: "Wallet"            },
   { id: "deposits",   icon: "💳", label: "Deposits"          },
-  { id: "gameapi",    icon: "🎮", label: "Games API"         },
-  { id: "updateapi",  icon: "🔄", label: "Update API"        },
+  { id: "gameapi",      icon: "🎮", label: "Games API"         },
+  { id: "updateapi",   icon: "🔄", label: "Update API"        },
+  { id: "popupsettings", icon: "🪄", label: "Popup Settings"  },
   { id: "worldwar",   icon: "⚔️", label: "World War"         },
   { id: "kyc",        icon: "🪪", label: "KYC Panel"         },
   { id: "promotions", icon: "📢", label: "Promotions"        },
@@ -100,6 +101,13 @@ export default function AdminSidebar({ active, onNav, onLogout, collapsed }: Pro
                 <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full shrink-0"
                   style={{ background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" }}>
                   LIVE
+                </span>
+              )}
+              {/* New badge for popup settings */}
+              {!collapsed && item.id === "popupsettings" && (
+                <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ background: "rgba(124,58,237,0.2)", color: "#a78bfa", border: "1px solid rgba(124,58,237,0.35)" }}>
+                  NEW
                 </span>
               )}
               {/* New badge for API pages */}
