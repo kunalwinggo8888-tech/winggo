@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import BackButton from "@/components/BackButton";
 
 const REFERRAL_CODE = "WINGGO50";
 const USER_STATS = { earned: 650, friends: 13, pending: 150 };
@@ -88,13 +89,9 @@ export default function ReferEarn({ onBack }: Props) {
           />
         ))}
 
-        <button
-          onClick={onBack}
-          className="absolute top-4 left-4 text-xs font-bold cursor-pointer"
-          style={{ color: "rgba(255,255,255,0.35)" }}
-        >
-          ← Back
-        </button>
+        <div className="absolute top-4 left-4 z-10">
+          <BackButton onBack={onBack} label="Home" />
+        </div>
 
         {/* Badge */}
         <span

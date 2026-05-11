@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/WalletContext";
+import BackButton from "@/components/BackButton";
 
 // ─── STATIC DATA ──────────────────────────────────────────────
 const DEPOSIT_PRESETS = [
@@ -103,8 +104,9 @@ export default function WalletScreen({ onBack }: Props) {
         <div className="absolute bottom-[-20%] right-[-10%] w-[45%] h-[45%] rounded-full pointer-events-none"
           style={{ background: "radial-gradient(circle, rgba(52,152,219,0.07) 0%, transparent 70%)" }} />
 
-        <button onClick={onBack} className="absolute top-4 left-4 text-xs font-bold cursor-pointer z-10"
-          style={{ color: "rgba(255,255,255,0.35)" }}>← Back</button>
+        <div className="absolute top-4 left-4 z-10">
+          <BackButton onBack={onBack} label="Home" />
+        </div>
 
         <div className="flex flex-col items-center pt-10 pb-6 px-4 relative z-10">
           <span className="text-xs font-black px-3 py-1 rounded-full mb-3"

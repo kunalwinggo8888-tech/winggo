@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import BackButton from "@/components/BackButton";
 
 const SEGMENTS = [
   { label: "₹5 Cash",              color: "#FFD700", textColor: "#000" },
@@ -155,14 +156,7 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
         className="w-full flex items-center gap-3 px-4 py-4 border-b"
         style={{ borderColor: "rgba(255,255,255,0.06)" }}
       >
-        <button
-          data-testid="button-back"
-          onClick={onBack}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-lg cursor-pointer"
-          style={{ background: "rgba(255,255,255,0.06)" }}
-        >
-          ←
-        </button>
+        <BackButton onBack={onBack} label="Home" />
         <h2 className="text-white font-black text-xl tracking-tight flex-1">
           Spin &amp; Win
         </h2>

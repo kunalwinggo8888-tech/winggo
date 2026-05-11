@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import BackButton from "@/components/BackButton";
 
 // ─────────────────────────────────────────────────────────────
 // BOARD DATA
@@ -339,8 +340,7 @@ function LudoHome({ onStart, onBack }: {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 flex-shrink-0"
         style={{ borderBottom: "1px solid rgba(255,215,0,0.12)", background: "rgba(10,10,20,0.95)", backdropFilter: "blur(10px)" }}>
-        <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center text-xl"
-          style={{ background: "rgba(255,255,255,0.06)", color: "#aaa" }}>‹</button>
+        <BackButton onBack={onBack} label="Home" />
         <div className="flex-1">
           <div className="text-white font-black text-lg leading-none">🎲 Ludo Classic</div>
           <div className="text-xs mt-0.5" style={{ color: "#666" }}>Real Money · Instant Win</div>

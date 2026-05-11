@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import BackButton from "@/components/BackButton";
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 type Phase = "lobby" | "matchmaking" | "battle" | "result";
@@ -81,8 +82,9 @@ function LobbyPhase({ team, setTeam, entryFee, setEntryFee, playerCount, onBack,
             transition={{ duration: 1.4 + Math.random(), delay: Math.random() * 1.5, repeat: Infinity }} />
         ))}
 
-        <button onClick={onBack} className="absolute top-4 left-4 text-xs font-bold cursor-pointer"
-          style={{ color: "rgba(255,255,255,0.35)" }}>← Back</button>
+        <div className="absolute top-4 left-4 z-10">
+          <BackButton onBack={onBack} label="Home" />
+        </div>
 
         <div className="flex flex-col items-center pt-10 pb-5 px-4">
           {/* LIVE badge + player count */}
