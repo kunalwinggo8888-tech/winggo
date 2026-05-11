@@ -18,11 +18,15 @@ export interface UserProfile {
   displayName: string;
   photoURL: string;
   createdAt: number;
+  lastLoginAt?: number;
   kycStatus: "pending" | "submitted" | "approved" | "rejected";
   referralCode: string;
   referredBy: string | null;
   banned?: boolean;
   fcmToken?: string;
+  gamesPlayed?: number;
+  totalDeposits?: number;
+  totalWithdrawals?: number;
 }
 
 export interface WithdrawRequest {
