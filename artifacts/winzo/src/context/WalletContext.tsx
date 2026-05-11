@@ -15,6 +15,7 @@ export interface Transaction {
   display: string;
   time: string;
   color: string;
+  status?: "pending" | "completed" | "rejected";
 }
 
 interface WalletContextType {
@@ -46,7 +47,7 @@ const INITIAL_WALLET: WalletData = { winning: 1240, deposit: 300, bonus: 150 };
 
 const INITIAL_TX: Transaction[] = [
   { id: 1, type: "win",      title: "Ludo Classic Win",    rawAmount:  250, display: "+₹250", time: "Today, 3:12 PM",     color: "#27ae60" },
-  { id: 2, type: "withdraw", title: "Withdrawal to UPI",   rawAmount: -500, display: "-₹500", time: "Today, 11:45 AM",    color: "#e74c3c" },
+  { id: 2, type: "withdraw", title: "Withdrawal to UPI",   rawAmount: -500, display: "-₹500", time: "Today, 11:45 AM",    color: "#e74c3c", status: "completed" },
   { id: 3, type: "deposit",  title: "Deposit + 15% Bonus", rawAmount:  575, display: "+₹575", time: "Yesterday, 8:20 PM", color: "#3498db" },
   { id: 4, type: "win",      title: "World War Reward",    rawAmount:  190, display: "+₹190", time: "Yesterday, 4:05 PM", color: "#27ae60" },
   { id: 5, type: "bonus",    title: "Referral Bonus",      rawAmount:   50, display: "+₹50",  time: "2 days ago",         color: "#FFD700" },
@@ -79,10 +80,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setWallet((w) => ({ ...w, winning: Math.max(0, w.winning - amount) }));
     pushTx({
       type: "withdraw",
-      title: "Withdrawal to UPI",
+      title: "Withdrawal Requested — Pending Approval",
       rawAmount: -amount,
       display: `-₹${amount}`,
-      color: "#e74c3c",
+      color: "#f39c12",
+      status: "pending",
     });
   }, [pushTx]);
 

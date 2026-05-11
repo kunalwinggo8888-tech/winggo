@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
+import { useWallet } from "@/context/WalletContext";
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 type Phase = "lobby" | "matchmaking" | "battle" | "result";
@@ -28,6 +29,7 @@ export default function WorldWarGame({ onBack }: { onBack?: () => void }) {
   const [team, setTeam]         = useState<Team>("karan");
   const [entryFee, setEntryFee] = useState(50);
   const [playerCount, setPlayerCount] = useState(rnd(86, 98));
+  const { deductFee } = useWallet();
 
   // bump player count slowly
   useEffect(() => {
@@ -40,7 +42,10 @@ export default function WorldWarGame({ onBack }: { onBack?: () => void }) {
       <AnimatePresence mode="wait">
         {phase === "lobby" && (
           <LobbyPhase key="lobby" team={team} setTeam={setTeam} entryFee={entryFee} setEntryFee={setEntryFee}
-            playerCount={playerCount} onBack={onBack} onStart={() => setPhase("matchmaking")} />
+            playerCount={playerCount} onBack={onBack} onStart={() => {
+              deductFee(entryFee, `World War Entry ₹${entryFee}`);
+              setPhase("matchmaking");
+            }} />
         )}
         {phase === "matchmaking" && (
           <MatchmakingPhase key="matchmaking" team={team} entryFee={entryFee} playerCount={playerCount}
@@ -566,6 +571,13 @@ function ResultPhase({ team, entryFee, onPlayAgain, onBack }: {
   const tw              = TEAM[winningTeam];
   const cashback        = Math.round(entryFee * 0.1);
   const prize           = playerWon ? Math.round(entryFee * 1.85) : 0;
+
+  const { addWinning, addBonus } = useWallet();
+  useEffect(() => {
+    if (playerWon) addWinning(prize, "World War Victory");
+    addBonus(cashback, "World War Cashback");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const leaderboard: (LeaderEntry & { prize: string })[] = [
     { name: "Rahul_G", score: rnd(380, 420), team: winningTeam, prize: `₹${Math.round(entryFee * 2.4)}` },

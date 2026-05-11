@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
+import { useWallet } from "@/context/WalletContext";
 
 // ─────────────────────────────────────────────────────────────
 // BOARD DATA
@@ -550,6 +551,12 @@ function Result({ gs, onHome, onRematch }: { gs: GS; onHome: () => void; onRemat
   const winnerName = gs.winner !== null ? gs.players[gs.winner].name : "—";
   const reward = Math.floor(gs.entryFee * 1.8);
 
+  const { addWinning } = useWallet();
+  useEffect(() => {
+    if (won) addWinning(reward, "Ludo Classic Win");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5"
       style={{ background: "#0a0a0f", maxWidth: 480, margin: "0 auto" }}>
@@ -874,6 +881,7 @@ export default function LudoGame({ onBack }: { onBack: () => void }) {
   const [phase, setPhase] = useState<Phase>("home");
   const [config, setConfig] = useState<{ fee: number; mode: "2p" | "4p" } | null>(null);
   const [gs, setGS] = useState<GS | null>(null);
+  const { deductFee } = useWallet();
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto" }}>
@@ -881,6 +889,7 @@ export default function LudoGame({ onBack }: { onBack: () => void }) {
         {phase === "home" && (
           <motion.div key="home" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
             <LudoHome onBack={onBack} onStart={(fee, mode) => {
+              deductFee(fee, `Ludo Entry Fee ₹${fee}`);
               setConfig({ fee, mode });
               setPhase("matchmaking");
             }} />

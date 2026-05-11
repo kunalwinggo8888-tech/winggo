@@ -2,13 +2,16 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/WalletContext";
 import BackButton from "@/components/BackButton";
+import RazorpayGateway from "@/components/RazorpayGateway";
 
 // ─── STATIC DATA ──────────────────────────────────────────────
 const DEPOSIT_PRESETS = [
-  { amount: 100,  bonus: 10,  label: "Starter",  tag: "10% BONUS",    color: "#27ae60" },
-  { amount: 500,  bonus: 15,  label: "Popular",   tag: "15% BONUS",    color: "#3498db", hot: true },
-  { amount: 1000, bonus: 20,  label: "Mega",      tag: "20% CASHBACK", color: "#FFD700" },
-  { amount: 2000, bonus: 25,  label: "Champion",  tag: "25% CASHBACK", color: "#e74c3c" },
+  { amount: 10,   bonus: 0,   label: "Quick",    tag: "INSTANT",      color: "#7f8c8d" },
+  { amount: 20,   bonus: 0,   label: "Mini",     tag: "INSTANT",      color: "#7f8c8d" },
+  { amount: 50,   bonus: 5,   label: "Starter",  tag: "5% BONUS",     color: "#27ae60" },
+  { amount: 100,  bonus: 10,  label: "Popular",  tag: "10% BONUS",    color: "#3498db", hot: true },
+  { amount: 500,  bonus: 15,  label: "Mega",     tag: "15% CASHBACK", color: "#FFD700" },
+  { amount: 1000, bonus: 20,  label: "Champion", tag: "20% CASHBACK", color: "#e74c3c" },
 ];
 
 const UPI_OPTIONS = [
@@ -38,11 +41,11 @@ export default function WalletScreen({ onBack }: Props) {
   const { wallet, total, transactions, addDeposit, withdraw: ctxWithdraw } = useWallet();
 
   const [tab, setTab]                   = useState<Tab>("add");
-  const [selectedPreset, setPreset]     = useState(1);
+  const [selectedPreset, setPreset]     = useState(3);
   const [selectedUPI, setUPI]           = useState("gpay");
   const [customAmt, setCustomAmt]       = useState("");
-  const [processing, setProcessing]     = useState(false);
   const [success, setSuccess]           = useState(false);
+  const [showRazorpay, setShowRazorpay] = useState(false);
   const [withdrawAmt, setWithdrawAmt]   = useState("");
   const [withdrawing, setWithdrawing]   = useState(false);
   const [withdrawDone, setWithdrawDone] = useState(false);
@@ -53,16 +56,17 @@ export default function WalletScreen({ onBack }: Props) {
   const bonusAmt = Math.round(finalAmt * bonusPct / 100);
 
   const handlePay = useCallback(() => {
-    if (processing || finalAmt <= 0) return;
-    setProcessing(true);
-    setTimeout(() => {
-      addDeposit(finalAmt, bonusPct);
-      setProcessing(false);
-      setSuccess(true);
-      setCustomAmt("");
-      setTimeout(() => setSuccess(false), 2500);
-    }, 1400);
-  }, [processing, finalAmt, bonusPct, addDeposit]);
+    if (finalAmt <= 0) return;
+    setShowRazorpay(true);
+  }, [finalAmt]);
+
+  const handleRazorpaySuccess = useCallback(() => {
+    addDeposit(finalAmt, bonusPct);
+    setShowRazorpay(false);
+    setSuccess(true);
+    setCustomAmt("");
+    setTimeout(() => setSuccess(false), 2800);
+  }, [finalAmt, bonusPct, addDeposit]);
 
   const handleWithdraw = useCallback(() => {
     const amt = Number(withdrawAmt);
@@ -223,7 +227,7 @@ export default function WalletScreen({ onBack }: Props) {
                 <p className="text-xs font-black tracking-widest uppercase mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>
                   💸 Select Amount
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {DEPOSIT_PRESETS.map((p, i) => (
                     <motion.button
                       key={p.amount}
@@ -326,12 +330,12 @@ export default function WalletScreen({ onBack }: Props) {
               {/* Pay button */}
               <motion.button
                 whileTap={{ scale: 0.97 }} onClick={handlePay}
-                disabled={processing || finalAmt <= 0}
+                disabled={finalAmt <= 0}
                 className="w-full py-4 rounded-2xl font-black text-lg cursor-pointer relative overflow-hidden"
                 style={{
-                  background: processing ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#FFD700,#ff8c00)",
-                  color: processing ? "rgba(255,255,255,0.4)" : "#000",
-                  boxShadow: processing ? "none" : "0 0 24px rgba(255,215,0,0.4)",
+                  background: "linear-gradient(135deg,#FFD700,#ff8c00)",
+                  color: "#000",
+                  boxShadow: "0 0 24px rgba(255,215,0,0.4)",
                   letterSpacing: "0.04em",
                   opacity: finalAmt <= 0 ? 0.5 : 1,
                 }}
@@ -342,14 +346,9 @@ export default function WalletScreen({ onBack }: Props) {
                       initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
                       ✅ ₹{finalAmt + bonusAmt} Added to Wallet!
                     </motion.span>
-                  ) : processing ? (
-                    <motion.span key="proc" className="flex items-center justify-center gap-2"
-                      animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.8, repeat: Infinity }}>
-                      ⏳ Processing…
-                    </motion.span>
                   ) : (
                     <motion.span key="pay" className="flex items-center justify-center gap-2">
-                      ⚡ ADD CASH {finalAmt > 0 ? `₹${finalAmt}` : ""}
+                      ⚡ PROCEED TO PAY {finalAmt > 0 ? `₹${finalAmt}` : ""}
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -458,7 +457,7 @@ export default function WalletScreen({ onBack }: Props) {
               >
                 <AnimatePresence mode="wait">
                   {withdrawDone ? (
-                    <motion.span key="ok" initial={{ scale: 0 }} animate={{ scale: 1 }}>✅ Withdrawal Initiated!</motion.span>
+                    <motion.span key="ok" initial={{ scale: 0 }} animate={{ scale: 1 }}>✅ Withdrawal Requested! Pending Admin Approval</motion.span>
                   ) : withdrawing ? (
                     <motion.span key="proc" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.8, repeat: Infinity }}>
                       ⏳ Processing…
@@ -524,7 +523,27 @@ export default function WalletScreen({ onBack }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-sm text-white truncate">{tx.title}</div>
-                      <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{tx.time}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>{tx.time}</span>
+                        {tx.status === "pending" && (
+                          <span className="text-xs font-black px-1.5 py-0.5 rounded-md"
+                            style={{ background: "rgba(243,156,18,0.18)", color: "#f39c12", fontSize: "8px" }}>
+                            ⏳ PENDING
+                          </span>
+                        )}
+                        {tx.status === "completed" && tx.type === "withdraw" && (
+                          <span className="text-xs font-black px-1.5 py-0.5 rounded-md"
+                            style={{ background: "rgba(39,174,96,0.18)", color: "#27ae60", fontSize: "8px" }}>
+                            ✓ PAID
+                          </span>
+                        )}
+                        {tx.status === "rejected" && (
+                          <span className="text-xs font-black px-1.5 py-0.5 rounded-md"
+                            style={{ background: "rgba(231,76,60,0.18)", color: "#e74c3c", fontSize: "8px" }}>
+                            ✗ REJECTED
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span className="font-black text-sm shrink-0" style={{ color: tx.color }}>{tx.display}</span>
                   </motion.div>
@@ -558,6 +577,18 @@ export default function WalletScreen({ onBack }: Props) {
 
         </AnimatePresence>
       </div>
+
+      {/* ── RAZORPAY GATEWAY OVERLAY ── */}
+      <AnimatePresence>
+        {showRazorpay && (
+          <RazorpayGateway
+            amount={finalAmt}
+            bonusPct={bonusPct}
+            onSuccess={handleRazorpaySuccess}
+            onClose={() => setShowRazorpay(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
