@@ -40,6 +40,7 @@ function AppInner() {
   const [appConfig, setAppConfig]     = useState<AppConfig>(DEFAULT_APP_CONFIG);
   const [showSetup, setShowSetup]     = useState(!FIREBASE_ENABLED);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [ludoFee, setLudoFee]         = useState(50);
 
   // Track whether the pending login was a new user signup
   const pendingIsNewUser = useRef(false);
@@ -174,7 +175,7 @@ function AppInner() {
             key="dashboard"
             appConfig={appConfig}
             onSpin={() => setScreen("spinwheel")}
-            onLudo={() => setScreen("ludo")}
+            onLudo={(fee) => { setLudoFee(fee ?? 50); setScreen("ludo"); }}
             onWorldWar={() => setScreen("worldwar")}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
@@ -186,7 +187,7 @@ function AppInner() {
         )}
 
         {screen === "ludo" && (
-          <LudoGame key="ludo" onBack={() => setScreen("dashboard")} />
+          <LudoGame key="ludo" onBack={() => setScreen("dashboard")} initialFee={ludoFee} />
         )}
 
         {screen === "worldwar" && (

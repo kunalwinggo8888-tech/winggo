@@ -877,9 +877,10 @@ function GameScreen({ initialGS, onGameEnd }: { initialGS: GS; onGameEnd: (gs: G
 
 type Phase = "home" | "matchmaking" | "playing" | "result";
 
-export default function LudoGame({ onBack }: { onBack: () => void }) {
-  const [phase, setPhase] = useState<Phase>("home");
-  const [config, setConfig] = useState<{ fee: number; mode: "2p" | "4p" } | null>(null);
+export default function LudoGame({ onBack, initialFee }: { onBack: () => void; initialFee?: number }) {
+  const startConfig = initialFee ? { fee: initialFee, mode: "2p" as const } : null;
+  const [phase, setPhase] = useState<Phase>(initialFee ? "matchmaking" : "home");
+  const [config, setConfig] = useState<{ fee: number; mode: "2p" | "4p" } | null>(startConfig);
   const [gs, setGS] = useState<GS | null>(null);
   const { deductFee } = useWallet();
 

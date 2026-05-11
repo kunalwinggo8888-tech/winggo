@@ -4,6 +4,7 @@ import SpinWheel from "@/pages/SpinWheel";
 import { useWallet } from "@/context/useWallet";
 import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
+import GameEntrySheet, { SheetGame } from "@/components/GameEntrySheet";
 
 const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports", "Battle", "Arcade"];
 
@@ -157,7 +158,7 @@ const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
 
 interface DashboardProps {
   onSpin?: () => void;
-  onLudo?: () => void;
+  onLudo?: (fee?: number) => void;
   onWorldWar?: () => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
@@ -165,12 +166,26 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLeaderboard, appConfig }: DashboardProps) {
-  const { total } = useWallet();
+  const { total, deductFee } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
   const [liveGames, setLiveGames] = useState<GameConfig[]>([]);
+  const [pendingGame, setPendingGame] = useState<SheetGame | null>(null);
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function openEntrySheet(game: { id: string; name: string; icon: string; gradient: string; players: string }) {
+    if (game.id === "worldwar" || game.id === "7") { onWorldWar?.(); return; }
+    setPendingGame({ id: game.id, name: game.name, icon: game.icon, gradient: game.gradient, players: game.players });
+  }
+
+  function handlePlay(fee: number) {
+    if (!pendingGame) return;
+    deductFee(fee, `${pendingGame.name} Entry ₹${fee}`);
+    setPendingGame(null);
+    if (pendingGame.id === "ludo" || pendingGame.id === "5") { onLudo?.(fee); return; }
+    onLudo?.(fee);
+  }
 
   // Auto-scroll banners
   useEffect(() => {
@@ -481,10 +496,11 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
               className="mx-4 mt-3 rounded-2xl overflow-hidden cursor-pointer"
               style={{ background: v.gradient ?? "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)", boxShadow: "0 0 30px rgba(255,215,0,0.3)" }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                if (featured.id === "ludo") onLudo?.();
-                else if (featured.id === "worldwar") onWorldWar?.();
-              }}
+              onClick={() => openEntrySheet({
+                id: featured.id ?? "", name: featured.name,
+                icon: v.icon ?? featured.thumbnail, gradient: v.gradient ?? FALLBACK_GRADIENT,
+                players: v.players ?? "1L+ playing",
+              })}
               animate={{ boxShadow: ["0 0 20px rgba(255,215,0,0.2)", "0 0 40px rgba(255,215,0,0.5)", "0 0 20px rgba(255,215,0,0.2)"] }}
               transition={{ duration: 2.5, repeat: Infinity }}>
               <div className="flex items-center justify-between px-5 py-4">
@@ -623,10 +639,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.25, delay: i * 0.04 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => {
-                    if (game.id === "ludo" || game.id === "5") onLudo?.();
-                    else if (game.id === "worldwar" || game.id === "7") onWorldWar?.();
-                  }}
+                  onClick={() => openEntrySheet(game)}
                   className="rounded-2xl overflow-hidden cursor-pointer"
                   style={{
                     background: "rgba(255,255,255,0.04)",
@@ -685,6 +698,13 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
         </div>
       </main>
 
+
+      {/* ─── GAME ENTRY SHEET ─── */}
+      <GameEntrySheet
+        game={pendingGame}
+        onClose={() => setPendingGame(null)}
+        onPlay={handlePlay}
+      />
 
       {/* ─── SPIN WHEEL OVERLAY MODAL ─── */}
       <AnimatePresence>
