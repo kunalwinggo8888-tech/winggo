@@ -107,33 +107,49 @@ export interface GameConfig {
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   if (!FIREBASE_ENABLED || !db) return null;
-  const snap = await getDoc(doc(db, "users", uid));
-  if (!snap.exists()) return null;
-  return { uid: snap.id, ...snap.data() } as UserProfile;
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (!snap.exists()) return null;
+    return { uid: snap.id, ...snap.data() } as UserProfile;
+  } catch {
+    return null;
+  }
 }
 
 export async function createUserProfile(uid: string, data: Omit<UserProfile, "uid">): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
-  await setDoc(doc(db, "users", uid), { ...data, lastLoginAt: Date.now() });
-  await initWallet(uid);
+  try {
+    await setDoc(doc(db, "users", uid), { ...data, lastLoginAt: Date.now() });
+    await initWallet(uid);
+  } catch {
+    // Swallow — network may be temporarily unavailable; user can still use the app
+  }
 }
 
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
-  await updateDoc(doc(db, "users", uid), { ...data, lastLoginAt: Date.now() });
+  try {
+    await updateDoc(doc(db, "users", uid), { ...data, lastLoginAt: Date.now() });
+  } catch {
+    // Non-fatal — local state already updated
+  }
 }
 
 export async function updateFCMToken(uid: string, token: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
-  await updateDoc(doc(db, "users", uid), { fcmToken: token });
+  try {
+    await updateDoc(doc(db, "users", uid), { fcmToken: token });
+  } catch { /* non-fatal */ }
 }
 
 /** Subscribe to user profile changes */
 export function subscribeUserProfile(uid: string, cb: (p: UserProfile) => void): () => void {
   if (!FIREBASE_ENABLED || !db) return () => {};
-  return onSnapshot(doc(db, "users", uid), (snap) => {
-    if (snap.exists()) cb({ uid: snap.id, ...snap.data() } as UserProfile);
-  });
+  return onSnapshot(
+    doc(db, "users", uid),
+    (snap) => { if (snap.exists()) cb({ uid: snap.id, ...snap.data() } as UserProfile); },
+    () => { /* ignore offline snapshot errors */ },
+  );
 }
 
 // ─── WALLET ───────────────────────────────────────────────────────────────────
@@ -151,9 +167,11 @@ async function initWallet(uid: string): Promise<void> {
 /** Subscribe to live wallet balance changes */
 export function subscribeWallet(uid: string, cb: (w: WalletBalance) => void): () => void {
   if (!FIREBASE_ENABLED || !db) return () => {};
-  return onSnapshot(doc(db, "wallets", uid), (snap) => {
-    if (snap.exists()) cb(snap.data() as WalletBalance);
-  });
+  return onSnapshot(
+    doc(db, "wallets", uid),
+    (snap) => { if (snap.exists()) cb(snap.data() as WalletBalance); },
+    () => { /* ignore offline snapshot errors */ },
+  );
 }
 
 /** Subscribe to transaction history */
@@ -164,10 +182,14 @@ export function subscribeTransactions(uid: string, cb: (txs: FirestoreTransactio
     orderBy("createdAt", "desc"),
     limit(50)
   );
-  return onSnapshot(q, (snap) => {
-    const txs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreTransaction));
-    cb(txs);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const txs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreTransaction));
+      cb(txs);
+    },
+    () => { /* ignore offline snapshot errors */ },
+  );
 }
 
 async function pushTransaction(uid: string, tx: Omit<FirestoreTransaction, "id" | "createdAt">): Promise<void> {

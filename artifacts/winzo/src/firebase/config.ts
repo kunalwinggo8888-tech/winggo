@@ -5,14 +5,21 @@
  * Falls back to "demo mode" when credentials are absent OR invalid so the
  * app is still fully usable without a Firebase project.
  *
- * Firebase Web API keys always start with "AIza" — we use this as a
- * quick validity check before attempting to initialise Firebase, which
- * prevents the red `auth/api-key-not-valid` console error when the
- * secrets are set to placeholder values.
+ * TRANSPORT NOTE:
+ * Replit's reverse proxy blocks WebSocket/gRPC — the default Firestore
+ * transport. We use initializeFirestore() with experimentalForceLongPolling
+ * to switch to HTTP long-polling, which works reliably through the proxy.
+ *
+ * RE-INIT GUARD:
+ * initializeFirestore throws failed-precondition if called on an app that
+ * already has a Firestore instance (e.g. Vite HMR). We catch that and fall
+ * back to getFirestore() which returns the already-configured instance.
  */
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import {
+  initializeFirestore, getFirestore, Firestore,
+} from "firebase/firestore";
 import { getDatabase, Database } from "firebase/database";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
@@ -59,10 +66,32 @@ let _storage: FirebaseStorage | null = null;
 if (FIREBASE_ENABLED) {
   app      = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   _auth    = getAuth(app);
-  _db      = getFirestore(app);
+
+  /**
+   * Force HTTP long-polling instead of WebSocket/gRPC.
+   * This is the fix for "client is offline" errors in proxied environments
+   * (Replit, corporate networks, etc.) where WebSocket upgrades are blocked.
+   *
+   * initializeFirestore throws `failed-precondition` if called more than once
+   * on the same app (e.g. Vite HMR). We catch that and use getFirestore()
+   * which returns the already-configured instance with long-polling intact.
+   */
+  try {
+    _db = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    });
+  } catch {
+    _db = getFirestore(app);
+  }
+
   _storage = getStorage(app);
+
   if (firebaseConfig.databaseURL) {
-    _rtdb = getDatabase(app);
+    try {
+      _rtdb = getDatabase(app);
+    } catch {
+      _rtdb = null;
+    }
   }
 }
 

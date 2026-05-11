@@ -56,9 +56,12 @@ export interface LiveGameState {
 export function goOnline(uid: string): () => void {
   if (!FIREBASE_ENABLED || !rtdb) return () => {};
   const presenceRef = ref(rtdb, `presence/${uid}`);
-  set(presenceRef, { online: true, lastSeen: rtdbTimestamp() });
-  onDisconnect(presenceRef).set({ online: false, lastSeen: rtdbTimestamp() });
-  return () => set(presenceRef, { online: false, lastSeen: rtdbTimestamp() });
+  // Presence writes are best-effort — silently ignore permission or network errors
+  set(presenceRef, { online: true, lastSeen: rtdbTimestamp() }).catch(() => {});
+  onDisconnect(presenceRef).set({ online: false, lastSeen: rtdbTimestamp() }).catch(() => {});
+  return () => {
+    set(presenceRef, { online: false, lastSeen: rtdbTimestamp() }).catch(() => {});
+  };
 }
 
 export function subscribeOnlinePlayers(cb: (count: number) => void): () => void {
