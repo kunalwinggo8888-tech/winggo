@@ -2,8 +2,13 @@
  * Firebase Configuration for WINGGO
  * ------------------------------------
  * Reads credentials from VITE_ environment variables.
- * Falls back to "demo mode" when credentials are absent so the
+ * Falls back to "demo mode" when credentials are absent OR invalid so the
  * app is still fully usable without a Firebase project.
+ *
+ * Firebase Web API keys always start with "AIza" — we use this as a
+ * quick validity check before attempting to initialise Firebase, which
+ * prevents the red `auth/api-key-not-valid` console error when the
+ * secrets are set to placeholder values.
  */
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
@@ -32,9 +37,16 @@ const firebaseConfig = {
   databaseURL:       sanitizeDbUrl(import.meta.env.VITE_FIREBASE_DATABASE_URL ?? ""),
 };
 
-/** True when all required Firebase keys are present */
+/**
+ * Firebase Web API keys always begin with "AIza".
+ * If the stored key doesn't match, we know it's a placeholder/invalid value
+ * and we skip initialisation entirely — falling back to demo mode.
+ */
+const VALID_API_KEY_FORMAT = /^AIza[0-9A-Za-z_-]{35,}$/.test(firebaseConfig.apiKey);
+
+/** True only when all required Firebase keys are present AND look valid */
 export const FIREBASE_ENABLED =
-  Boolean(firebaseConfig.apiKey) &&
+  VALID_API_KEY_FORMAT &&
   Boolean(firebaseConfig.projectId) &&
   Boolean(firebaseConfig.appId);
 
@@ -45,14 +57,13 @@ let _rtdb: Database | null = null;
 let _storage: FirebaseStorage | null = null;
 
 if (FIREBASE_ENABLED) {
-  app = getApps().length === 0
-    ? initializeApp(firebaseConfig)
-    : getApps()[0];
-
+  app      = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   _auth    = getAuth(app);
   _db      = getFirestore(app);
-  _rtdb    = getDatabase(app);
   _storage = getStorage(app);
+  if (firebaseConfig.databaseURL) {
+    _rtdb = getDatabase(app);
+  }
 }
 
 export const auth    = _auth;

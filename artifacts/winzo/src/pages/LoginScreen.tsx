@@ -1,12 +1,16 @@
 /**
  * LoginScreen — Firebase Phone OTP Login
  * Two-step: phone entry → OTP entry
- * Falls back to demo mode when Firebase is not configured.
+ *
+ * Modes:
+ *  - Full Firebase: real OTP sent to phone via Firebase Auth
+ *  - Demo mode: any number works, OTP = 123456
+ *    (activates automatically when Firebase keys are missing or invalid)
  */
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FIREBASE_ENABLED } from "@/firebase/config";
-import { initRecaptcha, sendOTP, verifyOTP } from "@/firebase/auth.service";
+import { initRecaptcha, sendOTP, verifyOTP, isDemoMode } from "@/firebase/auth.service";
 
 interface LoginScreenProps {
   onLogin?: (uid: string, phone: string, isNewUser?: boolean) => void;
@@ -14,19 +18,17 @@ interface LoginScreenProps {
 
 type Step = "phone" | "otp" | "verifying" | "success";
 
-const DEMO_OTP = "123456";
-
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
-  const [step, setStep]         = useState<Step>("phone");
-  const [phone, setPhone]       = useState("");
-  const [otp, setOtp]           = useState(["", "", "", "", "", ""]);
-  const [error, setError]       = useState("");
-  const [sending, setSending]   = useState(false);
+  const [step, setStep]           = useState<Step>("phone");
+  const [phone, setPhone]         = useState("");
+  const [otp, setOtp]             = useState(["", "", "", "", "", ""]);
+  const [error, setError]         = useState("");
+  const [sending, setSending]     = useState(false);
   const [resendSec, setResendSec] = useState(0);
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [inDemoMode, setInDemoMode] = useState(!FIREBASE_ENABLED);
+  const otpRefs  = useRef<(HTMLInputElement | null)[]>([]);
   const resendTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Mount invisible recaptcha container
   useEffect(() => {
     if (FIREBASE_ENABLED) initRecaptcha("recaptcha-container");
     return () => {
@@ -51,7 +53,9 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     setSending(true);
     const result = await sendOTP(phone);
     setSending(false);
+
     if (result.success) {
+      if (result.demo) setInDemoMode(true);
       setStep("otp");
       startResendTimer();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
@@ -84,18 +88,17 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   async function handleVerify(code?: string) {
     const finalOTP = code ?? otp.join("");
     if (finalOTP.length < 6) { setError("Enter the 6-digit OTP"); return; }
-    if (!FIREBASE_ENABLED && finalOTP !== DEMO_OTP) {
-      setError(`Demo mode — use OTP: ${DEMO_OTP}`);
-      return;
-    }
     setStep("verifying");
     setError("");
     const result = await verifyOTP(finalOTP);
     if (result.success) {
+      if (result.demo) setInDemoMode(true);
       setStep("success");
-      setTimeout(() => onLogin?.(result.uid!, `+91${phone}`, result.isNewUser), 800);
+      setTimeout(() => onLogin?.(result.uid!, `+91${phone}`, result.isNewUser), 900);
     } else {
       setStep("otp");
+      // If the error says to use demo OTP, update the hint
+      if (result.error?.includes("123456")) setInDemoMode(true);
       setError(result.error ?? "Invalid OTP. Try again.");
     }
   }
@@ -108,6 +111,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     const result = await sendOTP(phone);
     setSending(false);
     if (result.success) {
+      if (result.demo) setInDemoMode(true);
       startResendTimer();
       otpRefs.current[0]?.focus();
     } else {
@@ -121,10 +125,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       style={{ background: "radial-gradient(ellipse at center, #0f0a1e 0%, #07050f 60%, #000000 100%)" }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }}
     >
-      {/* Invisible recaptcha container (Firebase requirement) */}
+      {/* Invisible reCAPTCHA container (Firebase requirement) */}
       <div id="recaptcha-container" />
 
-      {/* Ambient glow */}
+      {/* Ambient glows */}
       <div className="absolute top-[-15%] left-[-10%] w-[55%] h-[55%] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(255,215,0,0.07) 0%, transparent 70%)" }} />
       <div className="absolute bottom-[-15%] right-[-10%] w-[55%] h-[55%] rounded-full pointer-events-none"
@@ -163,7 +167,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           </p>
         </div>
 
-        {/* Online players */}
+        {/* Online players pill */}
         <div className="flex items-center justify-center gap-2 mb-6 py-2 rounded-xl"
           style={{ background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.12)" }}>
           <span className="text-sm">👥</span>
@@ -172,9 +176,39 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           </span>
         </div>
 
+        {/* Demo mode notice banner */}
+        <AnimatePresence>
+          {inDemoMode && step !== "success" && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: "auto", marginBottom: 16 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              className="rounded-2xl overflow-hidden"
+              style={{ background: "rgba(255,165,0,0.08)", border: "1px solid rgba(255,165,0,0.25)" }}>
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-base">🔧</span>
+                  <span className="text-xs font-black" style={{ color: "#FFA500" }}>Demo Mode Active</span>
+                </div>
+                <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  Firebase is not connected. Any phone number works.{" "}
+                  {step === "otp" && (
+                    <span>Use OTP: <strong style={{ color: "#FFD700", fontSize: "13px", letterSpacing: 2 }}>123456</strong></span>
+                  )}
+                </p>
+                {step === "phone" && (
+                  <p className="text-[10px] mt-1.5 leading-snug" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    To enable real SMS OTP — add valid Firebase credentials in Secrets.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
           {/* ── STEP 1: Phone number ── */}
-          {(step === "phone") && (
+          {step === "phone" && (
             <motion.form key="phone" onSubmit={handleSendOTP} className="space-y-4"
               initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}
               transition={{ duration: 0.25 }}>
@@ -183,7 +217,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   Mobile Number
                 </label>
                 <div className="flex items-center h-14 rounded-2xl overflow-hidden"
-                  style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${error ? "rgba(231,76,60,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: `1px solid ${error ? "rgba(231,76,60,0.5)" : "rgba(255,255,255,0.1)"}`,
+                  }}>
                   <div className="flex items-center gap-2 px-4 h-full border-r shrink-0"
                     style={{ borderColor: "rgba(255,255,255,0.08)" }}>
                     <span className="text-xl select-none">🇮🇳</span>
@@ -202,26 +239,26 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               </div>
 
               {error && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="text-xs font-semibold text-center" style={{ color: "#e74c3c" }}>
-                  ⚠️ {error}
-                </motion.p>
+                <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl"
+                  style={{ background: "rgba(231,76,60,0.08)", border: "1px solid rgba(231,76,60,0.25)" }}>
+                  <span className="text-base">⚠️</span>
+                  <p className="text-xs font-semibold flex-1" style={{ color: "#e74c3c" }}>{error}</p>
+                </motion.div>
               )}
 
-              {!FIREBASE_ENABLED && (
-                <p className="text-center text-xs" style={{ color: "rgba(255,215,0,0.5)" }}>
-                  🔧 Demo mode — any number works
-                </p>
-              )}
-
-              <motion.button data-testid="button-get-otp" type="submit" disabled={sending}
-                className="w-full h-14 font-black text-lg text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-60"
+              <motion.button
+                data-testid="button-get-otp"
+                type="submit" disabled={sending || phone.length < 10}
+                className="w-full h-14 font-black text-lg text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)", boxShadow: "0 0 24px rgba(255,215,0,0.4), 0 4px 20px rgba(0,0,0,0.4)" }}
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
                 {sending ? (
-                  <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.8, repeat: Infinity }}>
+                  <span className="flex items-center justify-center gap-2">
+                    <motion.div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent"
+                      animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
                     Sending OTP…
-                  </motion.span>
+                  </span>
                 ) : "GET OTP →"}
               </motion.button>
             </motion.form>
@@ -252,39 +289,38 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     onChange={(e) => handleOTPInput(idx, e.target.value)}
                     onKeyDown={(e) => handleOTPKeyDown(idx, e)}
                     onFocus={(e) => e.target.select()}
+                    disabled={step === "verifying"}
                     className="w-12 h-14 rounded-xl text-center text-xl font-black text-white outline-none transition-all"
                     style={{
                       background: digit ? "rgba(255,215,0,0.12)" : "rgba(255,255,255,0.06)",
-                      border: `2px solid ${digit ? "rgba(255,215,0,0.6)" : "rgba(255,255,255,0.12)"}`,
+                      border: `2px solid ${error ? "rgba(231,76,60,0.5)" : digit ? "rgba(255,215,0,0.6)" : "rgba(255,255,255,0.12)"}`,
                       caretColor: "#FFD700",
                     }}
                   />
                 ))}
               </div>
 
-              {!FIREBASE_ENABLED && (
-                <p className="text-center text-xs" style={{ color: "rgba(255,215,0,0.5)" }}>
-                  🔧 Demo OTP: <strong style={{ color: "#FFD700" }}>123456</strong>
-                </p>
-              )}
-
               {error && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="text-xs font-semibold text-center" style={{ color: "#e74c3c" }}>
-                  ⚠️ {error}
-                </motion.p>
+                <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl"
+                  style={{ background: "rgba(231,76,60,0.08)", border: "1px solid rgba(231,76,60,0.25)" }}>
+                  <span className="text-base">⚠️</span>
+                  <p className="text-xs font-semibold flex-1" style={{ color: "#e74c3c" }}>{error}</p>
+                </motion.div>
               )}
 
               <motion.button
                 onClick={() => handleVerify()}
                 disabled={step === "verifying" || !otp.every(Boolean)}
-                className="w-full h-14 font-black text-lg text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-60"
+                className="w-full h-14 font-black text-lg text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)", boxShadow: "0 0 24px rgba(255,215,0,0.4)" }}
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
                 {step === "verifying" ? (
-                  <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.8, repeat: Infinity }}>
+                  <span className="flex items-center justify-center gap-2">
+                    <motion.div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent"
+                      animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
                     Verifying…
-                  </motion.span>
+                  </span>
                 ) : "VERIFY OTP ✓"}
               </motion.button>
 
@@ -303,10 +339,24 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             <motion.div key="success" className="flex flex-col items-center gap-3 py-4"
               initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-              <motion.div className="text-6xl" animate={{ rotate: [0, 15, -15, 0] }}
-                transition={{ duration: 0.5 }}>🎉</motion.div>
+              <motion.div className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(39,174,96,0.15)", border: "2px solid rgba(39,174,96,0.4)" }}
+                animate={{ boxShadow: ["0 0 0px rgba(39,174,96,0)", "0 0 30px rgba(39,174,96,0.5)", "0 0 0px rgba(39,174,96,0)"] }}
+                transition={{ duration: 1.2, repeat: Infinity }}>
+                <motion.span className="text-4xl"
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.15 }}>
+                  ✅
+                </motion.span>
+              </motion.div>
               <p className="font-black text-white text-xl">Welcome to WINGGO!</p>
               <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>Loading your dashboard…</p>
+              {inDemoMode && (
+                <p className="text-xs px-4 py-2 rounded-full"
+                  style={{ background: "rgba(255,165,0,0.08)", color: "rgba(255,165,0,0.7)", border: "1px solid rgba(255,165,0,0.2)" }}>
+                  Demo mode — connect Firebase for real accounts
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
