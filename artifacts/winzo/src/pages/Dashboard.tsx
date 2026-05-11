@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SpinWheel from "@/pages/SpinWheel";
+import { useWallet } from "@/context/WalletContext";
 
 const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports"];
 
@@ -157,6 +158,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onSpin, onLudo, onWorldWar, onRefer, onWallet }: DashboardProps) {
+  const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [activeNav, setActiveNav] = useState("home");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -300,21 +302,43 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onRefer, onWalle
             </span>
           </motion.button>
 
-          {/* Wallet Card */}
+          {/* Wallet Pill — live balance */}
           <motion.button
             data-testid="button-wallet"
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer"
+            whileTap={{ scale: 0.93 }}
+            onClick={() => onWallet?.()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer relative"
             style={{
-              background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,140,0,0.1))",
-              border: "1px solid rgba(255,215,0,0.3)",
-              boxShadow: "0 0 12px rgba(255,215,0,0.15)",
+              background: "linear-gradient(135deg, rgba(255,215,0,0.18), rgba(255,140,0,0.12))",
+              border: "1px solid rgba(255,215,0,0.35)",
+              boxShadow: "0 0 14px rgba(255,215,0,0.22), 0 0 28px rgba(255,215,0,0.08)",
             }}
+            animate={{
+              boxShadow: [
+                "0 0 10px rgba(255,215,0,0.2), 0 0 20px rgba(255,215,0,0.06)",
+                "0 0 18px rgba(255,215,0,0.4), 0 0 32px rgba(255,215,0,0.15)",
+                "0 0 10px rgba(255,215,0,0.2), 0 0 20px rgba(255,215,0,0.06)",
+              ],
+            }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           >
-            <span className="text-[#FFD700] font-bold text-sm">₹0.00</span>
+            <span className="text-sm">🪙</span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={total}
+                className="font-black text-sm"
+                style={{ color: "#FFD700" }}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.22 }}
+              >
+                ₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </motion.span>
+            </AnimatePresence>
             <span
               className="w-4 h-4 rounded-full flex items-center justify-center text-black font-black text-xs"
-              style={{ background: "#FFD700" }}
+              style={{ background: "#FFD700", boxShadow: "0 0 6px rgba(255,215,0,0.6)" }}
             >
               +
             </span>

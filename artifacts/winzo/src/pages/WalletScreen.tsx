@@ -1,9 +1,8 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWallet } from "@/context/WalletContext";
 
-// ─── DATA ─────────────────────────────────────────────────────
-const BALANCE = { winning: 1240, deposit: 300, bonus: 150 };
-
+// ─── STATIC DATA ──────────────────────────────────────────────
 const DEPOSIT_PRESETS = [
   { amount: 100,  bonus: 10,  label: "Starter",  tag: "10% BONUS",    color: "#27ae60" },
   { amount: 500,  bonus: 15,  label: "Popular",   tag: "15% BONUS",    color: "#3498db", hot: true },
@@ -18,16 +17,6 @@ const UPI_OPTIONS = [
   { id: "upi",     label: "UPI / BHIM", icon: "🇮🇳", color: "#ff6600" },
 ];
 
-const TRANSACTIONS = [
-  { id: 1, type: "win",      title: "Ludo Classic Win",    amount: "+₹250", time: "Today, 3:12 PM",     color: "#27ae60" },
-  { id: 2, type: "withdraw", title: "Withdrawal to UPI",   amount: "-₹500", time: "Today, 11:45 AM",    color: "#e74c3c" },
-  { id: 3, type: "deposit",  title: "Deposit + 15% Bonus", amount: "+₹575", time: "Yesterday, 8:20 PM", color: "#3498db" },
-  { id: 4, type: "win",      title: "World War Reward",    amount: "+₹190", time: "Yesterday, 4:05 PM", color: "#27ae60" },
-  { id: 5, type: "bonus",    title: "Referral Bonus",      amount: "+₹50",  time: "2 days ago",         color: "#FFD700" },
-  { id: 6, type: "win",      title: "Spin Wheel Win",      amount: "+₹25",  time: "2 days ago",         color: "#27ae60" },
-  { id: 7, type: "deposit",  title: "Deposit",             amount: "+₹300", time: "3 days ago",         color: "#3498db" },
-];
-
 const OFFERS = [
   { icon: "⚡", title: "Flash Deposit",   desc: "Add ₹200 now — get extra ₹30 free!", badge: "ENDS TONIGHT", color: "#e74c3c" },
   { icon: "🎁", title: "Weekend Bonus",   desc: "Extra 5% cashback every Sat & Sun",  badge: "WEEKEND ONLY", color: "#9b59b6" },
@@ -35,7 +24,7 @@ const OFFERS = [
 ];
 
 const TX_ICONS: Record<string, string> = {
-  win: "🏆", withdraw: "📤", deposit: "📥", bonus: "🎁",
+  win: "🏆", withdraw: "📤", deposit: "📥", bonus: "🎁", fee: "🎮",
 };
 
 type Tab = "add" | "withdraw" | "history";
@@ -44,6 +33,9 @@ interface Props { onBack?: () => void }
 
 // ─── COMPONENT ────────────────────────────────────────────────
 export default function WalletScreen({ onBack }: Props) {
+  // Live wallet state from context
+  const { wallet, total, transactions, addDeposit, withdraw: ctxWithdraw } = useWallet();
+
   const [tab, setTab]                   = useState<Tab>("add");
   const [selectedPreset, setPreset]     = useState(1);
   const [selectedUPI, setUPI]           = useState("gpay");
@@ -54,31 +46,40 @@ export default function WalletScreen({ onBack }: Props) {
   const [withdrawing, setWithdrawing]   = useState(false);
   const [withdrawDone, setWithdrawDone] = useState(false);
 
-  const total    = BALANCE.winning + BALANCE.deposit + BALANCE.bonus;
   const preset   = DEPOSIT_PRESETS[selectedPreset];
   const finalAmt = customAmt ? Number(customAmt) : preset.amount;
   const bonusPct = customAmt ? 10 : preset.bonus;
   const bonusAmt = Math.round(finalAmt * bonusPct / 100);
 
   const handlePay = useCallback(() => {
-    if (processing) return;
+    if (processing || finalAmt <= 0) return;
     setProcessing(true);
     setTimeout(() => {
+      addDeposit(finalAmt, bonusPct);
       setProcessing(false);
       setSuccess(true);
+      setCustomAmt("");
       setTimeout(() => setSuccess(false), 2500);
-    }, 1800);
-  }, [processing]);
+    }, 1400);
+  }, [processing, finalAmt, bonusPct, addDeposit]);
 
   const handleWithdraw = useCallback(() => {
-    if (withdrawing || !withdrawAmt) return;
+    const amt = Number(withdrawAmt);
+    if (withdrawing || !amt || amt < 100 || amt > wallet.winning) return;
     setWithdrawing(true);
     setTimeout(() => {
+      ctxWithdraw(amt);
       setWithdrawing(false);
       setWithdrawDone(true);
+      setWithdrawAmt("");
       setTimeout(() => setWithdrawDone(false), 2500);
-    }, 1800);
-  }, [withdrawing, withdrawAmt]);
+    }, 1400);
+  }, [withdrawing, withdrawAmt, wallet.winning, ctxWithdraw]);
+
+  // Stats for history tab
+  const totalWon      = transactions.filter(t => t.type === "win").reduce((s, t) => s + t.rawAmount, 0);
+  const totalDeposited= transactions.filter(t => t.type === "deposit").reduce((s, t) => s + t.rawAmount, 0);
+  const totalWithdrawn= transactions.filter(t => t.type === "withdraw").reduce((s, t) => s + Math.abs(t.rawAmount), 0);
 
   return (
     <motion.div
@@ -111,34 +112,54 @@ export default function WalletScreen({ onBack }: Props) {
             💰 WINGGO WALLET
           </span>
 
+          {/* Live total balance */}
           <div className="text-center mb-1">
             <div className="text-xs font-bold tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
               Total Balance
             </div>
-            <motion.div
-              className="text-5xl font-black mt-1"
-              style={{ color: "#FFD700", textShadow: "0 0 20px rgba(255,215,0,0.4)" }}
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 200, damping: 16 }}
-            >
-              ₹{total.toLocaleString("en-IN")}
-            </motion.div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={total}
+                className="text-5xl font-black mt-1"
+                style={{ color: "#FFD700", textShadow: "0 0 20px rgba(255,215,0,0.4)" }}
+                initial={{ scale: 0.88, opacity: 0, y: -6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 280, damping: 18 }}
+              >
+                ₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          {/* Balance breakdown */}
+          {/* Live balance breakdown */}
           <div className="flex gap-3 mt-4">
             {[
-              { label: "Winning", value: `₹${BALANCE.winning}`, color: "#27ae60", icon: "🏆" },
-              { label: "Deposit", value: `₹${BALANCE.deposit}`, color: "#3498db", icon: "💳" },
-              { label: "Bonus",   value: `₹${BALANCE.bonus}`,   color: "#FFD700", icon: "🎁" },
+              { label: "Winning", value: wallet.winning, color: "#27ae60", icon: "🏆" },
+              { label: "Deposit", value: wallet.deposit, color: "#3498db", icon: "💳" },
+              { label: "Bonus",   value: wallet.bonus,   color: "#FFD700", icon: "🎁" },
             ].map((b) => (
-              <div key={b.label} className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-2xl"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <motion.div
+                key={b.label}
+                className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-2xl"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                animate={{ borderColor: [`rgba(${b.color === "#FFD700" ? "255,215,0" : b.color === "#27ae60" ? "39,174,96" : "52,152,219"},0.08)`, `rgba(${b.color === "#FFD700" ? "255,215,0" : b.color === "#27ae60" ? "39,174,96" : "52,152,219"},0.22)`, `rgba(${b.color === "#FFD700" ? "255,215,0" : b.color === "#27ae60" ? "39,174,96" : "52,152,219"},0.08)`] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
                 <span className="text-base">{b.icon}</span>
-                <span className="font-black text-sm" style={{ color: b.color }}>{b.value}</span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={b.value}
+                    className="font-black text-sm"
+                    style={{ color: b.color }}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    ₹{b.value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </motion.span>
+                </AnimatePresence>
                 <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)", fontSize: "10px" }}>{b.label}</span>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -235,18 +256,15 @@ export default function WalletScreen({ onBack }: Props) {
                   style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
                   <span className="px-4 font-black text-lg" style={{ color: "rgba(255,215,0,0.7)" }}>₹</span>
                   <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="Enter amount"
-                    value={customAmt}
-                    onChange={(e) => setCustomAmt(e.target.value)}
+                    type="number" inputMode="numeric" placeholder="Enter amount"
+                    value={customAmt} onChange={(e) => setCustomAmt(e.target.value)}
                     className="flex-1 h-full bg-transparent text-white text-base outline-none placeholder:text-zinc-700 font-medium pr-4"
                     style={{ caretColor: "#FFD700" }}
                   />
                 </div>
               </div>
 
-              {/* Bonus summary */}
+              {/* Live bonus summary */}
               {finalAmt > 0 && (
                 <motion.div className="py-3 px-4 rounded-2xl"
                   style={{ background: "rgba(39,174,96,0.08)", border: "1px solid rgba(39,174,96,0.2)" }}
@@ -261,7 +279,7 @@ export default function WalletScreen({ onBack }: Props) {
                   </div>
                   <div className="h-px my-2" style={{ background: "rgba(255,255,255,0.06)" }} />
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-white">Total Added</span>
+                    <span className="text-xs font-black text-white">Total Added to Wallet</span>
                     <span className="font-black text-lg" style={{ color: "#FFD700" }}>₹{finalAmt + bonusAmt}</span>
                   </div>
                 </motion.div>
@@ -275,9 +293,7 @@ export default function WalletScreen({ onBack }: Props) {
                 <div className="grid grid-cols-4 gap-2">
                   {UPI_OPTIONS.map((u) => (
                     <motion.button
-                      key={u.id}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => setUPI(u.id)}
+                      key={u.id} whileTap={{ scale: 0.9 }} onClick={() => setUPI(u.id)}
                       className="flex flex-col items-center gap-1.5 py-3 rounded-2xl cursor-pointer"
                       style={{
                         background: selectedUPI === u.id ? `${u.color}18` : "rgba(255,255,255,0.04)",
@@ -307,8 +323,7 @@ export default function WalletScreen({ onBack }: Props) {
 
               {/* Pay button */}
               <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handlePay}
+                whileTap={{ scale: 0.97 }} onClick={handlePay}
                 disabled={processing || finalAmt <= 0}
                 className="w-full py-4 rounded-2xl font-black text-lg cursor-pointer relative overflow-hidden"
                 style={{
@@ -323,7 +338,7 @@ export default function WalletScreen({ onBack }: Props) {
                   {success ? (
                     <motion.span key="ok" className="flex items-center justify-center gap-2"
                       initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                      ✅ Cash Added Successfully!
+                      ✅ ₹{finalAmt + bonusAmt} Added to Wallet!
                     </motion.span>
                   ) : processing ? (
                     <motion.span key="proc" className="flex items-center justify-center gap-2"
@@ -345,12 +360,17 @@ export default function WalletScreen({ onBack }: Props) {
             <motion.div key="withdraw" className="px-4 pt-5 space-y-4"
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
 
-              {/* Winning balance */}
+              {/* Winning balance — live */}
               <div className="py-4 px-5 rounded-2xl flex items-center justify-between"
                 style={{ background: "rgba(39,174,96,0.08)", border: "1.5px solid rgba(39,174,96,0.25)" }}>
                 <div>
                   <div className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>Withdrawable (Winning)</div>
-                  <div className="font-black text-2xl" style={{ color: "#27ae60" }}>₹{BALANCE.winning}</div>
+                  <AnimatePresence mode="wait">
+                    <motion.div key={wallet.winning} className="font-black text-2xl" style={{ color: "#27ae60" }}
+                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+                      ₹{wallet.winning.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
                 <span className="text-3xl">🏆</span>
               </div>
@@ -364,20 +384,17 @@ export default function WalletScreen({ onBack }: Props) {
                   style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
                   <span className="px-4 font-black text-lg" style={{ color: "rgba(39,174,96,0.8)" }}>₹</span>
                   <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="Min ₹100"
-                    value={withdrawAmt}
-                    onChange={(e) => setWithdrawAmt(e.target.value)}
+                    type="number" inputMode="numeric" placeholder="Min ₹100"
+                    value={withdrawAmt} onChange={(e) => setWithdrawAmt(e.target.value)}
                     className="flex-1 h-full bg-transparent text-white text-base outline-none placeholder:text-zinc-700 font-medium pr-4"
                     style={{ caretColor: "#27ae60" }}
                   />
                 </div>
               </div>
 
-              {/* Quick amounts */}
+              {/* Quick chips */}
               <div className="flex gap-2">
-                {[100, 250, 500, BALANCE.winning].map((a) => (
+                {[100, 250, 500, Math.floor(wallet.winning)].map((a) => (
                   <motion.button key={a} whileTap={{ scale: 0.92 }}
                     onClick={() => setWithdrawAmt(String(a))}
                     className="flex-1 py-2 rounded-xl text-xs font-black cursor-pointer"
@@ -385,9 +402,7 @@ export default function WalletScreen({ onBack }: Props) {
                       background: withdrawAmt === String(a) ? "rgba(39,174,96,0.2)" : "rgba(255,255,255,0.05)",
                       border: withdrawAmt === String(a) ? "1.5px solid rgba(39,174,96,0.5)" : "1px solid rgba(255,255,255,0.08)",
                       color: withdrawAmt === String(a) ? "#27ae60" : "rgba(255,255,255,0.45)",
-                    }}>
-                    ₹{a}
-                  </motion.button>
+                    }}>₹{a}</motion.button>
                 ))}
               </div>
 
@@ -398,8 +413,7 @@ export default function WalletScreen({ onBack }: Props) {
                 </p>
                 <div className="grid grid-cols-4 gap-2">
                   {UPI_OPTIONS.map((u) => (
-                    <motion.button key={u.id} whileTap={{ scale: 0.9 }}
-                      onClick={() => setUPI(u.id)}
+                    <motion.button key={u.id} whileTap={{ scale: 0.9 }} onClick={() => setUPI(u.id)}
                       className="flex flex-col items-center gap-1.5 py-3 rounded-2xl cursor-pointer"
                       style={{
                         background: selectedUPI === u.id ? `${u.color}18` : "rgba(255,255,255,0.04)",
@@ -429,9 +443,8 @@ export default function WalletScreen({ onBack }: Props) {
 
               {/* Withdraw button */}
               <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleWithdraw}
-                disabled={withdrawing || !withdrawAmt || Number(withdrawAmt) < 100}
+                whileTap={{ scale: 0.97 }} onClick={handleWithdraw}
+                disabled={withdrawing || !withdrawAmt || Number(withdrawAmt) < 100 || Number(withdrawAmt) > wallet.winning}
                 className="w-full py-4 rounded-2xl font-black text-lg cursor-pointer"
                 style={{
                   background: withdrawDone ? "rgba(39,174,96,0.3)" : withdrawing ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#27ae60,#1e8449)",
@@ -465,19 +478,24 @@ export default function WalletScreen({ onBack }: Props) {
             <motion.div key="history" className="px-4 pt-5"
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
 
-              {/* Summary */}
+              {/* Live summary */}
               <div className="grid grid-cols-3 gap-2 mb-5">
                 {[
-                  { label: "Total Won",       value: "₹2,840", color: "#27ae60", icon: "🏆" },
-                  { label: "Total Deposited", value: "₹1,800", color: "#3498db", icon: "📥" },
-                  { label: "Withdrawn",       value: "₹500",   color: "#e74c3c", icon: "📤" },
+                  { label: "Total Won",  value: totalWon,       color: "#27ae60", icon: "🏆" },
+                  { label: "Deposited",  value: totalDeposited, color: "#3498db", icon: "📥" },
+                  { label: "Withdrawn",  value: totalWithdrawn, color: "#e74c3c", icon: "📤" },
                 ].map((s) => (
-                  <div key={s.label} className="flex flex-col items-center gap-1 py-3 rounded-2xl"
+                  <motion.div key={s.label} className="flex flex-col items-center gap-1 py-3 rounded-2xl"
                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <span className="text-lg">{s.icon}</span>
-                    <span className="font-black text-sm" style={{ color: s.color }}>{s.value}</span>
+                    <AnimatePresence mode="wait">
+                      <motion.span key={s.value} className="font-black text-sm" style={{ color: s.color }}
+                        initial={{ opacity: 0, y: -3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+                        ₹{s.value.toLocaleString("en-IN")}
+                      </motion.span>
+                    </AnimatePresence>
                     <span className="text-center leading-tight" style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }}>{s.label}</span>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
 
@@ -486,27 +504,27 @@ export default function WalletScreen({ onBack }: Props) {
               </p>
 
               <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-                {TRANSACTIONS.map((tx, i) => (
+                {transactions.map((tx, i) => (
                   <motion.div
                     key={tx.id}
                     className="flex items-center gap-3 px-4 py-3.5"
                     style={{
                       background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
-                      borderBottom: i < TRANSACTIONS.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                      borderBottom: i < transactions.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                     }}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
+                    transition={{ delay: Math.min(i, 6) * 0.04 }}
                   >
                     <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
                       style={{ background: `${tx.color}18`, border: `1px solid ${tx.color}44` }}>
-                      {TX_ICONS[tx.type]}
+                      {TX_ICONS[tx.type] ?? "💸"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-sm text-white truncate">{tx.title}</div>
                       <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{tx.time}</div>
                     </div>
-                    <span className="font-black text-sm" style={{ color: tx.color }}>{tx.amount}</span>
+                    <span className="font-black text-sm shrink-0" style={{ color: tx.color }}>{tx.display}</span>
                   </motion.div>
                 ))}
               </div>
@@ -526,8 +544,7 @@ export default function WalletScreen({ onBack }: Props) {
                   </div>
                 </div>
                 <motion.button
-                  whileTap={{ scale: 0.93 }}
-                  onClick={() => setTab("add")}
+                  whileTap={{ scale: 0.93 }} onClick={() => setTab("add")}
                   className="ml-auto text-xs font-black px-3 py-1.5 rounded-xl cursor-pointer"
                   style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.3)" }}
                 >
