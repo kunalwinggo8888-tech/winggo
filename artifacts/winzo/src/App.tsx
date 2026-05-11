@@ -12,11 +12,16 @@ import LudoGame from "@/pages/LudoGame";
 import WorldWarGame from "@/pages/WorldWarGame";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
+import ProfileScreen from "@/pages/ProfileScreen";
+import KYCScreen from "@/pages/KYCScreen";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
 
 const queryClient = new QueryClient();
 
-type Screen = "splash" | "login" | "dashboard" | "spinwheel" | "ludo" | "worldwar" | "refer" | "wallet";
+type Screen =
+  | "splash" | "login" | "dashboard"
+  | "spinwheel" | "ludo" | "worldwar"
+  | "refer" | "wallet" | "profile" | "kyc";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("splash");
@@ -61,6 +66,18 @@ function App() {
             )}
             {screen === "wallet" && (
               <WalletScreen key="wallet" onBack={() => setScreen("dashboard")} />
+            )}
+            {screen === "profile" && (
+              <ProfileScreen
+                key="profile"
+                onKYC={() => setScreen("kyc")}
+                onRefer={() => setScreen("refer")}
+                onWallet={() => setScreen("wallet")}
+                onLogout={() => setScreen("login")}
+              />
+            )}
+            {screen === "kyc" && (
+              <KYCScreen key="kyc" onBack={() => setScreen("profile")} />
             )}
           </AnimatePresence>
 

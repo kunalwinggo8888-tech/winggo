@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { id: "worldwar", label: "World War", icon: "⚔️",  screen: "worldwar",  featured: true },
   { id: "wallet",   label: "Wallet",    icon: "💰",  screen: "wallet" },
   { id: "refer",    label: "Refer",     icon: "🎁",  screen: "refer" },
-  { id: "profile",  label: "Profile",   icon: "👤",  screen: null },
+  { id: "profile",  label: "Profile",   icon: "👤",  screen: "profile" },
 ] as const;
 
 interface BottomNavProps {
@@ -13,16 +13,17 @@ interface BottomNavProps {
   onNavigate: (screen: string) => void;
 }
 
-const SCREENS_WITH_NAV = ["dashboard", "worldwar", "wallet", "refer"];
+const SCREENS_WITH_NAV = ["dashboard", "worldwar", "wallet", "refer", "profile", "kyc"];
 
 export { SCREENS_WITH_NAV };
 
 export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) {
   const activeId =
-    activeScreen === "dashboard" ? "home"     :
-    activeScreen === "worldwar"  ? "worldwar" :
-    activeScreen === "wallet"    ? "wallet"   :
-    activeScreen === "refer"     ? "refer"    : "";
+    activeScreen === "dashboard"          ? "home"     :
+    activeScreen === "worldwar"           ? "worldwar" :
+    activeScreen === "wallet"             ? "wallet"   :
+    activeScreen === "refer"              ? "refer"    :
+    activeScreen === "profile" || activeScreen === "kyc" ? "profile" : "";
 
   return (
     <nav
@@ -44,7 +45,7 @@ export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) 
           <motion.button
             key={item.id}
             whileTap={{ scale: 0.88 }}
-            onClick={() => item.screen && onNavigate(item.screen)}
+            onClick={() => onNavigate(item.screen)}
             className="flex flex-col items-center -mt-6 cursor-pointer"
             style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
           >
@@ -79,7 +80,7 @@ export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) 
           <motion.button
             key={item.id}
             whileTap={{ scale: 0.88 }}
-            onClick={() => item.screen && onNavigate(item.screen)}
+            onClick={() => onNavigate(item.screen)}
             className="flex flex-col items-center gap-0.5 pb-1 cursor-pointer"
             style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
           >
