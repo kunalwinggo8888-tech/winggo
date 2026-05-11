@@ -1,0 +1,163 @@
+Fix the complete Login Session, Wallet Sync, and Transaction History system in WINGGO app exactly like WinZO style.
+
+━━━━━━━━━━━━━━━
+🔐 AUTO LOGIN SESSION FIX
+━━━━━━━━━━━━━━━
+
+Current Problem:
+
+- User has to login again and again
+- Login screen appears every time app opens
+
+Fix Requirements:
+
+- After first successful login:
+  ✔ Keep user logged in permanently
+  ✔ Save login session securely
+  ✔ Auto open Home Page on next app open
+  ✔ Do not show login screen again unless user logs out
+
+Flow:
+First Login
+↓
+Save Firebase auth session
+↓
+Next App Open
+↓
+Directly Open Home Page
+
+Add:
+
+- Remember user login
+- Persistent Firebase auth
+- Auto session restore
+- Logout button in Profile page only
+
+━━━━━━━━━━━━━━━
+💰 WALLET BALANCE RESET FIX
+━━━━━━━━━━━━━━━
+
+Current Problem:
+
+- Added money disappears after reopening app
+- Only ₹50 bonus shows again
+- Real deposited balance is not loading
+
+Fix Requirements:
+
+- Save wallet data permanently in Firebase database
+- Load real wallet balance after login
+- Do NOT reset wallet to ₹50 again
+- ₹50 bonus should be given ONLY first time after signup
+
+Wallet Structure:
+
+- Bonus Balance
+- Deposit Balance
+- Winning Balance
+- Total Balance
+
+Example:
+Signup First Time:
+Bonus = ₹50
+
+After Add Money ₹100:
+Deposit Balance = ₹100
+Total = ₹150
+
+Next App Open:
+Still show ₹150 correctly
+
+━━━━━━━━━━━━━━━
+📜 COMPLETE TRANSACTION HISTORY
+━━━━━━━━━━━━━━━
+
+Create full Wallet History page exactly like WinZO.
+
+Show:
+✔ Deposit History
+✔ Withdrawal History
+✔ Winning History
+✔ Losing History
+✔ Bonus Rewards
+✔ Cashback Rewards
+✔ Entry Fee Deductions
+
+History Details:
+
+- Amount
+- Type
+- Game Name
+- Status
+- Date & Time
+- Transaction ID
+
+Examples:
++₹100 Added Money
+-₹10 Ludo Entry Fee
++₹18 Ludo Win Reward
+-₹20 Withdrawal
++₹50 Signup Bonus
+
+━━━━━━━━━━━━━━━
+🎮 GAME HISTORY
+━━━━━━━━━━━━━━━
+
+Show:
+
+- Which game user played
+- Which game user won
+- Which game user lost
+- Match amount
+- Prize amount
+- Match date & time
+
+Games:
+
+- Ludo
+- Carrom
+- Bubble Shooter
+- Snake & Ladder
+- World War
+
+━━━━━━━━━━━━━━━
+⚡ REALTIME FIREBASE SYNC
+━━━━━━━━━━━━━━━
+
+Use Firebase realtime sync:
+
+- Home Page balance
+- Wallet Page balance
+- History Page
+- Game Result Page
+
+Everything should update instantly.
+
+━━━━━━━━━━━━━━━
+🎨 UI DESIGN
+━━━━━━━━━━━━━━━
+
+- Premium WinZO style wallet/history UI
+- Dark black + gold glow theme
+- Smooth animations
+- Scrollable transaction cards
+- Filter options:
+  - All
+  - Deposit
+  - Withdraw
+  - Win
+  - Loss
+
+━━━━━━━━━━━━━━━
+✅ FINAL RESULT
+━━━━━━━━━━━━━━━
+
+✔ User logs in only once
+✔ App opens directly to Home Page next time
+✔ Wallet balance never resets
+✔ Added money remains saved permanently
+✔ Full transaction history visible
+✔ Full game win/loss history visible
+✔ Firebase sync works properly like WinZO
+
+Use Firebase Authentication + Firestore realtime database with persistent session storage.

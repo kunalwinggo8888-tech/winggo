@@ -33,41 +33,61 @@ type Screen =
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
-  const { login } = useAuth();
+  const { user, loading, login, logout } = useAuth();
+
   const [screen, setScreen]           = useState<Screen>("splash");
-  const [splashDone, setSplash]       = useState(false);
+  const [splashDone, setSplashDone]   = useState(false);
   const [appConfig, setAppConfig]     = useState<AppConfig>(DEFAULT_APP_CONFIG);
   const [showSetup, setShowSetup]     = useState(!FIREBASE_ENABLED);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  // Track whether the pending login was a new user signup (used by transition screen)
+  // Track whether the pending login was a new user signup
   const pendingIsNewUser = useRef(false);
 
-  // Subscribe to remote app config (maintenance mode, force update, announcements)
+  // Subscribe to remote app config
   useEffect(() => {
     return subscribeAppConfig(setAppConfig);
   }, []);
 
-  // Splash auto-advance
+  // Splash auto-advance (3s)
   useEffect(() => {
     if (screen !== "splash") return;
     const t = setTimeout(() => {
-      setSplash(true);
-      setScreen("login");
+      setSplashDone(true);
     }, 3000);
     return () => clearTimeout(t);
   }, [screen]);
 
-  // Called by LoginScreen when Firebase Auth succeeds.
-  // login() is now synchronous — it sets user immediately from Firebase Auth data.
-  // Firestore profile hydrates in the background via onAuthChange subscription.
+  /**
+   * After splash finishes AND Firebase auth check resolves:
+   * - Already logged in → go straight to dashboard (no login screen!)
+   * - Not logged in     → show login screen
+   *
+   * Firebase Auth persists sessions in IndexedDB automatically — users
+   * only see the login screen if they have never logged in or after logout.
+   */
+  useEffect(() => {
+    if (!splashDone) return;      // still showing splash
+    if (screen !== "splash") return; // already navigated
+
+    if (FIREBASE_ENABLED && loading) return; // still resolving Firebase auth state
+
+    if (user) {
+      // User already authenticated — skip login entirely
+      setScreen("dashboard");
+    } else {
+      setScreen("login");
+    }
+  }, [splashDone, loading, user, screen]);
+
+  // Called by LoginScreen when Firebase Auth succeeds
   function handleLogin(uid: string, email: string, isNewUser?: boolean) {
     login(uid, email, isNewUser);
     pendingIsNewUser.current = !!isNewUser;
     setScreen("transition");
   }
 
-  // Called by LoginTransitionScreen when its ~2.4 second animation finishes
+  // Called by LoginTransitionScreen when its animation finishes
   function handleTransitionComplete() {
     setScreen("dashboard");
     if (pendingIsNewUser.current) {
@@ -76,7 +96,13 @@ function AppInner() {
     }
   }
 
-  // Show setup guide when Firebase isn't configured (can be dismissed to demo mode)
+  // Logout — clear auth, go back to login
+  async function handleLogout() {
+    await logout();
+    setScreen("login");
+  }
+
+  // Show setup guide when Firebase isn't configured
   if (showSetup) {
     return <FirebaseSetupGuide onSkip={() => setShowSetup(false)} />;
   }
@@ -90,8 +116,7 @@ function AppInner() {
             className="fixed inset-0 z-[9999] flex flex-col items-center justify-center text-center px-6"
             style={{ background: "rgba(7,5,16,0.97)", backdropFilter: "blur(20px)", maxWidth: 480, margin: "0 auto" }}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+            <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
               <span className="text-6xl">🔧</span>
             </motion.div>
             <h2 className="text-white font-black text-2xl mt-5">Under Maintenance</h2>
@@ -116,7 +141,7 @@ function AppInner() {
             <span className="text-6xl">🚀</span>
             <h2 className="text-white font-black text-2xl mt-5">New Version Available</h2>
             <p className="mt-2 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-              Version {appConfig.forceUpdateVersion} is out with exciting new features and improvements.
+              Version {appConfig.forceUpdateVersion} is out with exciting new features.
             </p>
             <motion.a href="https://play.google.com/store" target="_blank" rel="noreferrer"
               whileTap={{ scale: 0.96 }}
@@ -186,7 +211,7 @@ function AppInner() {
             onKYC={() => setScreen("kyc")}
             onRefer={() => setScreen("refer")}
             onWallet={() => setScreen("wallet")}
-            onLogout={() => setScreen("login")}
+            onLogout={handleLogout}
           />
         )}
 
