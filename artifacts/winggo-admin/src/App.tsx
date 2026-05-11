@@ -15,6 +15,7 @@ import PagePromotions from "@/pages/PagePromotions";
 import PageAnalytics from "@/pages/PageAnalytics";
 import PageSettings from "@/pages/PageSettings";
 import PageDeposits from "@/pages/PageDeposits";
+import { hasAdminSession, clearAdminSession } from "@/firebase/config";
 
 const PAGE_TITLES: Record<AdminPage, string> = {
   dashboard:  "Dashboard",
@@ -44,27 +45,27 @@ const PAGE_SUBTITLES: Record<AdminPage, string> = {
   settings:   "App settings, integrations & security",
 };
 
-const STORAGE_KEY = "winggo_admin_auth";
-
 export default function App() {
-  const [authed, setAuthed]       = useState(() => localStorage.getItem(STORAGE_KEY) === "1");
+  // Check for a valid (non-expired) session on mount
+  const [authed, setAuthed]       = useState(() => hasAdminSession());
   const [page, setPage]           = useState<AdminPage>("dashboard");
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    const onResize = () => setCollapsed(window.innerWidth < 768);
+    const onResize = () => setCollapsed(window.innerWidth < 900);
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
   function login() {
-    localStorage.setItem(STORAGE_KEY, "1");
+    // Session is already saved inside adminSignIn — just flip the UI flag
     setAuthed(true);
+    setPage("dashboard");
   }
 
   function logout() {
-    localStorage.removeItem(STORAGE_KEY);
+    clearAdminSession();
     setAuthed(false);
   }
 

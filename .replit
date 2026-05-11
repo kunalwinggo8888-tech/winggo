@@ -38,3 +38,9 @@ externalPort = 3000
 [[ports]]
 localPort = 24924
 externalPort = 3001
+
+[userenv]
+
+[userenv.shared]
+VITE_ADMIN_ID = "kunalwinggo"
+VITE_ADMIN_PASSWORD_HASH = "72b3eabb9c3f8ae32ab39ac79e9ea4bdb4928ae5d92b08ec1bbb862afc463d1e"
