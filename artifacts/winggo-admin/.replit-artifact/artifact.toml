@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/winggo-admin/"
+title = "WINGGO Admin Panel"
+version = "1.0.0"
+id = "artifacts/winggo-admin"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/winggo-admin/" ]
+localPort = 24924
+
+[services.development]
+run = "pnpm --filter @workspace/winggo-admin run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/winggo-admin", "run", "build" ]
+publicDir = "artifacts/winggo-admin/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24924"
+BASE_PATH = "/winggo-admin/"
