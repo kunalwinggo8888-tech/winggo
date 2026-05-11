@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/context/useAuth";
 import { WalletProvider } from "@/context/WalletContext";
 import WelcomeBonusModal from "@/components/WelcomeBonusModal";
+import LoginTransitionScreen from "@/components/LoginTransitionScreen";
 import SplashScreen from "@/pages/SplashScreen";
 import LoginScreen from "@/pages/LoginScreen";
 import Dashboard from "@/pages/Dashboard";
@@ -26,18 +27,21 @@ import { FIREBASE_ENABLED } from "@/firebase/config";
 const queryClient = new QueryClient();
 
 type Screen =
-  | "splash" | "login" | "dashboard"
+  | "splash" | "login" | "transition" | "dashboard"
   | "spinwheel" | "ludo" | "worldwar"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
   const { login } = useAuth();
-  const [screen, setScreen]         = useState<Screen>("splash");
-  const [splashDone, setSplash]     = useState(false);
-  const [appConfig, setAppConfig]   = useState<AppConfig>(DEFAULT_APP_CONFIG);
-  const [showSetup, setShowSetup]   = useState(!FIREBASE_ENABLED);
+  const [screen, setScreen]           = useState<Screen>("splash");
+  const [splashDone, setSplash]       = useState(false);
+  const [appConfig, setAppConfig]     = useState<AppConfig>(DEFAULT_APP_CONFIG);
+  const [showSetup, setShowSetup]     = useState(!FIREBASE_ENABLED);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // Track whether the pending login was a new user signup (used by transition screen)
+  const pendingIsNewUser = useRef(false);
 
   // Subscribe to remote app config (maintenance mode, force update, announcements)
   useEffect(() => {
@@ -45,15 +49,30 @@ function AppInner() {
   }, []);
 
   // Splash auto-advance
-  if (!splashDone && screen === "splash") {
-    setTimeout(() => { setSplash(true); setScreen("login"); }, 3000);
+  useEffect(() => {
+    if (screen !== "splash") return;
+    const t = setTimeout(() => {
+      setSplash(true);
+      setScreen("login");
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [screen]);
+
+  // Called by LoginScreen when Firebase Auth succeeds.
+  // login() is now synchronous — it sets user immediately from Firebase Auth data.
+  // Firestore profile hydrates in the background via onAuthChange subscription.
+  function handleLogin(uid: string, email: string, isNewUser?: boolean) {
+    login(uid, email, isNewUser);
+    pendingIsNewUser.current = !!isNewUser;
+    setScreen("transition");
   }
 
-  async function handleLogin(uid: string, email: string, isNewUser?: boolean) {
-    await login(uid, email, isNewUser);
+  // Called by LoginTransitionScreen when its ~2.4 second animation finishes
+  function handleTransitionComplete() {
     setScreen("dashboard");
-    if (isNewUser) {
+    if (pendingIsNewUser.current) {
       setShowWelcome(true);
+      pendingIsNewUser.current = false;
     }
   }
 
@@ -114,6 +133,15 @@ function AppInner() {
 
         {screen === "login" && (
           <LoginScreen key="login" onLogin={handleLogin} />
+        )}
+
+        {/* Premium loading transition — shown between login success and dashboard */}
+        {screen === "transition" && (
+          <LoginTransitionScreen
+            key="transition"
+            isNewUser={pendingIsNewUser.current}
+            onComplete={handleTransitionComplete}
+          />
         )}
 
         {screen === "dashboard" && (

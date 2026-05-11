@@ -1,9 +1,15 @@
 /**
  * Firebase Authentication Service — WINGGO
  * Email / Password flow:
- *  signUpWithEmail → createUserWithEmailAndPassword → Firestore profile
- *  signInWithEmail → signInWithEmailAndPassword
+ *  signUpWithEmail → createUserWithEmailAndPassword → Firestore profile (fire-and-forget)
+ *  signInWithEmail → signInWithEmailAndPassword (no Firestore block)
  *  resetPassword   → sendPasswordResetEmail
+ *
+ * PERFORMANCE NOTE:
+ * We intentionally do NOT await Firestore calls (getUserProfile / createUserProfile)
+ * inside auth functions. Blocking on Firestore with long-polling causes 5-12 second
+ * delays before the dashboard appears. Instead we return as soon as Firebase Auth
+ * resolves and let AuthContext hydrate the Firestore profile in the background.
  *
  * Demo mode:
  *  - FIREBASE_ENABLED=false → demo (any email / password "demo1234")
@@ -19,7 +25,7 @@ import {
   updateProfile as fbUpdateProfile,
 } from "firebase/auth";
 import { auth, FIREBASE_ENABLED } from "./config";
-import { createUserProfile, getUserProfile } from "./firestore.service";
+import { createUserProfile } from "./firestore.service";
 
 let _demoFallback = false;
 
@@ -77,7 +83,11 @@ export async function signUpWithEmail(
   try {
     const cred = await createUserWithEmailAndPassword(auth!, email, password);
     await fbUpdateProfile(cred.user, { displayName: name });
-    await createUserProfile(cred.user.uid, {
+
+    // Fire-and-forget: Firestore profile creation does NOT block the login response.
+    // AuthContext.onAuthChange will pick up the user immediately from Firebase Auth
+    // and the profile subscription will hydrate once Firestore responds.
+    createUserProfile(cred.user.uid, {
       email,
       displayName: name,
       photoURL: "",
@@ -86,7 +96,8 @@ export async function signUpWithEmail(
       referralCode: generateReferralCode(),
       referredBy: null,
       deviceInfo: navigator.userAgent,
-    });
+    }).catch(() => {});
+
     return { success: true, uid: cred.user.uid, isNewUser: true, demo: false };
   } catch (err: unknown) {
     if (isCredentialError(err)) {
@@ -109,9 +120,9 @@ export async function signInWithEmail(
     return { success: true, uid: `demo-${Date.now()}`, isNewUser: false, demo: true };
   }
   try {
+    // Only block on Firebase Auth (fast: ~1s). Do NOT await Firestore.
     const cred = await signInWithEmailAndPassword(auth!, email, password);
-    const profile = await getUserProfile(cred.user.uid);
-    return { success: true, uid: cred.user.uid, isNewUser: !profile, demo: false };
+    return { success: true, uid: cred.user.uid, isNewUser: false, demo: false };
   } catch (err: unknown) {
     if (isCredentialError(err)) {
       _demoFallback = true;

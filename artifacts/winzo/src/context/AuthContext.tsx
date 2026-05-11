@@ -3,16 +3,21 @@
  * Wraps Firebase email/password auth state and exposes user info to the whole app.
  * Works in demo mode when Firebase is not configured.
  *
+ * PERFORMANCE:
+ * - onAuthChange fires → user set IMMEDIATELY from Firebase Auth data (no Firestore wait)
+ * - loading=false is set before Firestore responds → dashboard shows instantly
+ * - Firestore profile hydrates in the background via subscribeUserProfile
+ * - login() is now sync (sets user from Firebase Auth currentUser, no Firestore await)
+ *
  * NOTE: useAuth hook lives in ./useAuth.ts (separate file) so Vite Fast Refresh
- * can HMR this provider without the "incompatible exports" cascade that breaks
- * the context chain during development.
+ * can HMR this provider without the "incompatible exports" cascade.
  */
 import {
   createContext, useState, useEffect,
   useCallback, ReactNode,
 } from "react";
 import { User } from "firebase/auth";
-import { FIREBASE_ENABLED } from "@/firebase/config";
+import { auth, FIREBASE_ENABLED } from "@/firebase/config";
 import { onAuthChange, logoutUser, isDemoMode } from "@/firebase/auth.service";
 import {
   getUserProfile, subscribeUserProfile,
@@ -37,13 +42,13 @@ export interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isLoggedIn: boolean;
-  login: (uid: string, email: string, isNewUser?: boolean) => Promise<void>;
+  login: (uid: string, email: string, isNewUser?: boolean) => void;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<Pick<AuthUser, "displayName" | "photoURL">>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
-// ─── DEMO USER (when Firebase not configured) ─────────────────────────────────
+// ─── DEMO USER ────────────────────────────────────────────────────────────────
 
 function buildDemoUser(email = ""): AuthUser {
   return {
@@ -54,6 +59,18 @@ function buildDemoUser(email = ""): AuthUser {
     kycStatus:    "pending",
     referralCode: "DEMO8888",
     isDemo:       true,
+  };
+}
+
+function firebaseUserToAuthUser(u: User): AuthUser {
+  return {
+    uid:          u.uid,
+    email:        u.email ?? "",
+    displayName:  u.displayName ?? `Player${u.uid.slice(-4).toUpperCase()}`,
+    photoURL:     u.photoURL ?? "",
+    kycStatus:    "pending",
+    referralCode: "",
+    isDemo:       false,
   };
 }
 
@@ -86,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return () => {};
     }
 
-    const unsubAuth = onAuthChange(async (firebaseUser: User | null) => {
+    const unsubAuth = onAuthChange((firebaseUser: User | null) => {
       if (profileUnsub) { profileUnsub(); profileUnsub = null; }
       if (goOffline)    { goOffline(); goOffline = null; }
 
@@ -96,21 +113,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const profile = await getUserProfile(firebaseUser.uid);
-      if (profile) {
-        setUser(profileToAuthUser(firebaseUser.uid, profile));
-      } else {
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email ?? "",
-          displayName: firebaseUser.displayName ?? `Player${firebaseUser.uid.slice(-4).toUpperCase()}`,
-          photoURL: firebaseUser.photoURL ?? "",
-          kycStatus: "pending",
-          referralCode: "",
-          isDemo: false,
-        });
-      }
+      // ── FAST PATH: Set user immediately from Firebase Auth data ──────────────
+      // This fires before any Firestore read so loading=false resolves instantly.
+      // The profile subscription below will patch in the full Firestore data once
+      // it arrives (displayName, referralCode, kycStatus, etc).
+      setUser(firebaseUserToAuthUser(firebaseUser));
       setLoading(false);
+
+      // ── BACKGROUND: Subscribe to Firestore profile (hydrates silently) ───────
+      // Also do one getDoc so we get the latest data immediately on first load
+      // even if the snapshot hasn't arrived yet.
+      getUserProfile(firebaseUser.uid).then((profile) => {
+        if (profile) setUser(profileToAuthUser(firebaseUser.uid, profile));
+      }).catch(() => {});
 
       profileUnsub = subscribeUserProfile(firebaseUser.uid, (p) => {
         setUser(profileToAuthUser(firebaseUser.uid, p));
@@ -127,22 +142,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  /** Called after email auth succeeds */
-  const login = useCallback(async (uid: string, email: string, _isNewUser = false) => {
+  /**
+   * Called after email auth succeeds in LoginScreen.
+   * With Firebase enabled, onAuthChange fires automatically so we only need to
+   * handle demo mode here and set an immediate fallback for the rare race
+   * where onAuthChange hasn't fired yet.
+   */
+  const login = useCallback((uid: string, email: string, _isNewUser = false) => {
     if (!FIREBASE_ENABLED || isDemoMode()) {
       setUser(buildDemoUser(email));
       return;
     }
-    const profile = await getUserProfile(uid);
-    if (profile) {
-      setUser(profileToAuthUser(uid, profile));
-    } else {
-      setUser({
-        uid, email,
-        displayName: `Player${uid.slice(-4).toUpperCase()}`,
-        photoURL: "", kycStatus: "pending", referralCode: "", isDemo: false,
-      });
-    }
+    // Set from Firebase Auth currentUser if available (instant), else build minimal user
+    const fbUser = auth?.currentUser;
+    setUser(
+      fbUser
+        ? firebaseUserToAuthUser(fbUser)
+        : {
+            uid, email,
+            displayName: `Player${uid.slice(-4).toUpperCase()}`,
+            photoURL: "", kycStatus: "pending", referralCode: "", isDemo: false,
+          }
+    );
+    setLoading(false);
+    // onAuthChange subscription above will hydrate Firestore data in the background
   }, []);
 
   const logout = useCallback(async () => {
