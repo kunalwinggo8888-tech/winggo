@@ -4,6 +4,7 @@
  *   users/{uid}                  — user profiles
  *   wallets/{uid}                — wallet balances
  *   wallets/{uid}/transactions/  — transaction history (sub-collection)
+ *   deposits/{id}                — all deposit records (razorpay payment proof)
  *   withdrawRequests/{id}        — withdrawal requests (admin approval)
  *   kycRequests/{uid}            — KYC documents
  *   games/{gameId}               — game catalog (admin managed)
@@ -54,6 +55,23 @@ export interface FirestoreTransaction {
   createdAt: Timestamp | number;
   gameId?: string;
   roomId?: string;
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+}
+
+export interface DepositRecord {
+  id?: string;
+  uid: string;
+  email: string;
+  displayName: string;
+  amount: number;
+  bonusPct: number;
+  bonusAmount: number;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  method: string;
+  status: "success" | "failed" | "pending";
+  createdAt: Timestamp | number;
 }
 
 export interface WithdrawRequest {
@@ -200,24 +218,58 @@ async function pushTransaction(uid: string, tx: Omit<FirestoreTransaction, "id" 
   });
 }
 
-/** Deposit — adds to deposit bucket and optional bonus */
-export async function firestoreDeposit(uid: string, amount: number, bonusPct: number): Promise<void> {
+/**
+ * Deposit — called ONLY after server-side signature verification succeeds.
+ * Adds to deposit bucket, optional bonus, saves a DepositRecord for admin.
+ */
+export async function firestoreDeposit(
+  uid: string,
+  amount: number,
+  bonusPct: number,
+  opts: {
+    displayName?: string;
+    email?: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    method?: string;
+  } = {}
+): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   const bonusAmt = Math.round(amount * bonusPct / 100);
   const batch = writeBatch(db);
   batch.update(doc(db, "wallets", uid), {
     deposit: increment(amount),
-    bonus: increment(bonusAmt),
+    bonus:   bonusPct > 0 ? increment(bonusAmt) : increment(0),
     updatedAt: serverTimestamp(),
   });
   await batch.commit();
+
+  // Save full deposit record for admin panel
+  const depositRecord: Omit<DepositRecord, "id"> = {
+    uid,
+    email:              opts.email ?? "",
+    displayName:        opts.displayName ?? "",
+    amount,
+    bonusPct,
+    bonusAmount:        bonusAmt,
+    razorpayOrderId:    opts.razorpayOrderId ?? "",
+    razorpayPaymentId:  opts.razorpayPaymentId ?? "",
+    method:             opts.method ?? "Razorpay",
+    status:             "success",
+    createdAt:          serverTimestamp() as unknown as Timestamp,
+  };
+  await addDoc(collection(db, "deposits"), depositRecord);
+
+  // Transaction in user wallet sub-collection
   await pushTransaction(uid, {
-    type: "deposit",
-    title: `Deposit + ${bonusPct}% Bonus`,
+    type:   "deposit",
+    title:  bonusPct > 0 ? `Deposit + ${bonusPct}% Bonus` : "Deposit",
     rawAmount: amount + bonusAmt,
-    display: `+₹${amount + bonusAmt}`,
-    color: "#3498db",
-    status: "completed",
+    display:   `+₹${amount + bonusAmt}`,
+    color:     "#3498db",
+    status:    "completed",
+    razorpayPaymentId: opts.razorpayPaymentId,
+    razorpayOrderId:   opts.razorpayOrderId,
   });
 }
 
@@ -388,7 +440,6 @@ export async function approveWithdraw(requestId: string, adminUid: string): Prom
     processedAt: serverTimestamp(),
     processedBy: adminUid,
   });
-  // Also update matching pending tx status in user wallet
   const reqSnap = await getDoc(doc(db, "withdrawRequests", requestId));
   if (!reqSnap.exists()) return;
   const req = reqSnap.data() as WithdrawRequest;
@@ -415,7 +466,6 @@ export async function rejectWithdraw(requestId: string, adminUid: string, reason
     processedBy: adminUid,
     rejectionReason: reason,
   });
-  // Refund the winning amount
   await updateDoc(doc(db, "wallets", req.uid), { winning: increment(req.amount) });
   const txSnap = await getDocs(query(
     collection(db, "wallets", req.uid, "transactions"),
@@ -425,6 +475,39 @@ export async function rejectWithdraw(requestId: string, adminUid: string, reason
   ));
   if (!txSnap.empty) {
     await updateDoc(txSnap.docs[0].ref, { status: "rejected" });
+  }
+}
+
+// ─── ADMIN — DEPOSIT RECORDS ──────────────────────────────────────────────────
+
+/** Subscribe to all real Razorpay deposits (admin panel) */
+export function subscribeDeposits(cb: (deps: DepositRecord[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb([]); return () => {}; }
+  const q = query(collection(db, "deposits"), orderBy("createdAt", "desc"), limit(200));
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DepositRecord)));
+  }, () => cb([]));
+}
+
+/** Get deposit stats (total deposited, count) for admin summary */
+export async function getDepositStats(): Promise<{ total: number; count: number; today: number }> {
+  if (!FIREBASE_ENABLED || !db) return { total: 0, count: 0, today: 0 };
+  try {
+    const snap = await getDocs(query(collection(db, "deposits"), where("status", "==", "success"), limit(500)));
+    const now = Date.now();
+    const todayStart = now - 86400000;
+    let total = 0, today = 0;
+    snap.docs.forEach((d) => {
+      const dep = d.data() as DepositRecord;
+      total += dep.amount;
+      const ts = typeof dep.createdAt === "number"
+        ? dep.createdAt
+        : (dep.createdAt as Timestamp)?.seconds * 1000 ?? 0;
+      if (ts > todayStart) today += dep.amount;
+    });
+    return { total, count: snap.size, today };
+  } catch {
+    return { total: 0, count: 0, today: 0 };
   }
 }
 
@@ -544,7 +627,6 @@ export async function getDailyStats(days = 7): Promise<DailyStats[]> {
 
 // ─── GAMES (admin-managed, read by player app) ───────────────────────────────
 
-/** Subscribe to live game catalog — admin can toggle games on/off */
 export function subscribeGames(cb: (games: GameConfig[]) => void): () => void {
   if (!FIREBASE_ENABLED || !db) { cb(DEFAULT_GAMES); return () => {}; }
   return onSnapshot(
@@ -560,7 +642,6 @@ export function subscribeGames(cb: (games: GameConfig[]) => void): () => void {
   );
 }
 
-/** Write game catalog seed to Firestore if empty */
 export async function seedGamesIfEmpty(): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   const snap = await getDocs(collection(db, "games"));

@@ -14,11 +14,13 @@ import PageKYC from "@/pages/PageKYC";
 import PagePromotions from "@/pages/PagePromotions";
 import PageAnalytics from "@/pages/PageAnalytics";
 import PageSettings from "@/pages/PageSettings";
+import PageDeposits from "@/pages/PageDeposits";
 
 const PAGE_TITLES: Record<AdminPage, string> = {
   dashboard:  "Dashboard",
   users:      "User Management",
   wallet:     "Wallet & Payments",
+  deposits:   "Razorpay Deposits",
   gameapi:    "Game API System",
   updateapi:  "Update API System",
   worldwar:   "World War Manager",
@@ -32,6 +34,7 @@ const PAGE_SUBTITLES: Record<AdminPage, string> = {
   dashboard:  "Live overview of all platform metrics",
   users:      "Search, manage and moderate users",
   wallet:     "Deposits, withdrawals & bonus management",
+  deposits:   "Real-time Razorpay payment records with payment IDs",
   gameapi:    "Add, edit & control games dynamically — no reinstall needed",
   updateapi:  "Remote config, version control & feature flags",
   worldwar:   "Tournament creation, brackets & leaderboards",
@@ -75,6 +78,7 @@ export default function App() {
     dashboard:  <PageDashboard />,
     users:      <PageUsers />,
     wallet:     <PageWallet />,
+    deposits:   <PageDeposits />,
     gameapi:    <PageGameAPI />,
     updateapi:  <PageUpdateAPI />,
     worldwar:   <PageWorldWar />,

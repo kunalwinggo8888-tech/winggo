@@ -309,6 +309,61 @@ export function subscribeRecentDeposits(
   }, () => cb([]));
 }
 
+// ─── DEPOSIT RECORDS (Razorpay real payments) ─────────────────────────────────
+
+export interface DepositRecord {
+  id?: string;
+  uid: string;
+  email: string;
+  displayName: string;
+  amount: number;
+  bonusPct: number;
+  bonusAmount: number;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  method: string;
+  status: "success" | "failed" | "pending";
+  createdAt: Timestamp | number;
+}
+
+/** Subscribe to all real Razorpay deposit records */
+export function subscribeDeposits(cb: (deps: DepositRecord[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  const q = query(
+    collection(adminDb, "deposits"),
+    orderBy("createdAt", "desc"),
+    limit(200)
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DepositRecord)));
+  }, () => cb([]));
+}
+
+/** Get deposit stats for admin summary cards */
+export async function getDepositStats(): Promise<{ total: number; count: number; today: number }> {
+  if (!FIREBASE_ENABLED || !adminDb) return { total: 0, count: 0, today: 0 };
+  try {
+    const snap = await getDocs(query(
+      collection(adminDb, "deposits"),
+      where("status", "==", "success"),
+      limit(500)
+    ));
+    const todayStart = Date.now() - 86400000;
+    let total = 0, today = 0;
+    snap.docs.forEach((d) => {
+      const dep = d.data() as DepositRecord;
+      total += dep.amount;
+      const ts = typeof dep.createdAt === "number"
+        ? dep.createdAt
+        : (dep.createdAt as Timestamp)?.seconds * 1000 ?? 0;
+      if (ts > todayStart) today += dep.amount;
+    });
+    return { total, count: snap.size, today };
+  } catch {
+    return { total: 0, count: 0, today: 0 };
+  }
+}
+
 /** Subscribe to live platform stats (user count, pending withdrawals, KYC) */
 export function subscribeLiveStats(
   cb: (stats: { totalUsers: number; pendingWithdrawals: number; pendingKYC: number }) => void

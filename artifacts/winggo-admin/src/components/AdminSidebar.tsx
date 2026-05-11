@@ -1,13 +1,14 @@
 import { motion, AnimatePresence } from "framer-motion";
 
 export type AdminPage =
-  | "dashboard" | "users" | "wallet" | "gameapi" | "updateapi"
+  | "dashboard" | "users" | "wallet" | "deposits" | "gameapi" | "updateapi"
   | "worldwar" | "kyc" | "promotions" | "analytics" | "settings";
 
 const NAV = [
   { id: "dashboard",  icon: "📊", label: "Dashboard"        },
   { id: "users",      icon: "👥", label: "Users"             },
   { id: "wallet",     icon: "💰", label: "Wallet"            },
+  { id: "deposits",   icon: "💳", label: "Deposits"          },
   { id: "gameapi",    icon: "🎮", label: "Games API"         },
   { id: "updateapi",  icon: "🔄", label: "Update API"        },
   { id: "worldwar",   icon: "⚔️", label: "World War"         },
@@ -94,6 +95,13 @@ export default function AdminSidebar({ active, onNav, onLogout, collapsed }: Pro
                 )}
               </AnimatePresence>
 
+              {/* Live badge for deposits page */}
+              {!collapsed && item.id === "deposits" && (
+                <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" }}>
+                  LIVE
+                </span>
+              )}
               {/* New badge for API pages */}
               {!collapsed && (item.id === "gameapi" || item.id === "updateapi") && (
                 <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full shrink-0"
