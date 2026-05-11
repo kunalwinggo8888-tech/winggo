@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
-import { useWallet } from "@/context/WalletContext";
+import { useWallet } from "@/context/useWallet";
 
 // ─────────────────────────────────────────────────────────────
 // BOARD DATA

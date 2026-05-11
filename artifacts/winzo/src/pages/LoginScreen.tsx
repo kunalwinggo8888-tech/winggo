@@ -10,7 +10,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FIREBASE_ENABLED } from "@/firebase/config";
-import { initRecaptcha, sendOTP, verifyOTP, isDemoMode } from "@/firebase/auth.service";
+import { sendOTP, verifyOTP, isDemoMode } from "@/firebase/auth.service";
 
 interface LoginScreenProps {
   onLogin?: (uid: string, phone: string, isNewUser?: boolean) => void;
@@ -30,7 +30,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const resendTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (FIREBASE_ENABLED) initRecaptcha("recaptcha-container");
     return () => {
       if (resendTimer.current) clearInterval(resendTimer.current);
     };
@@ -125,9 +124,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       style={{ background: "radial-gradient(ellipse at center, #0f0a1e 0%, #07050f 60%, #000000 100%)" }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }}
     >
-      {/* Invisible reCAPTCHA container (Firebase requirement) */}
-      <div id="recaptcha-container" />
-
       {/* Ambient glows */}
       <div className="absolute top-[-15%] left-[-10%] w-[55%] h-[55%] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(255,215,0,0.07) 0%, transparent 70%)" }} />

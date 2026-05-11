@@ -1,11 +1,14 @@
-// @refresh reset
 /**
  * Auth Context — WINGGO
  * Wraps Firebase phone auth state and exposes user info to the whole app.
  * Works in demo mode when Firebase is not configured.
+ *
+ * NOTE: useAuth hook lives in ./useAuth.ts (separate file) so Vite Fast Refresh
+ * can HMR this provider without the "incompatible exports" cascade that breaks
+ * the context chain during development.
  */
 import {
-  createContext, useContext, useState, useEffect,
+  createContext, useState, useEffect,
   useCallback, ReactNode,
 } from "react";
 import { User } from "firebase/auth";
@@ -30,7 +33,7 @@ export interface AuthUser {
   isDemo: boolean;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isLoggedIn: boolean;
@@ -68,7 +71,7 @@ function profileToAuthUser(uid: string, p: UserProfile): AuthUser {
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]       = useState<AuthUser | null>(null);
@@ -172,8 +175,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth(): AuthContextType {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
-}

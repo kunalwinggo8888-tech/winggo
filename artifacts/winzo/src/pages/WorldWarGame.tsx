@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
-import { useWallet } from "@/context/WalletContext";
+import { useWallet } from "@/context/useWallet";
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 type Phase = "lobby" | "matchmaking" | "battle" | "result";

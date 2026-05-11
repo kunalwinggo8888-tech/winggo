@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SpinWheel from "@/pages/SpinWheel";
-import { useWallet } from "@/context/WalletContext";
+import { useWallet } from "@/context/useWallet";
 import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 

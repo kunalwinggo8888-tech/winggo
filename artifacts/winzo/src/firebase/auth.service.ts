@@ -50,15 +50,18 @@ function isCredentialError(err: unknown): boolean {
   return false;
 }
 
-/** Mount an invisible reCAPTCHA on the given element id */
-export function initRecaptcha(containerId: string): void {
+/**
+ * Ensure a valid RecaptchaVerifier exists, attached to document.body.
+ * Using document.body means the container is never unmounted by React,
+ * preventing the "Cannot read properties of null (reading 'style')" crash
+ * that happens when reCAPTCHA's internal timer fires after the login screen
+ * component has been animated out by Framer Motion.
+ */
+function ensureRecaptcha(): void {
   if (!FIREBASE_ENABLED || !auth || _demoFallback) return;
+  if (recaptchaVerifier) return; // already healthy
   try {
-    if (recaptchaVerifier) {
-      recaptchaVerifier.clear();
-      recaptchaVerifier = null;
-    }
-    recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+    recaptchaVerifier = new RecaptchaVerifier(auth, document.body, {
       size: "invisible",
       callback: () => {},
       "expired-callback": () => {
@@ -71,6 +74,11 @@ export function initRecaptcha(containerId: string): void {
   }
 }
 
+/** @deprecated No longer needed — reCAPTCHA now attaches to document.body lazily */
+export function initRecaptcha(_containerId?: string): void {
+  // no-op: kept for API compatibility, real init happens in sendOTP
+}
+
 /** Send OTP to an Indian mobile number (format: +91XXXXXXXXXX) */
 export async function sendOTP(
   phoneNumber: string
@@ -79,7 +87,7 @@ export async function sendOTP(
     return { success: true, demo: true };
   }
   try {
-    if (!recaptchaVerifier) initRecaptcha("recaptcha-container");
+    ensureRecaptcha();
     const fullNumber = phoneNumber.startsWith("+91")
       ? phoneNumber
       : `+91${phoneNumber}`;

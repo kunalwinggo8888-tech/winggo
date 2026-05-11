@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useWallet } from "@/context/WalletContext";
+import { useWallet } from "@/context/useWallet";
+import type { Transaction } from "@/context/WalletContext";
 import BackButton from "@/components/BackButton";
 import RazorpayGateway from "@/components/RazorpayGateway";
 
@@ -82,9 +83,9 @@ export default function WalletScreen({ onBack }: Props) {
   }, [withdrawing, withdrawAmt, wallet.winning, ctxWithdraw]);
 
   // Stats for history tab
-  const totalWon      = transactions.filter(t => t.type === "win").reduce((s, t) => s + t.rawAmount, 0);
-  const totalDeposited= transactions.filter(t => t.type === "deposit").reduce((s, t) => s + t.rawAmount, 0);
-  const totalWithdrawn= transactions.filter(t => t.type === "withdraw").reduce((s, t) => s + Math.abs(t.rawAmount), 0);
+  const totalWon      = (transactions as Transaction[]).filter(t => t.type === "win").reduce((s, t) => s + t.rawAmount, 0);
+  const totalDeposited= (transactions as Transaction[]).filter(t => t.type === "deposit").reduce((s, t) => s + t.rawAmount, 0);
+  const totalWithdrawn= (transactions as Transaction[]).filter(t => t.type === "withdraw").reduce((s, t) => s + Math.abs(t.rawAmount), 0);
 
   return (
     <motion.div

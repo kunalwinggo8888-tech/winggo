@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useWallet } from "@/context/WalletContext";
+import { useWallet } from "@/context/useWallet";
 
 interface ProfileScreenProps {
   onKYC?: () => void;

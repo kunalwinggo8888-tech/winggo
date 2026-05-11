@@ -1,15 +1,16 @@
 /**
  * WalletContext — Firebase Firestore Synced
+ * NOTE: useWallet hook lives in ./useWallet.ts (separate file) for Vite Fast Refresh compat.
  * -------------------------------------------
  * • When Firebase is configured: syncs live with Firestore (onSnapshot)
  * • When not configured: runs purely in local state (demo mode)
  * All wallet mutation functions write to Firestore AND update local state
  * optimistically, so the UI is always instant.
  */
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Timestamp } from "firebase/firestore";
 import { FIREBASE_ENABLED } from "@/firebase/config";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import {
   subscribeWallet, subscribeTransactions,
   firestoreDeposit, firestoreWithdraw, firestoreAddWinning,
@@ -36,7 +37,7 @@ export interface Transaction {
   status?: "pending" | "completed" | "rejected";
 }
 
-interface WalletContextType {
+export interface WalletContextType {
   wallet: WalletData;
   transactions: Transaction[];
   total: number;
@@ -92,7 +93,7 @@ const DEMO_TX: Transaction[] = [
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
-const WalletContext = createContext<WalletContextType | null>(null);
+export const WalletContext = createContext<WalletContextType | null>(null);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -195,8 +196,3 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useWallet(): WalletContextType {
-  const ctx = useContext(WalletContext);
-  if (!ctx) throw new Error("useWallet must be used inside WalletProvider");
-  return ctx;
-}
