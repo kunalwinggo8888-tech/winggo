@@ -7,14 +7,25 @@ import { getFirestore, Firestore } from "firebase/firestore";
 import { getAuth, Auth, signInWithEmailAndPassword } from "firebase/auth";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
+/** Strip any child path — Firebase RTDB requires the root URL only */
+function sanitizeDbUrl(raw: string): string {
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return raw;
+  }
+}
+
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY            ?? "",
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN        ?? "",
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID         ?? "",
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET     ?? "",
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY             ?? "",
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN         ?? "",
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID          ?? "",
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET      ?? "",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "",
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID             ?? "",
-  databaseURL:       import.meta.env.VITE_FIREBASE_DATABASE_URL       ?? "",
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID              ?? "",
+  databaseURL:       sanitizeDbUrl(import.meta.env.VITE_FIREBASE_DATABASE_URL ?? ""),
 };
 
 export const FIREBASE_ENABLED =
