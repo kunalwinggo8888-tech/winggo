@@ -82,7 +82,7 @@ function LobbyPhase({ team, setTeam, entryFee, setEntryFee, playerCount, onBack,
             transition={{ duration: 1.4 + Math.random(), delay: Math.random() * 1.5, repeat: Infinity }} />
         ))}
 
-        <div className="absolute top-4 left-4 z-10">
+        <div className="absolute top-4 left-4 z-50">
           <BackButton onBack={onBack} label="Home" />
         </div>
 

@@ -9,46 +9,54 @@ interface BackButtonProps {
 export default function BackButton({ onBack, label = "Home", className = "" }: BackButtonProps) {
   return (
     <motion.button
-      onClick={onBack}
-      whileTap={{ scale: 0.9 }}
-      whileHover={{ scale: 1.04 }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onBack?.();
+      }}
+      whileTap={{ scale: 0.88 }}
+      whileHover={{ scale: 1.05 }}
       className={`flex items-center gap-2 cursor-pointer select-none ${className}`}
       style={{
-        background: "rgba(255,215,0,0.08)",
-        border: "1px solid rgba(255,215,0,0.22)",
+        position: "relative",
+        zIndex: 9999,
+        background: "rgba(10,10,20,0.72)",
+        border: "1px solid rgba(255,215,0,0.30)",
         borderRadius: "999px",
-        padding: "6px 14px 6px 10px",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-        boxShadow: "0 0 12px rgba(255,215,0,0.12), inset 0 1px 0 rgba(255,255,255,0.04)",
+        padding: "7px 16px 7px 10px",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        boxShadow: "0 0 0 1px rgba(255,215,0,0.06), 0 0 14px rgba(255,215,0,0.14)",
+        WebkitTapHighlightColor: "transparent",
+        touchAction: "manipulation",
       }}
       animate={{
         boxShadow: [
-          "0 0 8px rgba(255,215,0,0.10), inset 0 1px 0 rgba(255,255,255,0.04)",
-          "0 0 16px rgba(255,215,0,0.24), inset 0 1px 0 rgba(255,255,255,0.06)",
-          "0 0 8px rgba(255,215,0,0.10), inset 0 1px 0 rgba(255,255,255,0.04)",
+          "0 0 0 1px rgba(255,215,0,0.06), 0 0 10px rgba(255,215,0,0.12)",
+          "0 0 0 1px rgba(255,215,0,0.14), 0 0 20px rgba(255,215,0,0.28)",
+          "0 0 0 1px rgba(255,215,0,0.06), 0 0 10px rgba(255,215,0,0.12)",
         ],
       }}
-      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
     >
-      {/* Gold arrow */}
+      {/* Glowing arrow */}
       <motion.span
-        className="flex items-center justify-center font-black text-base leading-none"
+        className="font-black text-base leading-none"
         style={{
           color: "#FFD700",
-          textShadow: "0 0 8px rgba(255,215,0,0.9), 0 0 20px rgba(255,215,0,0.5)",
+          textShadow: "0 0 8px rgba(255,215,0,1), 0 0 22px rgba(255,215,0,0.6)",
+          display: "block",
           lineHeight: 1,
         }}
-        animate={{ x: [0, -2, 0] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        animate={{ x: [0, -3, 0] }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
       >
         ←
       </motion.span>
 
       {/* Label */}
       <span
-        className="font-black text-xs tracking-wide"
-        style={{ color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em" }}
+        className="font-black text-xs tracking-widest uppercase"
+        style={{ color: "rgba(255,255,255,0.80)", letterSpacing: "0.06em" }}
       >
         {label}
       </span>

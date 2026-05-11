@@ -104,7 +104,7 @@ export default function WalletScreen({ onBack }: Props) {
         <div className="absolute bottom-[-20%] right-[-10%] w-[45%] h-[45%] rounded-full pointer-events-none"
           style={{ background: "radial-gradient(circle, rgba(52,152,219,0.07) 0%, transparent 70%)" }} />
 
-        <div className="absolute top-4 left-4 z-10">
+        <div className="absolute top-4 left-4 z-50">
           <BackButton onBack={onBack} label="Home" />
         </div>
 
