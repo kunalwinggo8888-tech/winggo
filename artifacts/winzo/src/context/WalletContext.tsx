@@ -153,7 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       pushLocalTx({ type: "withdraw", title: "Withdrawal Requested — Pending Approval", rawAmount: -amount, display: `-₹${amount}`, color: "#f39c12", status: "pending" });
     } else {
       setWallet((w) => ({ ...w, winning: Math.max(0, w.winning - amount) }));
-      firestoreWithdraw(uid, amount, upiId, user?.phone ?? "", user?.displayName ?? "").catch(console.error);
+      firestoreWithdraw(uid, amount, upiId, user?.email ?? "", user?.displayName ?? "").catch(console.error);
     }
   }, [uid, user, pushLocalTx]);
 

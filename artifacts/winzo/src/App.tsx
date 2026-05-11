@@ -47,8 +47,8 @@ function AppInner() {
     setTimeout(() => { setSplash(true); setScreen("login"); }, 3000);
   }
 
-  async function handleLogin(uid: string, phone: string, isNewUser?: boolean) {
-    await login(uid, phone, isNewUser);
+  async function handleLogin(uid: string, email: string, isNewUser?: boolean) {
+    await login(uid, email, isNewUser);
     setScreen("dashboard");
   }
 

@@ -23,7 +23,7 @@ import { db, FIREBASE_ENABLED } from "./config";
 
 export interface UserProfile {
   uid?: string;
-  phone: string;
+  email: string;
   displayName: string;
   photoURL: string;
   createdAt: number;
@@ -59,7 +59,7 @@ export interface FirestoreTransaction {
 export interface WithdrawRequest {
   id?: string;
   uid: string;
-  phone: string;
+  email: string;
   displayName: string;
   amount: number;
   upiId: string;
@@ -72,7 +72,7 @@ export interface WithdrawRequest {
 
 export interface KYCRequest {
   uid: string;
-  phone: string;
+  email: string;
   displayName: string;
   docType: "aadhaar" | "pan" | "passport";
   docNumber: string;
@@ -200,7 +200,7 @@ export async function firestoreDeposit(uid: string, amount: number, bonusPct: nu
 }
 
 /** Withdraw — deducts from winning, creates pending request */
-export async function firestoreWithdraw(uid: string, amount: number, upiId: string, phone: string, displayName: string): Promise<string> {
+export async function firestoreWithdraw(uid: string, amount: number, upiId: string, email: string, displayName: string): Promise<string> {
   if (!FIREBASE_ENABLED || !db) return "";
   const batch = writeBatch(db);
   batch.update(doc(db, "wallets", uid), {
@@ -210,7 +210,7 @@ export async function firestoreWithdraw(uid: string, amount: number, upiId: stri
   await batch.commit();
 
   const reqRef = await addDoc(collection(db, "withdrawRequests"), {
-    uid, phone, displayName, amount, upiId,
+    uid, email, displayName, amount, upiId,
     status: "pending",
     requestedAt: serverTimestamp() as unknown as Timestamp,
   } satisfies Omit<WithdrawRequest, "id">);

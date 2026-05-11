@@ -15,13 +15,13 @@ const STATUS_BADGE = {
   true:  { label: "Banned", bg: "rgba(248,113,113,0.12)", color: "#f87171" },
 };
 
-type LocalUser = { id: string; name: string; phone: string; wallet: number; kyc: string; status: string; banned: boolean };
+type LocalUser = { id: string; name: string; email: string; wallet: number; kyc: string; status: string; banned: boolean };
 
 function toLocal(u: UserProfile, i: number): LocalUser {
   return {
     id: u.uid ?? `USR${String(i).padStart(3, "0")}`,
     name: u.displayName,
-    phone: u.phone,
+    email: u.email,
     wallet: 0,
     kyc: u.kycStatus === "approved" ? "approved" : u.kycStatus === "submitted" ? "submitted" : u.kycStatus === "rejected" ? "rejected" : "pending",
     status: u.banned ? "banned" : "active",
@@ -30,7 +30,7 @@ function toLocal(u: UserProfile, i: number): LocalUser {
 }
 
 function mockToLocal(u: (typeof MOCK_USERS)[number]): LocalUser {
-  return { id: u.id, name: u.name, phone: u.phone, wallet: u.wallet, kyc: u.kyc ?? "pending", status: u.status, banned: u.status === "banned" };
+  return { id: u.id, name: u.name, email: u.email, wallet: u.wallet, kyc: u.kyc ?? "pending", status: u.status, banned: u.status === "banned" };
 }
 
 export default function PageUsers() {
@@ -49,7 +49,7 @@ export default function PageUsers() {
   const filtered = users.filter(u =>
     u.name.toLowerCase().includes(search.toLowerCase()) ||
     u.id.toLowerCase().includes(search.toLowerCase()) ||
-    u.phone.includes(search)
+    u.email.toLowerCase().includes(search.toLowerCase())
   );
 
   async function toggleBan(u: LocalUser) {
@@ -70,7 +70,7 @@ export default function PageUsers() {
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm">🔍</span>
-          <input placeholder="Search by name, ID or phone…"
+          <input placeholder="Search by name, ID or email…"
             value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl text-white text-sm outline-none"
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", caretColor: "#FFD700" }} />
@@ -120,7 +120,7 @@ export default function PageUsers() {
               </span>
               <div className="col-span-2">
                 <p className="text-xs font-bold text-white truncate">{u.name}</p>
-                <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{u.phone}</p>
+                <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{u.email}</p>
               </div>
               <span className="text-xs font-black" style={{ color: "#34d399" }}>₹{u.wallet.toLocaleString()}</span>
               <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
@@ -162,7 +162,7 @@ export default function PageUsers() {
                 </div>
                 <div>
                   <p className="font-black text-white">{selected.name}</p>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{selected.phone}</p>
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{selected.email}</p>
                 </div>
                 <button onClick={() => setSelected(null)} className="ml-auto text-xl cursor-pointer"
                   style={{ color: "rgba(255,255,255,0.3)" }}>✕</button>

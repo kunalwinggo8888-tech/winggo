@@ -27,14 +27,14 @@ export const GAME_STATS_DATA = [
 ];
 
 export const MOCK_USERS = [
-  { id: "WG-1001", name: "Rahul Sharma",    phone: "+91 98765 43210", wallet: 2340, kyc: "verified",  status: "active",  joined: "12 Jan 2025", matches: 142, winRate: "72%" },
-  { id: "WG-1002", name: "Priya Patel",     phone: "+91 87654 32109", wallet: 890,  kyc: "pending",   status: "active",  joined: "28 Jan 2025", matches: 67,  winRate: "58%" },
-  { id: "WG-1003", name: "Amit Kumar",      phone: "+91 76543 21098", wallet: 5600, kyc: "verified",  status: "active",  joined: "5 Feb 2025",  matches: 289, winRate: "81%" },
-  { id: "WG-1004", name: "Sneha Reddy",     phone: "+91 65432 10987", wallet: 0,    kyc: "rejected",  status: "banned",  joined: "19 Feb 2025", matches: 12,  winRate: "33%" },
-  { id: "WG-1005", name: "Vikram Singh",    phone: "+91 54321 09876", wallet: 1200, kyc: "verified",  status: "active",  joined: "3 Mar 2025",  matches: 98,  winRate: "65%" },
-  { id: "WG-1006", name: "Meera Nair",      phone: "+91 43210 98765", wallet: 320,  kyc: "pending",   status: "active",  joined: "22 Mar 2025", matches: 31,  winRate: "52%" },
-  { id: "WG-1007", name: "Arjun Menon",     phone: "+91 32109 87654", wallet: 8900, kyc: "verified",  status: "active",  joined: "8 Apr 2025",  matches: 412, winRate: "88%" },
-  { id: "WG-1008", name: "Deepika Joshi",   phone: "+91 21098 76543", wallet: 450,  kyc: "pending",   status: "active",  joined: "15 Apr 2025", matches: 23,  winRate: "47%" },
+  { id: "WG-1001", name: "Rahul Sharma",    email: "rahul.sharma@gmail.com",   wallet: 2340, kyc: "verified",  status: "active",  joined: "12 Jan 2025", matches: 142, winRate: "72%" },
+  { id: "WG-1002", name: "Priya Patel",     email: "priya.patel@gmail.com",    wallet: 890,  kyc: "pending",   status: "active",  joined: "28 Jan 2025", matches: 67,  winRate: "58%" },
+  { id: "WG-1003", name: "Amit Kumar",      email: "amit.kumar@gmail.com",     wallet: 5600, kyc: "verified",  status: "active",  joined: "5 Feb 2025",  matches: 289, winRate: "81%" },
+  { id: "WG-1004", name: "Sneha Reddy",     email: "sneha.reddy@gmail.com",    wallet: 0,    kyc: "rejected",  status: "banned",  joined: "19 Feb 2025", matches: 12,  winRate: "33%" },
+  { id: "WG-1005", name: "Vikram Singh",    email: "vikram.singh@gmail.com",   wallet: 1200, kyc: "verified",  status: "active",  joined: "3 Mar 2025",  matches: 98,  winRate: "65%" },
+  { id: "WG-1006", name: "Meera Nair",      email: "meera.nair@gmail.com",     wallet: 320,  kyc: "pending",   status: "active",  joined: "22 Mar 2025", matches: 31,  winRate: "52%" },
+  { id: "WG-1007", name: "Arjun Menon",     email: "arjun.menon@gmail.com",    wallet: 8900, kyc: "verified",  status: "active",  joined: "8 Apr 2025",  matches: 412, winRate: "88%" },
+  { id: "WG-1008", name: "Deepika Joshi",   email: "deepika.joshi@gmail.com",  wallet: 450,  kyc: "pending",   status: "active",  joined: "15 Apr 2025", matches: 23,  winRate: "47%" },
 ];
 
 export const MOCK_WITHDRAWALS = [

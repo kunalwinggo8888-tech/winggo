@@ -20,13 +20,13 @@ const SUMMARY_DEMO = [
   { label: "Bonus Issued",        value: "₹1,24,000",  color: "#a78bfa", icon: "🎁" },
 ];
 
-type LocalWD = { id: string; user: string; phone?: string; amount: number; bank?: string; upiId?: string; method?: string; date?: string; status: string };
+type LocalWD = { id: string; user: string; email?: string; amount: number; bank?: string; upiId?: string; method?: string; date?: string; status: string };
 
 function toLocal(r: WithdrawRequest): LocalWD {
   return {
     id: r.id ?? "",
     user: r.displayName,
-    phone: r.phone,
+    email: r.email,
     amount: r.amount,
     upiId: r.upiId,
     method: "UPI",
@@ -156,7 +156,7 @@ export default function PageWallet() {
                   </span>
                   <div className="col-span-2">
                     <p className="text-xs font-bold text-white truncate">{w.user}</p>
-                    <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{w.phone ?? "—"} · {w.date}</p>
+                    <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{w.email ?? "—"} · {w.date}</p>
                   </div>
                   <span className="text-xs font-black" style={{ color: "#f87171" }}>₹{w.amount.toLocaleString()}</span>
                   <span className="text-[10px] truncate font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>

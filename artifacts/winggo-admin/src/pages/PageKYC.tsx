@@ -10,14 +10,14 @@ const STATUS_CFG = {
   rejected: { label: "Rejected",  bg: "rgba(248,113,113,0.12)", color: "#f87171", border: "rgba(248,113,113,0.25)" },
 };
 
-type LocalKYC = { id: string; name: string; phone: string; pan?: string; docType?: string; docNumber?: string; submitted: string; risk: string; status: string; uid: string; frontURL?: string; backURL?: string };
+type LocalKYC = { id: string; name: string; email: string; pan?: string; docType?: string; docNumber?: string; submitted: string; risk: string; status: string; uid: string; frontURL?: string; backURL?: string };
 
 function toLocal(r: KYCRequest): LocalKYC {
   return {
     id: r.uid,
     uid: r.uid,
     name: r.displayName,
-    phone: r.phone,
+    email: r.email,
     docType: r.docType,
     docNumber: r.docNumber,
     submitted: r.submittedAt ? new Date((r.submittedAt as { seconds: number }).seconds * 1000).toLocaleDateString("en-IN") : "—",
@@ -29,7 +29,7 @@ function toLocal(r: KYCRequest): LocalKYC {
 }
 
 function mockToLocal(m: (typeof MOCK_KYC)[number]): LocalKYC {
-  return { id: m.id, uid: m.id, name: m.name, phone: "", pan: m.pan, docType: "pan", docNumber: m.pan, submitted: m.submitted, risk: m.risk, status: m.status };
+  return { id: m.id, uid: m.id, name: m.name, email: "", pan: m.pan, docType: "pan", docNumber: m.pan, submitted: m.submitted, risk: m.risk, status: m.status };
 }
 
 export default function PageKYC() {
@@ -132,7 +132,7 @@ export default function PageKYC() {
               <span className="text-[10px] font-bold truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{e.id.slice(-6)}</span>
               <div className="col-span-2">
                 <p className="text-xs font-bold text-white truncate">{e.name}</p>
-                <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{e.phone}</p>
+                <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{e.email}</p>
               </div>
               <span className="text-[10px] font-bold uppercase" style={{ color: "rgba(255,255,255,0.5)" }}>{e.docType ?? "PAN"}</span>
               <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>{e.submitted}</span>
@@ -165,7 +165,7 @@ export default function PageKYC() {
               </div>
 
               {[
-                { label: "Phone",   value: selected.phone },
+                { label: "Email",   value: selected.email },
                 { label: "Doc Type",value: (selected.docType ?? "PAN").toUpperCase() },
                 { label: "Doc No.", value: selected.docNumber ?? selected.pan ?? "—" },
                 { label: "Status",  value: selected.status },

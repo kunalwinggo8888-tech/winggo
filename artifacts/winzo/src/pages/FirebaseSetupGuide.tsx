@@ -25,14 +25,14 @@ const STEPS = [
   },
   {
     num: "02",
-    icon: "📱",
-    title: "Enable Phone Authentication",
+    icon: "✉️",
+    title: "Enable Email/Password Authentication",
     color: "#FFD700",
     details: [
       'In Firebase Console → "Authentication"',
       '"Get started" → "Sign-in method"',
-      'Click "Phone" → Enable → Save',
-      "For testing: add your number under Test phone numbers",
+      'Click "Email/Password" → Enable → Save',
+      "Users can now sign up and log in with email + password",
     ],
     cta: null,
   },

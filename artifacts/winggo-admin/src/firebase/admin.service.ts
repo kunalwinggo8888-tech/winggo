@@ -14,7 +14,7 @@ import { adminDb, FIREBASE_ENABLED } from "./config";
 
 export interface UserProfile {
   uid?: string;
-  phone: string;
+  email: string;
   displayName: string;
   photoURL: string;
   createdAt: number;
@@ -28,7 +28,7 @@ export interface UserProfile {
 export interface WithdrawRequest {
   id?: string;
   uid: string;
-  phone: string;
+  email: string;
   displayName: string;
   amount: number;
   upiId: string;
@@ -41,7 +41,7 @@ export interface WithdrawRequest {
 
 export interface KYCRequest {
   uid: string;
-  phone: string;
+  email: string;
   displayName: string;
   docType: "aadhaar" | "pan" | "passport";
   docNumber: string;

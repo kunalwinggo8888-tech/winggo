@@ -1,39 +1,32 @@
 /**
  * Firebase Authentication Service — WINGGO
- * Phone OTP flow: sendOTP → verifyOTP → user profile created in Firestore
+ * Email / Password flow:
+ *  signUpWithEmail → createUserWithEmailAndPassword → Firestore profile
+ *  signInWithEmail → signInWithEmailAndPassword
+ *  resetPassword   → sendPasswordResetEmail
  *
- * Graceful demo mode:
- *  - When FIREBASE_ENABLED=false → demo from the start (any phone / OTP 123456)
- *  - When Firebase returns auth/api-key-not-valid at runtime → auto-flip to demo
- *    so the user always sees a working UI even with misconfigured secrets
+ * Demo mode:
+ *  - FIREBASE_ENABLED=false → demo (any email / password "demo1234")
+ *  - Runtime credential error → auto-flip to demo (_demoFallback)
  */
 import {
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
-  ConfirmationResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
   User,
-  updateProfile,
+  updateProfile as fbUpdateProfile,
 } from "firebase/auth";
 import { auth, FIREBASE_ENABLED } from "./config";
 import { createUserProfile, getUserProfile } from "./firestore.service";
 
-let recaptchaVerifier: RecaptchaVerifier | null = null;
-let confirmationResult: ConfirmationResult | null = null;
-
-/**
- * Runtime demo-fallback flag.
- * Starts false; gets set to true if Firebase returns an auth error
- * like api-key-not-valid so the rest of the session runs in demo mode.
- */
 let _demoFallback = false;
 
 export function isDemoMode(): boolean {
   return !FIREBASE_ENABLED || _demoFallback;
 }
 
-/** Errors that tell us the Firebase project isn't reachable / misconfigured */
 const CREDENTIAL_ERRORS = new Set([
   "auth/api-key-not-valid",
   "auth/invalid-api-key",
@@ -43,123 +36,106 @@ const CREDENTIAL_ERRORS = new Set([
 ]);
 
 function isCredentialError(err: unknown): boolean {
-  if (err instanceof Error) {
-    const code = (err as { code?: string }).code ?? "";
-    return CREDENTIAL_ERRORS.has(code) || err.message.includes("api-key-not-valid");
-  }
-  return false;
+  const code = (err as { code?: string }).code ?? "";
+  return CREDENTIAL_ERRORS.has(code) ||
+    (err instanceof Error && err.message.includes("api-key-not-valid"));
 }
 
-/**
- * Ensure a valid RecaptchaVerifier exists, attached to document.body.
- * Using document.body means the container is never unmounted by React,
- * preventing the "Cannot read properties of null (reading 'style')" crash
- * that happens when reCAPTCHA's internal timer fires after the login screen
- * component has been animated out by Framer Motion.
- */
-function ensureRecaptcha(): void {
-  if (!FIREBASE_ENABLED || !auth || _demoFallback) return;
-  if (recaptchaVerifier) return; // already healthy
+function friendlyError(err: unknown): string {
+  const code = (err as { code?: string }).code ?? "";
+  switch (code) {
+    case "auth/user-not-found":
+    case "auth/invalid-credential":     return "Invalid email or password.";
+    case "auth/wrong-password":         return "Incorrect password. Try again.";
+    case "auth/email-already-in-use":   return "Email already registered. Please log in.";
+    case "auth/weak-password":          return "Password must be at least 6 characters.";
+    case "auth/invalid-email":          return "Enter a valid email address.";
+    case "auth/too-many-requests":      return "Too many attempts. Please wait and try again.";
+    case "auth/network-request-failed": return "Network error. Check your connection.";
+    default:
+      return err instanceof Error ? err.message : "Something went wrong. Try again.";
+  }
+}
+
+export type AuthResult = {
+  success: boolean;
+  uid?: string;
+  isNewUser?: boolean;
+  demo?: boolean;
+  error?: string;
+};
+
+/** Sign up with name + email + password */
+export async function signUpWithEmail(
+  name: string,
+  email: string,
+  password: string,
+): Promise<AuthResult> {
+  if (isDemoMode()) {
+    return { success: true, uid: `demo-${Date.now()}`, isNewUser: true, demo: true };
+  }
   try {
-    recaptchaVerifier = new RecaptchaVerifier(auth, document.body, {
-      size: "invisible",
-      callback: () => {},
-      "expired-callback": () => {
-        recaptchaVerifier?.clear();
-        recaptchaVerifier = null;
-      },
+    const cred = await createUserWithEmailAndPassword(auth!, email, password);
+    await fbUpdateProfile(cred.user, { displayName: name });
+    await createUserProfile(cred.user.uid, {
+      email,
+      displayName: name,
+      photoURL: "",
+      createdAt: Date.now(),
+      kycStatus: "pending",
+      referralCode: generateReferralCode(),
+      referredBy: null,
+      deviceInfo: navigator.userAgent,
     });
-  } catch {
-    _demoFallback = true;
-  }
-}
-
-/** @deprecated No longer needed — reCAPTCHA now attaches to document.body lazily */
-export function initRecaptcha(_containerId?: string): void {
-  // no-op: kept for API compatibility, real init happens in sendOTP
-}
-
-/** Send OTP to an Indian mobile number (format: +91XXXXXXXXXX) */
-export async function sendOTP(
-  phoneNumber: string
-): Promise<{ success: boolean; demo?: boolean; error?: string }> {
-  if (!FIREBASE_ENABLED || _demoFallback) {
-    return { success: true, demo: true };
-  }
-  try {
-    ensureRecaptcha();
-    const fullNumber = phoneNumber.startsWith("+91")
-      ? phoneNumber
-      : `+91${phoneNumber}`;
-    confirmationResult = await signInWithPhoneNumber(auth!, fullNumber, recaptchaVerifier!);
-    return { success: true, demo: false };
-  } catch (err: unknown) {
-    if (isCredentialError(err)) {
-      // Invalid / placeholder keys — silently switch to demo mode
-      _demoFallback = true;
-      recaptchaVerifier?.clear();
-      recaptchaVerifier = null;
-      return { success: true, demo: true };
-    }
-    const msg = err instanceof Error ? err.message : "Failed to send OTP";
-    return { success: false, error: msg };
-  }
-}
-
-/** Verify the 6-digit OTP entered by the user */
-export async function verifyOTP(
-  otp: string
-): Promise<{ success: boolean; uid?: string; isNewUser?: boolean; demo?: boolean; error?: string }> {
-  // Demo mode (either from the start or after a runtime credential error)
-  if (!FIREBASE_ENABLED || _demoFallback) {
-    if (otp !== "123456") {
-      return { success: false, error: "Demo OTP is 123456" };
-    }
-    return {
-      success: true,
-      uid: `demo-${Date.now()}`,
-      isNewUser: false,
-      demo: true,
-    };
-  }
-
-  if (!confirmationResult) {
-    return { success: false, error: "Session expired. Please request OTP again." };
-  }
-
-  try {
-    const credential = await confirmationResult.confirm(otp);
-    const user = credential.user;
-    const profile = await getUserProfile(user.uid);
-    const isNewUser = !profile;
-    if (isNewUser) {
-      await createUserProfile(user.uid, {
-        phone: user.phoneNumber ?? "",
-        displayName: `Player${user.uid.slice(-4).toUpperCase()}`,
-        photoURL: "",
-        createdAt: Date.now(),
-        kycStatus: "pending",
-        referralCode: generateReferralCode(),
-        referredBy: null,
-        deviceInfo: navigator.userAgent,
-      });
-    }
-    confirmationResult = null;
-    return { success: true, uid: user.uid, isNewUser, demo: false };
+    return { success: true, uid: cred.user.uid, isNewUser: true, demo: false };
   } catch (err: unknown) {
     if (isCredentialError(err)) {
       _demoFallback = true;
-      return { success: false, error: "Firebase not configured — enter OTP 123456" };
+      return { success: true, uid: `demo-${Date.now()}`, isNewUser: true, demo: true };
     }
-    const msg = err instanceof Error ? err.message : "Invalid OTP";
-    return { success: false, error: msg };
+    return { success: false, error: friendlyError(err) };
   }
 }
 
-/** Update the display name of the current user */
+/** Sign in with email + password */
+export async function signInWithEmail(
+  email: string,
+  password: string,
+): Promise<AuthResult> {
+  if (isDemoMode()) {
+    if (password !== "demo1234") {
+      return { success: false, error: 'Demo mode — use password "demo1234"' };
+    }
+    return { success: true, uid: `demo-${Date.now()}`, isNewUser: false, demo: true };
+  }
+  try {
+    const cred = await signInWithEmailAndPassword(auth!, email, password);
+    const profile = await getUserProfile(cred.user.uid);
+    return { success: true, uid: cred.user.uid, isNewUser: !profile, demo: false };
+  } catch (err: unknown) {
+    if (isCredentialError(err)) {
+      _demoFallback = true;
+      return { success: false, error: 'Demo mode active — password is "demo1234"' };
+    }
+    return { success: false, error: friendlyError(err) };
+  }
+}
+
+/** Send password reset email */
+export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
+  if (isDemoMode()) return { success: true };
+  try {
+    await sendPasswordResetEmail(auth!, email);
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: friendlyError(err) };
+  }
+}
+
+/** Update display name of current user */
 export async function updateDisplayName(name: string): Promise<void> {
   if (!FIREBASE_ENABLED || !auth?.currentUser) return;
-  await updateProfile(auth.currentUser, { displayName: name });
+  await fbUpdateProfile(auth.currentUser, { displayName: name });
 }
 
 /** Sign out */
