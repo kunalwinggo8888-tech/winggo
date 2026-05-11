@@ -10,7 +10,7 @@ import {
 } from "react";
 import { User } from "firebase/auth";
 import { FIREBASE_ENABLED } from "@/firebase/config";
-import { onAuthChange, logoutUser } from "@/firebase/auth.service";
+import { onAuthChange, logoutUser, isDemoMode } from "@/firebase/auth.service";
 import {
   getUserProfile, subscribeUserProfile,
   UserProfile, updateUserProfile,
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let profileUnsub: (() => void) | null = null;
     let goOffline: (() => void) | null = null;
 
-    if (!FIREBASE_ENABLED) {
+    if (!FIREBASE_ENABLED || isDemoMode()) {
       // Demo mode — no auth needed
       setLoading(false);
       return () => {};
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /** Called after OTP verification succeeds */
   const login = useCallback(async (uid: string, phone: string, _isNewUser = false) => {
-    if (!FIREBASE_ENABLED) {
+    if (!FIREBASE_ENABLED || isDemoMode()) {
       setUser(buildDemoUser(phone));
       return;
     }

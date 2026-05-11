@@ -16,8 +16,10 @@ import WalletScreen from "@/pages/WalletScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
 import KYCScreen from "@/pages/KYCScreen";
 import LeaderboardScreen from "@/pages/LeaderboardScreen";
+import FirebaseSetupGuide from "@/pages/FirebaseSetupGuide";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
 import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG } from "@/firebase/firestore.service";
+import { FIREBASE_ENABLED } from "@/firebase/config";
 
 const queryClient = new QueryClient();
 
@@ -29,9 +31,10 @@ type Screen =
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
   const { login } = useAuth();
-  const [screen, setScreen]       = useState<Screen>("splash");
-  const [splashDone, setSplash]   = useState(false);
-  const [appConfig, setAppConfig] = useState<AppConfig>(DEFAULT_APP_CONFIG);
+  const [screen, setScreen]         = useState<Screen>("splash");
+  const [splashDone, setSplash]     = useState(false);
+  const [appConfig, setAppConfig]   = useState<AppConfig>(DEFAULT_APP_CONFIG);
+  const [showSetup, setShowSetup]   = useState(!FIREBASE_ENABLED);
 
   // Subscribe to remote app config (maintenance mode, force update, announcements)
   useEffect(() => {
@@ -46,6 +49,11 @@ function AppInner() {
   async function handleLogin(uid: string, phone: string, isNewUser?: boolean) {
     await login(uid, phone, isNewUser);
     setScreen("dashboard");
+  }
+
+  // Show setup guide when Firebase isn't configured (can be dismissed to demo mode)
+  if (showSetup) {
+    return <FirebaseSetupGuide onSkip={() => setShowSetup(false)} />;
   }
 
   return (
