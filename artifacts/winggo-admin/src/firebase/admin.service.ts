@@ -471,6 +471,198 @@ export async function getAdminStats(): Promise<AdminStats> {
   };
 }
 
+// ─── WALLET DOCS ──────────────────────────────────────────────────────────────
+
+export interface WalletDoc {
+  uid: string;
+  winning: number;
+  deposit: number;
+  bonus: number;
+  updatedAt?: Timestamp;
+}
+
+/** Subscribe to every wallet document (live total balance calculations) */
+export function subscribeAllWallets(cb: (wallets: WalletDoc[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  return onSnapshot(
+    collection(adminDb, "wallets"),
+    (snap) => cb(snap.docs.map((d) => ({ uid: d.id, ...d.data() } as WalletDoc))),
+    () => cb([])
+  );
+}
+
+// ─── ENRICHED USER (profile + wallet joined) ──────────────────────────────────
+
+export interface EnrichedUser extends UserProfile {
+  wallet: WalletDoc | null;
+}
+
+/**
+ * Subscribe to users collection and wallets collection simultaneously,
+ * join them by uid in memory, and emit merged list.
+ * Updates whenever either collection changes.
+ */
+export function subscribeUsersEnriched(cb: (users: EnrichedUser[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+
+  let latestUsers: UserProfile[] = [];
+  let latestWallets = new Map<string, WalletDoc>();
+
+  const emit = () =>
+    cb(latestUsers.map((u) => ({ ...u, wallet: latestWallets.get(u.uid ?? "") ?? null })));
+
+  const unsubUsers = onSnapshot(
+    query(collection(adminDb, "users"), orderBy("createdAt", "desc"), limit(300)),
+    (snap) => {
+      latestUsers = snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile));
+      emit();
+    },
+    () => {}
+  );
+
+  const unsubWallets = onSnapshot(
+    collection(adminDb, "wallets"),
+    (snap) => {
+      latestWallets = new Map(
+        snap.docs.map((d) => [d.id, { uid: d.id, ...d.data() } as WalletDoc])
+      );
+      emit();
+    },
+    () => {}
+  );
+
+  return () => { unsubUsers(); unsubWallets(); };
+}
+
+// ─── PLATFORM STATS (real-time aggregation) ───────────────────────────────────
+
+export interface PlatformStats {
+  totalUsers: number;
+  totalWalletBalance: number;
+  totalWinningBalance: number;
+  totalDepositBalance: number;
+  totalBonusBalance: number;
+  totalDepositsAmount: number;
+  totalDepositsCount: number;
+  depositsTodayAmount: number;
+  depositsTodayCount: number;
+  totalWithdrawalsAmount: number;
+  totalWithdrawalsCount: number;
+  pendingWithdrawals: number;
+  pendingWithdrawalsAmount: number;
+  pendingKYC: number;
+}
+
+const EMPTY_PLATFORM_STATS: PlatformStats = {
+  totalUsers: 0, totalWalletBalance: 0, totalWinningBalance: 0,
+  totalDepositBalance: 0, totalBonusBalance: 0, totalDepositsAmount: 0,
+  totalDepositsCount: 0, depositsTodayAmount: 0, depositsTodayCount: 0,
+  totalWithdrawalsAmount: 0, totalWithdrawalsCount: 0,
+  pendingWithdrawals: 0, pendingWithdrawalsAmount: 0, pendingKYC: 0,
+};
+
+/**
+ * Subscribe to multiple Firestore collections in parallel to produce
+ * real-time aggregated platform stats. Emits whenever any collection updates.
+ */
+export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb(EMPTY_PLATFORM_STATS); return () => {}; }
+
+  let stats = { ...EMPTY_PLATFORM_STATS };
+  const emit = () => cb({ ...stats });
+  const todayStart = Date.now() - 86_400_000;
+
+  // 1. Total user count
+  const unsubUsers = onSnapshot(
+    query(collection(adminDb, "users"), limit(1000)),
+    (snap) => { stats = { ...stats, totalUsers: snap.size }; emit(); },
+    () => {}
+  );
+
+  // 2. Wallet balances (sum all wallet docs)
+  const unsubWallets = onSnapshot(
+    collection(adminDb, "wallets"),
+    (snap) => {
+      let winning = 0, deposit = 0, bonus = 0;
+      snap.docs.forEach((d) => {
+        const w = d.data() as WalletDoc;
+        winning += w.winning || 0;
+        deposit += w.deposit || 0;
+        bonus   += w.bonus   || 0;
+      });
+      stats = {
+        ...stats,
+        totalWinningBalance: winning,
+        totalDepositBalance: deposit,
+        totalBonusBalance:   bonus,
+        totalWalletBalance:  winning + deposit + bonus,
+      };
+      emit();
+    },
+    () => {}
+  );
+
+  // 3. Successful deposits (Razorpay records)
+  const unsubDeposits = onSnapshot(
+    query(collection(adminDb, "deposits"), where("status", "==", "success"), limit(1000)),
+    (snap) => {
+      let total = 0, today = 0, todayCount = 0;
+      snap.docs.forEach((d) => {
+        const dep = d.data() as DepositRecord;
+        const amt = dep.amount || 0;
+        total += amt;
+        const ts = typeof dep.createdAt === "number"
+          ? dep.createdAt
+          : ((dep.createdAt as Timestamp)?.seconds || 0) * 1000;
+        if (ts > todayStart) { today += amt; todayCount++; }
+      });
+      stats = {
+        ...stats,
+        totalDepositsAmount: total, totalDepositsCount: snap.size,
+        depositsTodayAmount: today, depositsTodayCount: todayCount,
+      };
+      emit();
+    },
+    () => {}
+  );
+
+  // 4. Pending withdrawals
+  const unsubPendingWD = onSnapshot(
+    query(collection(adminDb, "withdrawRequests"), where("status", "==", "pending")),
+    (snap) => {
+      let amt = 0;
+      snap.docs.forEach((d) => { amt += (d.data().amount as number) || 0; });
+      stats = { ...stats, pendingWithdrawals: snap.size, pendingWithdrawalsAmount: amt };
+      emit();
+    },
+    () => {}
+  );
+
+  // 5. Approved withdrawals total
+  const unsubApprovedWD = onSnapshot(
+    query(collection(adminDb, "withdrawRequests"), where("status", "==", "approved"), limit(1000)),
+    (snap) => {
+      let total = 0;
+      snap.docs.forEach((d) => { total += (d.data().amount as number) || 0; });
+      stats = { ...stats, totalWithdrawalsAmount: total, totalWithdrawalsCount: snap.size };
+      emit();
+    },
+    () => {}
+  );
+
+  // 6. Pending KYC
+  const unsubKYC = onSnapshot(
+    query(collection(adminDb, "kycRequests"), where("status", "==", "pending")),
+    (snap) => { stats = { ...stats, pendingKYC: snap.size }; emit(); },
+    () => {}
+  );
+
+  return () => {
+    unsubUsers(); unsubWallets(); unsubDeposits();
+    unsubPendingWD(); unsubApprovedWD(); unsubKYC();
+  };
+}
+
 // suppress unused import warning
 function _noop(_: DocumentData) {}
 void _noop;
