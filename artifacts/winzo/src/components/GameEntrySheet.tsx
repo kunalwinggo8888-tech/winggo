@@ -398,18 +398,18 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
         <>
           {/* ── Dark backdrop ── */}
           <motion.div
-            className="fixed inset-0 z-[80]"
-            style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", maxWidth: 480, margin: "0 auto" }}
+            className="fixed inset-0 z-[9990]"
+            style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
           />
 
           {/* ── Sheet panel ── */}
           <motion.div
-            className="fixed bottom-0 inset-x-0 z-[90] flex flex-col overflow-hidden"
+            className="fixed bottom-0 inset-x-0 z-[9999] flex flex-col"
             style={{
               maxWidth: 480, margin: "0 auto",
-              maxHeight: "93dvh",
+              maxHeight: "90dvh",
               borderRadius: "28px 28px 0 0",
               background: cfg.mainGrad,
               border: `1.5px solid ${cfg.accent}35`,
@@ -535,143 +535,171 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
             ) : (
               /* ── NORMAL ENTRY STATE ── */
               <>
-                {/* ── MAIN CONTENT AREA (honeycomb + floating assets + winnings) ── */}
-                <div className="flex-shrink-0 relative overflow-hidden"
-                  style={{ height: 180, backgroundImage: HONEYCOMB, backgroundSize: "56px 97px" }}>
+                {/* ─────────────────────────────────────────────────────
+                    SCROLLABLE BODY — everything above the sticky footer
+                ───────────────────────────────────────────────────── */}
+                <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
 
-                  {/* Floating game assets */}
-                  <FloatingAssets assets={cfg.assets} accent={cfg.accent} />
+                  {/* ── MAIN CONTENT AREA (honeycomb + floating assets + winnings) ── */}
+                  <div className="relative overflow-hidden flex-shrink-0"
+                    style={{ height: 180, backgroundImage: HONEYCOMB, backgroundSize: "56px 97px" }}>
 
-                  {/* Large glow game title */}
-                  <div className="absolute inset-x-0 top-4 flex justify-center">
-                    <motion.span
-                      className="font-black text-3xl tracking-widest"
-                      style={{
-                        color: "rgba(255,255,255,0.08)",
-                        textShadow: `0 0 30px ${cfg.accent}60`,
-                        letterSpacing: "0.18em",
-                        userSelect: "none",
-                        fontSize: cfg.bigTitle.length > 8 ? "1.5rem" : "1.875rem",
-                      }}
-                      animate={{ opacity: [0.06, 0.14, 0.06], textShadow: [`0 0 30px ${cfg.accent}40`, `0 0 55px ${cfg.accent}80`, `0 0 30px ${cfg.accent}40`] }}
-                      transition={{ duration: 2.5, repeat: Infinity }}
-                    >
-                      {cfg.bigTitle}
-                    </motion.span>
-                  </div>
+                    <FloatingAssets assets={cfg.assets} accent={cfg.accent} />
 
-                  {/* Winnings card — centered over floating assets */}
-                  <div className="absolute inset-x-0 bottom-3 relative">
-                    <WinningsCard fee={selected} accent={cfg.accent} />
-                  </div>
-                </div>
-
-                {/* ── ENTRY FEE SECTION ── */}
-                <div className="flex-shrink-0 px-4 pt-3 pb-1">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-black tracking-widest uppercase"
-                      style={{ color: `${cfg.accent}bb` }}>⚡ Choose Entry Fee</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "rgba(34,197,94,0.7)" }}>
-                      Win up to 90%
-                    </span>
-                  </div>
-
-                  {/* Circular buttons — horizontal scroll */}
-                  <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar justify-center">
-                    {tiers.map((fee, i) => (
-                      <FeeButton
-                        key={fee}
-                        fee={fee}
-                        isSelected={selected === fee}
-                        canAfford={total >= fee}
-                        isBest={i === bestIdx}
-                        accent={cfg.accent}
-                        onClick={() => setSelected(fee)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Add money hint (if some tiers unaffordable) */}
-                {total < Math.max(...tiers) && (
-                  <div className="flex-shrink-0 flex items-center gap-2 mx-4 mb-1 px-3 py-2 rounded-xl"
-                    style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.18)" }}>
-                    <span className="text-sm">💡</span>
-                    <span className="text-[10px] font-bold flex-1" style={{ color: "rgba(245,158,11,0.7)" }}>
-                      Add money to unlock higher-stakes rooms
-                    </span>
-                    <motion.button whileTap={{ scale: 0.95 }}
-                      onClick={() => { onClose(); onAddMoney?.(); }}
-                      className="px-2.5 py-1 rounded-lg font-black text-[10px] cursor-pointer"
-                      style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000" }}>
-                      Add
-                    </motion.button>
-                  </div>
-                )}
-
-                {/* ── WALLET BAR ── */}
-                <div className="flex-shrink-0 flex items-center justify-between px-4 py-2"
-                  style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                      style={{ background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.18)" }}>
-                      <span>💰</span>
-                      <div>
-                        <div className="text-[9px] font-bold" style={{ color: "rgba(255,215,0,0.55)" }}>Balance</div>
-                        <div className="text-sm font-black" style={{ color: "#FFD700" }}>₹{total.toFixed(0)}</div>
-                      </div>
+                    {/* Large ghost game title */}
+                    <div className="absolute inset-x-0 top-4 flex justify-center pointer-events-none">
+                      <motion.span
+                        className="font-black tracking-widest select-none"
+                        style={{
+                          color: "rgba(255,255,255,0.08)",
+                          textShadow: `0 0 30px ${cfg.accent}60`,
+                          letterSpacing: "0.18em",
+                          fontSize: cfg.bigTitle.length > 8 ? "1.5rem" : "1.875rem",
+                        }}
+                        animate={{
+                          opacity: [0.06, 0.14, 0.06],
+                          textShadow: [`0 0 30px ${cfg.accent}40`, `0 0 55px ${cfg.accent}80`, `0 0 30px ${cfg.accent}40`],
+                        }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      >
+                        {cfg.bigTitle}
+                      </motion.span>
                     </div>
-                    {bonus > 0 && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl"
-                        style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.18)" }}>
-                        <span className="text-xs">🎁</span>
+
+                    {/* Winnings card */}
+                    <div className="absolute inset-x-0 bottom-3">
+                      <WinningsCard fee={selected} accent={cfg.accent} />
+                    </div>
+                  </div>
+
+                  {/* ── ENTRY FEE SECTION ── */}
+                  <div className="px-4 pt-4 pb-2">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-black tracking-widest uppercase"
+                        style={{ color: `${cfg.accent}cc` }}>⚡ Choose Entry Fee</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "rgba(34,197,94,0.8)" }}>
+                        Win up to 90%
+                      </span>
+                    </div>
+
+                    {/* Circular buttons — horizontal scroll */}
+                    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar justify-center">
+                      {tiers.map((fee, i) => (
+                        <FeeButton
+                          key={fee}
+                          fee={fee}
+                          isSelected={selected === fee}
+                          canAfford={total >= fee}
+                          isBest={i === bestIdx}
+                          accent={cfg.accent}
+                          onClick={() => setSelected(fee)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Add money hint */}
+                  {total < Math.max(...tiers) && (
+                    <div className="flex items-center gap-2 mx-4 mb-3 px-3 py-2.5 rounded-xl"
+                      style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                      <span className="text-base">💡</span>
+                      <span className="text-[10px] font-bold flex-1" style={{ color: "rgba(245,158,11,0.75)" }}>
+                        Add money to unlock higher-stakes rooms
+                      </span>
+                      <motion.button whileTap={{ scale: 0.95 }}
+                        onClick={() => { onClose(); onAddMoney?.(); }}
+                        className="px-2.5 py-1 rounded-lg font-black text-[10px] cursor-pointer flex-shrink-0"
+                        style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000" }}>
+                        Add
+                      </motion.button>
+                    </div>
+                  )}
+                </div>
+                {/* END scrollable body */}
+
+                {/* ─────────────────────────────────────────────────────
+                    STICKY FOOTER — always visible, never scrolls away
+                ───────────────────────────────────────────────────── */}
+                <div
+                  className="flex-shrink-0"
+                  style={{
+                    background: "rgba(8,4,20,0.96)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    borderTop: `1px solid ${cfg.accent}25`,
+                    boxShadow: `0 -8px 32px rgba(0,0,0,0.6), 0 -1px 0 ${cfg.accent}20`,
+                    paddingBottom: "env(safe-area-inset-bottom, 20px)",
+                  }}
+                >
+                  {/* Wallet row */}
+                  <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
+                        style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)" }}>
+                        <span className="text-base">💰</span>
                         <div>
-                          <div className="text-[9px] font-bold" style={{ color: "rgba(34,197,94,0.55)" }}>Bonus</div>
-                          <div className="text-xs font-black" style={{ color: "#22c55e" }}>₹{bonus.toFixed(0)}</div>
+                          <div className="text-[9px] font-bold" style={{ color: "rgba(255,215,0,0.55)" }}>Balance</div>
+                          <div className="text-sm font-black" style={{ color: "#FFD700" }}>₹{total.toFixed(0)}</div>
                         </div>
                       </div>
-                    )}
+                      {bonus > 0 && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
+                          style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                          <span className="text-xs">🎁</span>
+                          <div>
+                            <div className="text-[9px] font-bold" style={{ color: "rgba(34,197,94,0.6)" }}>Bonus</div>
+                            <div className="text-xs font-black" style={{ color: "#22c55e" }}>₹{bonus.toFixed(0)}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                      <span>🔒</span><span className="font-bold">Secure</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-[10px]" style={{ color: "rgba(255,255,255,0.22)" }}>
-                    <span>🔒</span><span className="font-bold">Secure</span>
-                  </div>
-                </div>
 
-                {/* ── PLAY NOW BUTTON ── */}
-                <div className="flex-shrink-0 px-4 pb-5 pt-1">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={handlePlay}
-                    disabled={!canPlaySelected}
-                    className="w-full py-4 rounded-2xl font-black text-lg cursor-pointer relative overflow-hidden tracking-wide"
-                    style={{
-                      background: canPlaySelected
-                        ? "linear-gradient(135deg, #16a34a, #15803d)"
-                        : "rgba(255,255,255,0.06)",
-                      color: canPlaySelected ? "#fff" : "rgba(255,255,255,0.2)",
-                      boxShadow: canPlaySelected ? "0 0 28px rgba(34,197,94,0.45), 0 0 60px rgba(34,197,94,0.2)" : "none",
-                      border: canPlaySelected ? "none" : "1px solid rgba(255,255,255,0.08)",
-                      letterSpacing: "0.08em",
-                    }}
-                    animate={canPlaySelected ? {
-                      boxShadow: [
-                        "0 0 20px rgba(34,197,94,0.3), 0 0 40px rgba(34,197,94,0.15)",
-                        "0 0 35px rgba(34,197,94,0.6), 0 0 70px rgba(34,197,94,0.25)",
-                        "0 0 20px rgba(34,197,94,0.3), 0 0 40px rgba(34,197,94,0.15)",
-                      ],
-                    } : {}}
-                    transition={{ duration: 1.8, repeat: Infinity }}
-                  >
-                    {canPlaySelected && (
-                      <motion.div className="absolute inset-0 pointer-events-none"
-                        style={{ background: "linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.22) 50%,transparent 70%)" }}
-                        animate={{ x: ["-130%","230%"] }}
-                        transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.9 }} />
-                    )}
-                    {canPlaySelected ? `▶ PLAY NOW  ₹${selected}` : `Need ₹${selected - Math.floor(total)} more`}
-                  </motion.button>
+                  {/* PLAY NOW button */}
+                  <div className="px-4 pb-5">
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handlePlay}
+                      disabled={!canPlaySelected}
+                      className="w-full py-4 rounded-2xl font-black text-lg cursor-pointer relative overflow-hidden"
+                      style={{
+                        background: canPlaySelected
+                          ? "linear-gradient(135deg, #16a34a, #15803d)"
+                          : "rgba(255,255,255,0.06)",
+                        color: canPlaySelected ? "#fff" : "rgba(255,255,255,0.22)",
+                        boxShadow: canPlaySelected
+                          ? "0 0 28px rgba(34,197,94,0.5), 0 0 60px rgba(34,197,94,0.2)"
+                          : "none",
+                        border: canPlaySelected ? "none" : "1px solid rgba(255,255,255,0.08)",
+                        letterSpacing: "0.08em",
+                      }}
+                      animate={canPlaySelected ? {
+                        boxShadow: [
+                          "0 0 20px rgba(34,197,94,0.35), 0 0 40px rgba(34,197,94,0.15)",
+                          "0 0 36px rgba(34,197,94,0.65), 0 0 72px rgba(34,197,94,0.28)",
+                          "0 0 20px rgba(34,197,94,0.35), 0 0 40px rgba(34,197,94,0.15)",
+                        ],
+                      } : {}}
+                      transition={{ duration: 1.8, repeat: Infinity }}
+                    >
+                      {/* Shimmer sweep */}
+                      {canPlaySelected && (
+                        <motion.div className="absolute inset-0 pointer-events-none"
+                          style={{ background: "linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.22) 50%,transparent 70%)" }}
+                          animate={{ x: ["-130%", "230%"] }}
+                          transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.9 }} />
+                      )}
+                      {canPlaySelected
+                        ? `▶  PLAY NOW  —  ₹${selected}`
+                        : `Need ₹${Math.ceil(selected - total)} more to play`}
+                    </motion.button>
+                  </div>
                 </div>
+                {/* END sticky footer */}
               </>
             )}
           </motion.div>
