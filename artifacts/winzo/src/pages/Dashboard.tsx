@@ -169,6 +169,16 @@ const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: s
   callbreak:    { gradient: "linear-gradient(135deg, #4169E1 0%, #1a237e 100%)", players: "2.2L playing", prize: "₹12,000",  category: "Card Games", icon: "♠️" },
   poker:        { gradient: "linear-gradient(135deg, #00c851 0%, #007e33 100%)", players: "1.5L playing", prize: "₹20,000",  category: "Card Games", icon: "♦️" },
   twenty1:      { gradient: "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)", players: "2.8L playing", prize: "₹18,000",  category: "Card Games", icon: "🃏" },
+  axemaster:    { gradient: "linear-gradient(135deg, #5c3d1e 0%, #8B4513 100%)", players: "1.1L playing", prize: "₹12,000",  category: "Arcade",     icon: "🪓" },
+  mrracer:      { gradient: "linear-gradient(135deg, #ff3300 0%, #ff8800 100%)", players: "2.3L playing", prize: "₹14,000",  category: "Sports",     icon: "🏎️" },
+  bricksbreaker:{ gradient: "linear-gradient(135deg, #00e5ff 0%, #0077aa 100%)", players: "1.5L playing", prize: "₹10,000",  category: "Arcade",     icon: "🧱" },
+  slapfest:     { gradient: "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)", players: "1.9L playing", prize: "₹16,000",  category: "Battle",     icon: "👋" },
+  fruitchop:    { gradient: "linear-gradient(135deg, #22c55e 0%, #15803d 100%)", players: "2.0L playing", prize: "₹11,000",  category: "Casual",     icon: "🍉" },
+  alienfusion:  { gradient: "linear-gradient(135deg, #a855f7 0%, #6d28d9 100%)", players: "1.3L playing", prize: "₹9,000",   category: "Puzzle",     icon: "👽" },
+  pool3d:       { gradient: "linear-gradient(135deg, #166534 0%, #14532d 100%)", players: "2.5L playing", prize: "₹20,000",  category: "Sports",     icon: "🎱" },
+  crickettd20:  { gradient: "linear-gradient(135deg, #ff8c00 0%, #FFD700 100%)", players: "4.8L playing", prize: "₹30,000",  category: "Cricket",    icon: "🏏" },
+  sheepbattle:  { gradient: "linear-gradient(135deg, #a3e635 0%, #4d7c0f 100%)", players: "1.7L playing", prize: "₹13,000",  category: "Battle",     icon: "🐑" },
+  hexa2048:     { gradient: "linear-gradient(135deg, #FFD700 0%, #b8860b 100%)", players: "1.4L playing", prize: "₹8,000",   category: "Puzzle",     icon: "🔷" },
 };
 
 const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
@@ -188,15 +198,25 @@ interface DashboardProps {
   onPoker?: (fee?: number) => void;
   onSolitaire?: (fee?: number) => void;
   onTwenty1?: (fee?: number) => void;
+  onAxeMaster?: (fee?: number) => void;
+  onMrRacer?: (fee?: number) => void;
+  onBricksBreaker?: (fee?: number) => void;
+  onSlapFest?: (fee?: number) => void;
+  onFruitChop?: (fee?: number) => void;
+  onAlienFusion?: (fee?: number) => void;
+  onPool3D?: (fee?: number) => void;
+  onCricketTD20?: (fee?: number) => void;
+  onSheepBattle?: (fee?: number) => void;
+  onHexa2048?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -233,6 +253,16 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (gameId === "poker")                           { onPoker?.(fee);        return; }
     if (gameId === "solitaire"   || gameId === "11")  { onSolitaire?.(fee);    return; }
     if (gameId === "twenty1")                         { onTwenty1?.(fee);      return; }
+    if (gameId === "axemaster")                       { onAxeMaster?.(fee);    return; }
+    if (gameId === "mrracer")                         { onMrRacer?.(fee);      return; }
+    if (gameId === "bricksbreaker")                   { onBricksBreaker?.(fee);return; }
+    if (gameId === "slapfest")                        { onSlapFest?.(fee);     return; }
+    if (gameId === "fruitchop")                       { onFruitChop?.(fee);    return; }
+    if (gameId === "alienfusion")                     { onAlienFusion?.(fee);  return; }
+    if (gameId === "pool3d")                          { onPool3D?.(fee);       return; }
+    if (gameId === "crickettd20")                     { onCricketTD20?.(fee);  return; }
+    if (gameId === "sheepbattle")                     { onSheepBattle?.(fee);  return; }
+    if (gameId === "hexa2048")                        { onHexa2048?.(fee);     return; }
     // ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }
@@ -713,6 +743,16 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
               { id: "solitaire",    name: "Solitaire",      icon: "🃏", gradient: "linear-gradient(135deg, #e91e8c, #6a0050)",   minFee: "₹5" },
               { id: "twenty1",      name: "21 Card",        icon: "🃏", gradient: "linear-gradient(135deg, #FFD700, #ff8c00)",   minFee: "₹5" },
               { id: "discfootball", name: "Disc Football",  icon: "🥏", gradient: "linear-gradient(135deg, #00ff87, #007e3a)",   minFee: "₹5" },
+              { id: "axemaster",    name: "Axe Master 3D", icon: "🪓", gradient: "linear-gradient(135deg, #5c3d1e, #8B4513)",    minFee: "₹5" },
+              { id: "mrracer",      name: "Mr. Racer 3D",  icon: "🏎️", gradient: "linear-gradient(135deg, #ff3300, #ff8800)",    minFee: "₹5" },
+              { id: "bricksbreaker",name: "Bricks 3D",     icon: "🧱", gradient: "linear-gradient(135deg, #00e5ff, #0077aa)",    minFee: "₹5" },
+              { id: "slapfest",     name: "Slap Fest",     icon: "👋", gradient: "linear-gradient(135deg, #FFD700, #ff8c00)",    minFee: "₹5" },
+              { id: "fruitchop",    name: "Fruit Chop",    icon: "🍉", gradient: "linear-gradient(135deg, #22c55e, #15803d)",    minFee: "₹5" },
+              { id: "alienfusion",  name: "Alien Fusion",  icon: "👽", gradient: "linear-gradient(135deg, #a855f7, #6d28d9)",    minFee: "₹5" },
+              { id: "pool3d",       name: "Pool 3D",       icon: "🎱", gradient: "linear-gradient(135deg, #166534, #14532d)",    minFee: "₹5" },
+              { id: "crickettd20",  name: "Cricket T20",   icon: "🏏", gradient: "linear-gradient(135deg, #ff8c00, #FFD700)",    minFee: "₹5" },
+              { id: "sheepbattle",  name: "Sheep Battle",  icon: "🐑", gradient: "linear-gradient(135deg, #a3e635, #4d7c0f)",    minFee: "₹5" },
+              { id: "hexa2048",     name: "2048 Hexa",     icon: "🔷", gradient: "linear-gradient(135deg, #FFD700, #b8860b)",    minFee: "₹5" },
             ].map((g) => {
               return (
                 <motion.div

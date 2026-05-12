@@ -25,6 +25,16 @@ import CallBreakGame from "@/pages/CallBreakGame";
 import PokerGame from "@/pages/PokerGame";
 import SolitaireGame from "@/pages/SolitaireGame";
 import Twenty1Game from "@/pages/Twenty1Game";
+import AxeMasterGame from "@/pages/AxeMasterGame";
+import MrRacerGame from "@/pages/MrRacerGame";
+import BricksBreaker3DGame from "@/pages/BricksBreaker3DGame";
+import SlapFestGame from "@/pages/SlapFestGame";
+import FruitChopGame from "@/pages/FruitChopGame";
+import AlienFusionGame from "@/pages/AlienFusionGame";
+import Pool3DGame from "@/pages/Pool3DGame";
+import CricketT20Game from "@/pages/CricketT20Game";
+import SheepBattleGame from "@/pages/SheepBattleGame";
+import Hexa2048Game from "@/pages/Hexa2048Game";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
@@ -41,6 +51,8 @@ type Screen =
   | "splash" | "login" | "transition" | "dashboard"
   | "spinwheel" | "ludo" | "worldwar" | "snakes" | "carrom" | "bubble" | "candy"
   | "chess" | "discfootball" | "rummy" | "callbreak" | "poker" | "solitaire" | "twenty1"
+  | "axemaster" | "mrracer" | "bricksbreaker" | "slapfest" | "fruitchop"
+  | "alienfusion" | "pool3d" | "crickettd20" | "sheepbattle" | "hexa2048"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -65,6 +77,16 @@ function AppInner() {
   const [pokerFee, setPokerFee]           = useState(10);
   const [solitaireFee, setSolitaireFee]   = useState(10);
   const [twenty1Fee, setTwenty1Fee]       = useState(10);
+  const [axemasterFee, setAxemasterFee]     = useState(10);
+  const [mrracerFee, setMrracerFee]         = useState(10);
+  const [bricksbreakFee, setBricksbreakFee] = useState(10);
+  const [slapfestFee, setSlapfestFee]       = useState(10);
+  const [fruitchopFee, setFruitchopFee]     = useState(10);
+  const [alienfusionFee, setAlienfusionFee] = useState(10);
+  const [pool3dFee, setPool3dFee]           = useState(10);
+  const [crickettd20Fee, setCrickettd20Fee] = useState(10);
+  const [sheepbattleFee, setSheepbattleFee] = useState(10);
+  const [hexa2048Fee, setHexa2048Fee]       = useState(10);
   const [newUserName, setNewUserName]     = useState("");
 
   // Track whether the pending login was a new user signup
@@ -216,6 +238,16 @@ function AppInner() {
             onPoker={(fee) => { setPokerFee(fee ?? 10); setScreen("poker"); }}
             onSolitaire={(fee) => { setSolitaireFee(fee ?? 10); setScreen("solitaire"); }}
             onTwenty1={(fee) => { setTwenty1Fee(fee ?? 10); setScreen("twenty1"); }}
+            onAxeMaster={(fee) => { setAxemasterFee(fee ?? 10); setScreen("axemaster"); }}
+            onMrRacer={(fee) => { setMrracerFee(fee ?? 10); setScreen("mrracer"); }}
+            onBricksBreaker={(fee) => { setBricksbreakFee(fee ?? 10); setScreen("bricksbreaker"); }}
+            onSlapFest={(fee) => { setSlapfestFee(fee ?? 10); setScreen("slapfest"); }}
+            onFruitChop={(fee) => { setFruitchopFee(fee ?? 10); setScreen("fruitchop"); }}
+            onAlienFusion={(fee) => { setAlienfusionFee(fee ?? 10); setScreen("alienfusion"); }}
+            onPool3D={(fee) => { setPool3dFee(fee ?? 10); setScreen("pool3d"); }}
+            onCricketTD20={(fee) => { setCrickettd20Fee(fee ?? 10); setScreen("crickettd20"); }}
+            onSheepBattle={(fee) => { setSheepbattleFee(fee ?? 10); setScreen("sheepbattle"); }}
+            onHexa2048={(fee) => { setHexa2048Fee(fee ?? 10); setScreen("hexa2048"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -275,6 +307,46 @@ function AppInner() {
 
         {screen === "twenty1" && (
           <Twenty1Game key="twenty1" onBack={() => setScreen("dashboard")} initialFee={twenty1Fee} />
+        )}
+
+        {screen === "axemaster" && (
+          <AxeMasterGame key="axemaster" onBack={() => setScreen("dashboard")} initialFee={axemasterFee} />
+        )}
+
+        {screen === "mrracer" && (
+          <MrRacerGame key="mrracer" onBack={() => setScreen("dashboard")} initialFee={mrracerFee} />
+        )}
+
+        {screen === "bricksbreaker" && (
+          <BricksBreaker3DGame key="bricksbreaker" onBack={() => setScreen("dashboard")} initialFee={bricksbreakFee} />
+        )}
+
+        {screen === "slapfest" && (
+          <SlapFestGame key="slapfest" onBack={() => setScreen("dashboard")} initialFee={slapfestFee} />
+        )}
+
+        {screen === "fruitchop" && (
+          <FruitChopGame key="fruitchop" onBack={() => setScreen("dashboard")} initialFee={fruitchopFee} />
+        )}
+
+        {screen === "alienfusion" && (
+          <AlienFusionGame key="alienfusion" onBack={() => setScreen("dashboard")} initialFee={alienfusionFee} />
+        )}
+
+        {screen === "pool3d" && (
+          <Pool3DGame key="pool3d" onBack={() => setScreen("dashboard")} initialFee={pool3dFee} />
+        )}
+
+        {screen === "crickettd20" && (
+          <CricketT20Game key="crickettd20" onBack={() => setScreen("dashboard")} initialFee={crickettd20Fee} />
+        )}
+
+        {screen === "sheepbattle" && (
+          <SheepBattleGame key="sheepbattle" onBack={() => setScreen("dashboard")} initialFee={sheepbattleFee} />
+        )}
+
+        {screen === "hexa2048" && (
+          <Hexa2048Game key="hexa2048" onBack={() => setScreen("dashboard")} initialFee={hexa2048Fee} />
         )}
 
         {screen === "leaderboard" && (
