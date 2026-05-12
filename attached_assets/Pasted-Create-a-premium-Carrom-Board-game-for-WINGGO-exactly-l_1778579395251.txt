@@ -1,0 +1,142 @@
+Create a premium Carrom Board game for WINGGO exactly like WinZO style.
+
+━━━━━━━━━━━━━━━
+🎮 GAME OVERVIEW
+━━━━━━━━━━━━━━━
+
+Game Name:
+🏵️ Carrom Board
+
+Style:
+
+- Exact WinZO-style gameplay feeling
+- Smooth realistic striker physics
+- Multiplayer style game
+- Fast competitive matches
+
+━━━━━━━━━━━━━━━
+👥 MATCH SYSTEM
+━━━━━━━━━━━━━━━
+
+- 2 Player Match
+- Real player vs player
+- Auto bot if player not found
+- Match duration:
+  3–5 minutes
+
+Loading:
+“Finding Opponent…”
+
+If no player found:
+↓
+Auto connect smart bot
+
+━━━━━━━━━━━━━━━
+💰 ENTRY FEE SYSTEM
+━━━━━━━━━━━━━━━
+
+Entry fees:
+₹5 / ₹10 / ₹20 / ₹50
+
+Example:
+Entry Fee ₹10
+Winner Gets ₹18
+Platform Fee ₹2
+
+Before match:
+
+- Check wallet balance
+
+If balance low:
+Show:
+“Insufficient Balance — Please Add Money”
+
+━━━━━━━━━━━━━━━
+🏵️ CARROM GAMEPLAY
+━━━━━━━━━━━━━━━
+
+Features:
+✔ Realistic striker control
+✔ Smooth aiming line
+✔ Power control slider
+✔ Coin collision physics
+✔ Queen coin system
+✔ Pocket animations
+✔ Turn timer
+
+Rules:
+
+- Pocket all coins to win
+- Queen cover rule
+- Turn switching
+- Foul system
+
+━━━━━━━━━━━━━━━
+🏆 WIN/LOSS SYSTEM
+━━━━━━━━━━━━━━━
+
+Winner:
+✔ Winning amount added instantly
+
+Loser:
+✔ Entry fee deducted
+
+Save:
+
+- Match result
+- Coins scored
+- Amount won/lost
+- Date & time
+
+━━━━━━━━━━━━━━━
+📜 HISTORY SYSTEM
+━━━━━━━━━━━━━━━
+
+Save in wallet/game history:
++₹18 Carrom Win
+-₹10 Carrom Entry Fee
+
+━━━━━━━━━━━━━━━
+⚡ PERFORMANCE
+━━━━━━━━━━━━━━━
+
+- No lag
+- Smooth striker movement
+- Fast loading
+- Optimized mobile controls
+- Firebase realtime sync
+
+━━━━━━━━━━━━━━━
+🎨 UI DESIGN
+━━━━━━━━━━━━━━━
+
+- Premium WinZO-style Carrom UI
+- Dark black + gold gaming theme
+- Wooden realistic board
+- Glow effects
+- Smooth animations
+- Mobile optimized layout
+
+━━━━━━━━━━━━━━━
+📊 ADMIN PANEL
+━━━━━━━━━━━━━━━
+
+Admin should see:
+
+- Total Carrom matches
+- Live active matches
+- Winners data
+- Entry fee revenue
+- Match history
+
+━━━━━━━━━━━━━━━
+✅ FINAL RESULT
+━━━━━━━━━━━━━━━
+
+✔ Premium WinZO-style Carrom Board game
+✔ Realistic gameplay physics
+✔ Wallet integration works
+✔ Win/loss rewards work
+✔ Bots work properly
+✔ Match history saves correctly
+✔ Smooth mobile gaming experience

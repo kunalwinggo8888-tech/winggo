@@ -15,6 +15,7 @@ import SpinWheel from "@/pages/SpinWheel";
 import LudoGame from "@/pages/LudoGame";
 import WorldWarGame from "@/pages/WorldWarGame";
 import SnakesGame from "@/pages/SnakesGame";
+import CarromGame from "@/pages/CarromGame";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
@@ -29,7 +30,7 @@ const queryClient = new QueryClient();
 
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
-  | "spinwheel" | "ludo" | "worldwar" | "snakes"
+  | "spinwheel" | "ludo" | "worldwar" | "snakes" | "carrom"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -44,6 +45,7 @@ function AppInner() {
   const [ludoFee, setLudoFee]         = useState(50);
   const [worldWarFee, setWorldWarFee] = useState<number | undefined>(undefined);
   const [snakesFee, setSnakesFee]     = useState(10);
+  const [carromFee, setCarromFee]     = useState(10);
   const [newUserName, setNewUserName] = useState("");
 
   // Track whether the pending login was a new user signup
@@ -185,6 +187,7 @@ function AppInner() {
             onLudo={(fee) => { setLudoFee(fee ?? 50); setScreen("ludo"); }}
             onWorldWar={(fee) => { setWorldWarFee(fee); setScreen("worldwar"); }}
             onSnakes={(fee) => { setSnakesFee(fee ?? 10); setScreen("snakes"); }}
+            onCarrom={(fee) => { setCarromFee(fee ?? 10); setScreen("carrom"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -204,6 +207,10 @@ function AppInner() {
 
         {screen === "snakes" && (
           <SnakesGame key="snakes" onBack={() => setScreen("dashboard")} initialFee={snakesFee} />
+        )}
+
+        {screen === "carrom" && (
+          <CarromGame key="carrom" onBack={() => setScreen("dashboard")} initialFee={carromFee} />
         )}
 
         {screen === "leaderboard" && (
