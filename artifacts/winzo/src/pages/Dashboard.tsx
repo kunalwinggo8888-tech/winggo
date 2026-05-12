@@ -160,6 +160,7 @@ const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: s
   carrom:   { gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)", players: "2.9L playing", prize: "₹3,000",    category: "Board",     icon: "🎯" },
   snakes:   { gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", players: "1.9L playing", prize: "₹8,000",    category: "Board",     icon: "🐍" },
   bubble:   { gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", players: "2.4L playing", prize: "₹5,000",    category: "Casual",    icon: "🫧" },
+  candy:    { gradient: "linear-gradient(135deg, #FF4081 0%, #00E5FF 100%)", players: "3.1L playing", prize: "₹10,000",   category: "Puzzle",    icon: "🍬" },
   cricket:   { gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)", players: "6.1L playing", prize: "₹25,000",  category: "Cricket",    icon: "🏏" },
   solitaire: { gradient: "linear-gradient(135deg, #e91e8c 0%, #6a0050 100%)", players: "2.1L playing", prize: "₹5,000",   category: "Card Games", icon: "🃏" },
 };
@@ -173,15 +174,16 @@ interface DashboardProps {
   onSnakes?: (fee?: number) => void;
   onCarrom?: (fee?: number) => void;
   onBubble?: (fee?: number) => void;
+  onCandy?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -210,6 +212,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (gameId === "snakes"    || gameId === "2")  { onSnakes?.(fee);   return; }
     if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }
     if (gameId === "bubble"    || gameId === "1")  { onBubble?.(fee);   return; }
+    if (gameId === "candy"     || gameId === "9")  { onCandy?.(fee);    return; }
     // solitaire + ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }
@@ -682,6 +685,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
               { id: "snakes",  name: "Snake & Ladder", icon: "🐍", gradient: "linear-gradient(135deg, #11998e, #38ef7d)", minFee: "₹2" },
               { id: "carrom",  name: "Carrom",         icon: "🎯", gradient: "linear-gradient(135deg, #f7971e, #ffd200)", minFee: "₹5" },
               { id: "bubble",  name: "Bubble Shooter", icon: "🫧", gradient: "linear-gradient(135deg, #f093fb, #f5576c)", minFee: "₹5" },
+              { id: "candy",   name: "Candy Match",    icon: "🍬", gradient: "linear-gradient(135deg, #FF4081, #00E5FF)",   minFee: "₹5" },
             ].map((g) => {
               return (
                 <motion.div

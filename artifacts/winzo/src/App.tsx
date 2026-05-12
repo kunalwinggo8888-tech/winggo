@@ -17,6 +17,7 @@ import WorldWarGame from "@/pages/WorldWarGame";
 import SnakesGame from "@/pages/SnakesGame";
 import CarromGame from "@/pages/CarromGame";
 import BubbleGame from "@/pages/BubbleGame";
+import CandyGame from "@/pages/CandyGame";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
@@ -31,7 +32,7 @@ const queryClient = new QueryClient();
 
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
-  | "spinwheel" | "ludo" | "worldwar" | "snakes" | "carrom" | "bubble"
+  | "spinwheel" | "ludo" | "worldwar" | "snakes" | "carrom" | "bubble" | "candy"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -48,6 +49,7 @@ function AppInner() {
   const [snakesFee, setSnakesFee]     = useState(10);
   const [carromFee, setCarromFee]     = useState(10);
   const [bubbleFee, setBubbleFee]     = useState(10);
+  const [candyFee, setCandyFee]       = useState(10);
   const [newUserName, setNewUserName] = useState("");
 
   // Track whether the pending login was a new user signup
@@ -191,6 +193,7 @@ function AppInner() {
             onSnakes={(fee) => { setSnakesFee(fee ?? 10); setScreen("snakes"); }}
             onCarrom={(fee) => { setCarromFee(fee ?? 10); setScreen("carrom"); }}
             onBubble={(fee) => { setBubbleFee(fee ?? 10); setScreen("bubble"); }}
+            onCandy={(fee) => { setCandyFee(fee ?? 10); setScreen("candy"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -218,6 +221,10 @@ function AppInner() {
 
         {screen === "bubble" && (
           <BubbleGame key="bubble" onBack={() => setScreen("dashboard")} initialFee={bubbleFee} />
+        )}
+
+        {screen === "candy" && (
+          <CandyGame key="candy" onBack={() => setScreen("dashboard")} initialFee={candyFee} />
         )}
 
         {screen === "leaderboard" && (
