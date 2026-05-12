@@ -161,8 +161,14 @@ const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: s
   snakes:   { gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", players: "1.9L playing", prize: "₹8,000",    category: "Board",     icon: "🐍" },
   bubble:   { gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", players: "2.4L playing", prize: "₹5,000",    category: "Casual",    icon: "🫧" },
   candy:    { gradient: "linear-gradient(135deg, #FF4081 0%, #00E5FF 100%)", players: "3.1L playing", prize: "₹10,000",   category: "Puzzle",    icon: "🍬" },
-  cricket:   { gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)", players: "6.1L playing", prize: "₹25,000",  category: "Cricket",    icon: "🏏" },
-  solitaire: { gradient: "linear-gradient(135deg, #e91e8c 0%, #6a0050 100%)", players: "2.1L playing", prize: "₹5,000",   category: "Card Games", icon: "🃏" },
+  cricket:      { gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)", players: "6.1L playing", prize: "₹25,000",  category: "Cricket",    icon: "🏏" },
+  solitaire:    { gradient: "linear-gradient(135deg, #e91e8c 0%, #6a0050 100%)", players: "2.1L playing", prize: "₹5,000",   category: "Card Games", icon: "🃏" },
+  chess:        { gradient: "linear-gradient(135deg, #8a8a8a 0%, #2d2d2d 100%)", players: "1.8L playing", prize: "₹8,000",   category: "Board",      icon: "♟️" },
+  discfootball: { gradient: "linear-gradient(135deg, #00ff87 0%, #007e3a 100%)", players: "1.2L playing", prize: "₹6,000",   category: "Sports",     icon: "🥏" },
+  rummy:        { gradient: "linear-gradient(135deg, #ff6b6b 0%, #c0392b 100%)", players: "3.5L playing", prize: "₹15,000",  category: "Card Games", icon: "🃏" },
+  callbreak:    { gradient: "linear-gradient(135deg, #4169E1 0%, #1a237e 100%)", players: "2.2L playing", prize: "₹12,000",  category: "Card Games", icon: "♠️" },
+  poker:        { gradient: "linear-gradient(135deg, #00c851 0%, #007e33 100%)", players: "1.5L playing", prize: "₹20,000",  category: "Card Games", icon: "♦️" },
+  twenty1:      { gradient: "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)", players: "2.8L playing", prize: "₹18,000",  category: "Card Games", icon: "🃏" },
 };
 
 const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
@@ -175,15 +181,22 @@ interface DashboardProps {
   onCarrom?: (fee?: number) => void;
   onBubble?: (fee?: number) => void;
   onCandy?: (fee?: number) => void;
+  onChess?: (fee?: number) => void;
+  onDiscFootball?: (fee?: number) => void;
+  onRummy?: (fee?: number) => void;
+  onCallBreak?: (fee?: number) => void;
+  onPoker?: (fee?: number) => void;
+  onSolitaire?: (fee?: number) => void;
+  onTwenty1?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -212,8 +225,15 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (gameId === "snakes"    || gameId === "2")  { onSnakes?.(fee);   return; }
     if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }
     if (gameId === "bubble"    || gameId === "1")  { onBubble?.(fee);   return; }
-    if (gameId === "candy"     || gameId === "9")  { onCandy?.(fee);    return; }
-    // solitaire + ludo + all unrecognised → ludo handler
+    if (gameId === "candy"       || gameId === "9")   { onCandy?.(fee);        return; }
+    if (gameId === "chess")                           { onChess?.(fee);        return; }
+    if (gameId === "discfootball")                    { onDiscFootball?.(fee); return; }
+    if (gameId === "rummy")                           { onRummy?.(fee);        return; }
+    if (gameId === "callbreak")                       { onCallBreak?.(fee);    return; }
+    if (gameId === "poker")                           { onPoker?.(fee);        return; }
+    if (gameId === "solitaire"   || gameId === "11")  { onSolitaire?.(fee);    return; }
+    if (gameId === "twenty1")                         { onTwenty1?.(fee);      return; }
+    // ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }
 
@@ -685,7 +705,14 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
               { id: "snakes",  name: "Snake & Ladder", icon: "🐍", gradient: "linear-gradient(135deg, #11998e, #38ef7d)", minFee: "₹2" },
               { id: "carrom",  name: "Carrom",         icon: "🎯", gradient: "linear-gradient(135deg, #f7971e, #ffd200)", minFee: "₹5" },
               { id: "bubble",  name: "Bubble Shooter", icon: "🫧", gradient: "linear-gradient(135deg, #f093fb, #f5576c)", minFee: "₹5" },
-              { id: "candy",   name: "Candy Match",    icon: "🍬", gradient: "linear-gradient(135deg, #FF4081, #00E5FF)",   minFee: "₹5" },
+              { id: "candy",        name: "Candy Match",    icon: "🍬", gradient: "linear-gradient(135deg, #FF4081, #00E5FF)",   minFee: "₹5" },
+              { id: "chess",        name: "Chess",          icon: "♟️", gradient: "linear-gradient(135deg, #8a8a8a, #2d2d2d)",   minFee: "₹5" },
+              { id: "rummy",        name: "Rummy",          icon: "🃏", gradient: "linear-gradient(135deg, #ff6b6b, #c0392b)",   minFee: "₹5" },
+              { id: "callbreak",    name: "Call Break",     icon: "♠️", gradient: "linear-gradient(135deg, #4169E1, #1a237e)",   minFee: "₹5" },
+              { id: "poker",        name: "Poker",          icon: "♦️", gradient: "linear-gradient(135deg, #00c851, #007e33)",   minFee: "₹5" },
+              { id: "solitaire",    name: "Solitaire",      icon: "🃏", gradient: "linear-gradient(135deg, #e91e8c, #6a0050)",   minFee: "₹5" },
+              { id: "twenty1",      name: "21 Card",        icon: "🃏", gradient: "linear-gradient(135deg, #FFD700, #ff8c00)",   minFee: "₹5" },
+              { id: "discfootball", name: "Disc Football",  icon: "🥏", gradient: "linear-gradient(135deg, #00ff87, #007e3a)",   minFee: "₹5" },
             ].map((g) => {
               return (
                 <motion.div

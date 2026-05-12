@@ -18,6 +18,13 @@ import SnakesGame from "@/pages/SnakesGame";
 import CarromGame from "@/pages/CarromGame";
 import BubbleGame from "@/pages/BubbleGame";
 import CandyGame from "@/pages/CandyGame";
+import ChessGame from "@/pages/ChessGame";
+import DiscFootballGame from "@/pages/DiscFootballGame";
+import RummyGame from "@/pages/RummyGame";
+import CallBreakGame from "@/pages/CallBreakGame";
+import PokerGame from "@/pages/PokerGame";
+import SolitaireGame from "@/pages/SolitaireGame";
+import Twenty1Game from "@/pages/Twenty1Game";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
@@ -33,6 +40,7 @@ const queryClient = new QueryClient();
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
   | "spinwheel" | "ludo" | "worldwar" | "snakes" | "carrom" | "bubble" | "candy"
+  | "chess" | "discfootball" | "rummy" | "callbreak" | "poker" | "solitaire" | "twenty1"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -48,9 +56,16 @@ function AppInner() {
   const [worldWarFee, setWorldWarFee] = useState<number | undefined>(undefined);
   const [snakesFee, setSnakesFee]     = useState(10);
   const [carromFee, setCarromFee]     = useState(10);
-  const [bubbleFee, setBubbleFee]     = useState(10);
-  const [candyFee, setCandyFee]       = useState(10);
-  const [newUserName, setNewUserName] = useState("");
+  const [bubbleFee, setBubbleFee]         = useState(10);
+  const [candyFee, setCandyFee]           = useState(10);
+  const [chessFee, setChessFee]           = useState(10);
+  const [discFee, setDiscFee]             = useState(10);
+  const [rummyFee, setRummyFee]           = useState(10);
+  const [callBreakFee, setCallBreakFee]   = useState(10);
+  const [pokerFee, setPokerFee]           = useState(10);
+  const [solitaireFee, setSolitaireFee]   = useState(10);
+  const [twenty1Fee, setTwenty1Fee]       = useState(10);
+  const [newUserName, setNewUserName]     = useState("");
 
   // Track whether the pending login was a new user signup
   const pendingIsNewUser = useRef(false);
@@ -194,6 +209,13 @@ function AppInner() {
             onCarrom={(fee) => { setCarromFee(fee ?? 10); setScreen("carrom"); }}
             onBubble={(fee) => { setBubbleFee(fee ?? 10); setScreen("bubble"); }}
             onCandy={(fee) => { setCandyFee(fee ?? 10); setScreen("candy"); }}
+            onChess={(fee) => { setChessFee(fee ?? 10); setScreen("chess"); }}
+            onDiscFootball={(fee) => { setDiscFee(fee ?? 10); setScreen("discfootball"); }}
+            onRummy={(fee) => { setRummyFee(fee ?? 10); setScreen("rummy"); }}
+            onCallBreak={(fee) => { setCallBreakFee(fee ?? 10); setScreen("callbreak"); }}
+            onPoker={(fee) => { setPokerFee(fee ?? 10); setScreen("poker"); }}
+            onSolitaire={(fee) => { setSolitaireFee(fee ?? 10); setScreen("solitaire"); }}
+            onTwenty1={(fee) => { setTwenty1Fee(fee ?? 10); setScreen("twenty1"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -225,6 +247,34 @@ function AppInner() {
 
         {screen === "candy" && (
           <CandyGame key="candy" onBack={() => setScreen("dashboard")} initialFee={candyFee} />
+        )}
+
+        {screen === "chess" && (
+          <ChessGame key="chess" onBack={() => setScreen("dashboard")} initialFee={chessFee} />
+        )}
+
+        {screen === "discfootball" && (
+          <DiscFootballGame key="discfootball" onBack={() => setScreen("dashboard")} initialFee={discFee} />
+        )}
+
+        {screen === "rummy" && (
+          <RummyGame key="rummy" onBack={() => setScreen("dashboard")} initialFee={rummyFee} />
+        )}
+
+        {screen === "callbreak" && (
+          <CallBreakGame key="callbreak" onBack={() => setScreen("dashboard")} initialFee={callBreakFee} />
+        )}
+
+        {screen === "poker" && (
+          <PokerGame key="poker" onBack={() => setScreen("dashboard")} initialFee={pokerFee} />
+        )}
+
+        {screen === "solitaire" && (
+          <SolitaireGame key="solitaire" onBack={() => setScreen("dashboard")} initialFee={solitaireFee} />
+        )}
+
+        {screen === "twenty1" && (
+          <Twenty1Game key="twenty1" onBack={() => setScreen("dashboard")} initialFee={twenty1Fee} />
         )}
 
         {screen === "leaderboard" && (
