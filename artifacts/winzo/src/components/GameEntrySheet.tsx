@@ -1,28 +1,163 @@
 /**
- * GameEntrySheet — WINGGO
- * Premium WinZO-style game entry bottom-sheet.
- * Slides up from the bottom with neon glow, entry fee cards, wallet info,
- * and "Insufficient Balance — Add Money" guard.
+ * GameEntrySheet — WINGGO Universal Premium Entry Modal
+ * WinZO-style bottom-sheet for ALL games:
+ *  • Game-specific accent colour, header gradient, floating emoji assets
+ *  • Hexagonal honeycomb deep-purple background
+ *  • Gold trophy WINNINGS card (updates per selected fee)
+ *  • Horizontal circular entry-fee selector with gold selected state
+ *  • Full-width PLAY NOW green button with glow + shine animation
+ *  • Wallet balance guard → Add Money flow
+ *  • Coming-soon state
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
 
-// ─── CONSTANTS ────────────────────────────────────────────────
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const WIN_RATIO = 0.85;
+const PLATFORM_PCT = 0.10;  // 10% platform fee → winner gets 90% of the pot
+// prize = floor(entryFee × 2 × (1 - PLATFORM_PCT))
 
-const DEFAULT_ENTRY_TIERS = [1, 5, 10, 20, 30, 40, 50, 100, 200, 500, 1000];
+// Honeycomb SVG as encoded background-image
+const HONEYCOMB = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97'%3E%3Cpath d='M28 0 L56 16.2 L56 48.5 L28 64.7 L0 48.5 L0 16.2 Z' fill='none' stroke='rgba(255%2C255%2C255%2C0.055)' stroke-width='1'/%3E%3Cpath d='M28 64.7 L56 80.9 L56 97 L0 97 L0 80.9 Z' fill='none' stroke='rgba(255%2C255%2C255%2C0.055)' stroke-width='1'/%3E%3C/svg%3E")`;
 
-const TIER_COLORS = [
-  { bg: "rgba(99,102,241,0.14)",  border: "rgba(99,102,241,0.35)",  glow: "rgba(99,102,241,0.25)",  label: "#818cf8" },
-  { bg: "rgba(168,85,247,0.14)",  border: "rgba(168,85,247,0.35)",  glow: "rgba(168,85,247,0.25)",  label: "#c084fc" },
-  { bg: "rgba(59,130,246,0.14)",  border: "rgba(59,130,246,0.35)",  glow: "rgba(59,130,246,0.25)",  label: "#60a5fa" },
-  { bg: "rgba(124,58,237,0.14)",  border: "rgba(124,58,237,0.35)",  glow: "rgba(124,58,237,0.25)",  label: "#a78bfa" },
-  { bg: "rgba(236,72,153,0.14)",  border: "rgba(236,72,153,0.35)",  glow: "rgba(236,72,153,0.25)",  label: "#f472b6" },
-];
+// ─── GAME CONFIG MAP ──────────────────────────────────────────────────────────
 
-// ─── TYPES ────────────────────────────────────────────────────
+interface GameCfg {
+  accent: string;          // primary accent colour (hex)
+  headerGrad: string;      // header bar gradient
+  mainGrad: string;        // main body gradient
+  assets: string[];        // floating emoji array (8 elements)
+  defaultFees: number[];   // fallback entry fee tiers
+  bigTitle: string;        // large glow text in main area
+}
+
+const GAME_MAP: Record<string, GameCfg> = {
+  /* ── Ludo ── */
+  ludo: {
+    accent: "#9333ea", headerGrad: "linear-gradient(135deg,#3b0764,#7e22ce,#9333ea)",
+    mainGrad: "linear-gradient(180deg,#120630 0%,#0e0220 100%)",
+    assets: ["🎲","🔴","🟡","🟢","🔵","🎲","🔴","🟢"],
+    defaultFees: [1,5,10,50,100,500], bigTitle: "LUDO",
+  },
+  "5": {
+    accent: "#9333ea", headerGrad: "linear-gradient(135deg,#3b0764,#7e22ce,#9333ea)",
+    mainGrad: "linear-gradient(180deg,#120630 0%,#0e0220 100%)",
+    assets: ["🎲","🔴","🟡","🟢","🔵","🎲","🔴","🟢"],
+    defaultFees: [1,5,10,50,100,500], bigTitle: "LUDO",
+  },
+
+  /* ── Carrom ── */
+  carrom: {
+    accent: "#f97316", headerGrad: "linear-gradient(135deg,#7c2d12,#c2410c,#f97316)",
+    mainGrad: "linear-gradient(180deg,#1c0a02 0%,#120500 100%)",
+    assets: ["⚪","⚫","⚪","⚫","🪙","⚫","⚪","🪙"],
+    defaultFees: [5,10,20,50,100], bigTitle: "CARROM",
+  },
+  "3": {
+    accent: "#f97316", headerGrad: "linear-gradient(135deg,#7c2d12,#c2410c,#f97316)",
+    mainGrad: "linear-gradient(180deg,#1c0a02 0%,#120500 100%)",
+    assets: ["⚪","⚫","⚪","⚫","🪙","⚫","⚪","🪙"],
+    defaultFees: [5,10,20,50,100], bigTitle: "CARROM",
+  },
+
+  /* ── Snake & Ladder ── */
+  snakes: {
+    accent: "#10b981", headerGrad: "linear-gradient(135deg,#022c22,#065f46,#10b981)",
+    mainGrad: "linear-gradient(180deg,#021a12 0%,#010d09 100%)",
+    assets: ["🐍","🪜","🎲","🐍","🪜","🐍","🎲","🪜"],
+    defaultFees: [2,5,10,50,100], bigTitle: "SAPSIDI",
+  },
+  "2": {
+    accent: "#10b981", headerGrad: "linear-gradient(135deg,#022c22,#065f46,#10b981)",
+    mainGrad: "linear-gradient(180deg,#021a12 0%,#010d09 100%)",
+    assets: ["🐍","🪜","🎲","🐍","🪜","🐍","🎲","🪜"],
+    defaultFees: [2,5,10,50,100], bigTitle: "SAPSIDI",
+  },
+
+  /* ── Solitaire ── */
+  solitaire: {
+    accent: "#ec4899", headerGrad: "linear-gradient(135deg,#500724,#9d174d,#ec4899)",
+    mainGrad: "linear-gradient(180deg,#200516 0%,#10020a 100%)",
+    assets: ["♠","♥","♦","♣","🃏","♠","♥","♦"],
+    defaultFees: [1,2,5,10,25,50], bigTitle: "SOLITAIRE",
+  },
+  "11": {
+    accent: "#ec4899", headerGrad: "linear-gradient(135deg,#500724,#9d174d,#ec4899)",
+    mainGrad: "linear-gradient(180deg,#200516 0%,#10020a 100%)",
+    assets: ["♠","♥","♦","♣","🃏","♠","♥","♦"],
+    defaultFees: [1,2,5,10,25,50], bigTitle: "SOLITAIRE",
+  },
+
+  /* ── World War ── */
+  worldwar: {
+    accent: "#6366f1", headerGrad: "linear-gradient(135deg,#1e1b4b,#3730a3,#6366f1)",
+    mainGrad: "linear-gradient(180deg,#0a0818 0%,#06040f 100%)",
+    assets: ["⚔️","🛡️","💣","⚔️","🏆","💥","⚔️","🛡️"],
+    defaultFees: [10,20,50,100,500], bigTitle: "WORLD WAR",
+  },
+  "7": {
+    accent: "#6366f1", headerGrad: "linear-gradient(135deg,#1e1b4b,#3730a3,#6366f1)",
+    mainGrad: "linear-gradient(180deg,#0a0818 0%,#06040f 100%)",
+    assets: ["⚔️","🛡️","💣","⚔️","🏆","💥","⚔️","🛡️"],
+    defaultFees: [10,20,50,100,500], bigTitle: "WORLD WAR",
+  },
+
+  /* ── Bubble Shooter ── */
+  bubble: {
+    accent: "#d946ef", headerGrad: "linear-gradient(135deg,#701a75,#a21caf,#d946ef)",
+    mainGrad: "linear-gradient(180deg,#1a0320 0%,#0e0112 100%)",
+    assets: ["🫧","🔴","🔵","🟡","🟢","🫧","🟣","🔴"],
+    defaultFees: [5,10,20,50], bigTitle: "BUBBLE",
+  },
+  "1": {
+    accent: "#d946ef", headerGrad: "linear-gradient(135deg,#701a75,#a21caf,#d946ef)",
+    mainGrad: "linear-gradient(180deg,#1a0320 0%,#0e0112 100%)",
+    assets: ["🫧","🔴","🔵","🟡","🟢","🫧","🟣","🔴"],
+    defaultFees: [5,10,20,50], bigTitle: "BUBBLE",
+  },
+
+  /* ── 8-Ball Pool ── */
+  pool: {
+    accent: "#3b82f6", headerGrad: "linear-gradient(135deg,#1e3a5f,#1e40af,#3b82f6)",
+    mainGrad: "linear-gradient(180deg,#020e22 0%,#010812 100%)",
+    assets: ["🎱","⚪","🔵","🟡","🔴","🎱","⚪","🔵"],
+    defaultFees: [5,10,20,50], bigTitle: "8 BALL POOL",
+  },
+  "6": {
+    accent: "#3b82f6", headerGrad: "linear-gradient(135deg,#1e3a5f,#1e40af,#3b82f6)",
+    mainGrad: "linear-gradient(180deg,#020e22 0%,#010812 100%)",
+    assets: ["🎱","⚪","🔵","🟡","🔴","🎱","⚪","🔵"],
+    defaultFees: [5,10,20,50], bigTitle: "8 BALL POOL",
+  },
+
+  /* ── Cricket ── */
+  cricket: {
+    accent: "#f59e0b", headerGrad: "linear-gradient(135deg,#78350f,#b45309,#f59e0b)",
+    mainGrad: "linear-gradient(180deg,#1c0e02 0%,#0e0601 100%)",
+    assets: ["🏏","🎯","🏆","🏏","🎯","🏏","🎯","🏆"],
+    defaultFees: [5,10,20,50], bigTitle: "CRICKET",
+  },
+  "8": {
+    accent: "#f59e0b", headerGrad: "linear-gradient(135deg,#78350f,#b45309,#f59e0b)",
+    mainGrad: "linear-gradient(180deg,#1c0e02 0%,#0e0601 100%)",
+    assets: ["🏏","🎯","🏆","🏏","🎯","🏏","🎯","🏆"],
+    defaultFees: [5,10,20,50], bigTitle: "CRICKET",
+  },
+};
+
+const DEFAULT_CFG: GameCfg = {
+  accent: "#7c3aed", headerGrad: "linear-gradient(135deg,#1e1b4b,#4c1d95,#7c3aed)",
+  mainGrad: "linear-gradient(180deg,#0e0820 0%,#06040f 100%)",
+  assets: ["🎮","💎","🎯","🎮","💎","🎯","🎮","💎"],
+  defaultFees: [5,10,20,50], bigTitle: "PLAY",
+};
+
+function getCfg(id: string): GameCfg {
+  return GAME_MAP[id] ?? DEFAULT_CFG;
+}
+
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface SheetGame {
   id: string;
@@ -41,196 +176,230 @@ interface Props {
   onAddMoney?: () => void;
 }
 
-// ─── FLOATING COIN ────────────────────────────────────────────
+// ─── FLOATING ASSETS ──────────────────────────────────────────────────────────
 
-function FloatingCoins() {
-  const coins = Array.from({ length: 10 }, (_, i) => ({
-    id: i,
-    x: 8 + i * 9,
-    delay: i * 0.18,
-    dur: 1.4 + (i % 4) * 0.25,
-    emoji: i % 3 === 0 ? "💎" : "🪙",
-    size: i % 2 === 0 ? 18 : 14,
-  }));
+function FloatingAssets({ assets, accent }: { assets: string[]; accent: string }) {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {coins.map((c) => (
-        <motion.div key={c.id} className="absolute select-none"
-          style={{ left: `${c.x}%`, bottom: 0, fontSize: c.size }}
-          initial={{ y: 0, opacity: 0 }}
-          animate={{ y: [-10, -70, -50], opacity: [0, 1, 0] }}
-          transition={{ delay: c.delay, duration: c.dur, repeat: Infinity, repeatDelay: 1.2 + c.id * 0.1 }}>
-          {c.emoji}
+      {assets.map((asset, i) => (
+        <motion.div
+          key={i}
+          className="absolute select-none"
+          style={{
+            left: `${4 + i * 12}%`,
+            bottom: "0px",
+            fontSize: i % 2 === 0 ? 22 : 16,
+            textShadow: `0 0 12px ${accent}99`,
+            lineHeight: 1,
+          }}
+          initial={{ y: 0, opacity: 0, rotate: 0 }}
+          animate={{
+            y: [-8, -90, -70],
+            opacity: [0, 0.85, 0],
+            rotate: [0, i % 2 === 0 ? 18 : -18, 5],
+          }}
+          transition={{
+            delay: i * 0.21,
+            duration: 2.2 + (i % 3) * 0.35,
+            repeat: Infinity,
+            repeatDelay: 0.4 + i * 0.12,
+            ease: "easeOut",
+          }}
+        >
+          {asset}
         </motion.div>
       ))}
     </div>
   );
 }
 
-// ─── ENTRY FEE CARD ──────────────────────────────────────────
+// ─── CIRCULAR FEE BUTTON ──────────────────────────────────────────────────────
 
-function EntryCard({
-  fee, win, theme, isSelected, disabled, onSelect,
+function FeeButton({
+  fee, isSelected, canAfford, isBest, accent, onClick,
 }: {
-  fee: number; win: number; theme: typeof TIER_COLORS[0];
-  isSelected: boolean; disabled: boolean; onSelect: () => void;
+  fee: number; isSelected: boolean; canAfford: boolean;
+  isBest: boolean; accent: string; onClick: () => void;
 }) {
-  const fmtWin = win < 1 ? win.toFixed(2) : win % 1 === 0 ? win.toFixed(0) : win.toFixed(1);
-
+  const label = fee >= 1000 ? `₹${fee / 1000}K` : `₹${fee}`;
   return (
-    <motion.button
-      whileTap={{ scale: 0.94 }}
-      onClick={onSelect}
-      disabled={disabled}
-      className="flex flex-col rounded-2xl overflow-hidden cursor-pointer relative"
-      style={{
-        background: isSelected ? theme.bg.replace("0.14", "0.28") : theme.bg,
-        border: `1.5px solid ${isSelected ? theme.label : theme.border}`,
-        boxShadow: isSelected ? `0 0 18px ${theme.glow}, 0 0 36px ${theme.glow}` : `0 0 8px ${theme.glow}`,
-        opacity: disabled ? 0.38 : 1,
-        transition: "box-shadow 0.2s, border-color 0.2s",
-      }}>
-
-      <div className="absolute top-0 left-3 right-3 h-px rounded-full"
-        style={{ background: `linear-gradient(90deg, transparent, ${theme.label}70, transparent)` }} />
-
-      {isSelected && (
-        <motion.div className="absolute inset-0 rounded-2xl pointer-events-none"
-          style={{ border: `1.5px solid ${theme.label}`, opacity: 0.5 }}
-          animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }} />
-      )}
-
-      <div className="px-3 pt-3 pb-2">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] font-black tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
-            ENTRY
-          </span>
-          {fee >= 100 && (
-            <span className="text-[8px] font-black px-1.5 py-px rounded-full"
-              style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.25)" }}>
-              HOT
-            </span>
-          )}
-        </div>
-
-        <div className="text-lg font-black leading-none" style={{ color: theme.label }}>
-          ₹{fee.toLocaleString("en-IN")}
-        </div>
-
-        <div className="mt-2 mb-2.5">
-          <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.3)" }}>WIN UP TO</div>
-          <motion.div className="text-base font-black leading-tight"
-            style={{ color: "#FFD700", textShadow: "0 0 8px rgba(255,215,0,0.4)" }}
-            animate={isSelected ? { textShadow: ["0 0 8px rgba(255,215,0,0.3)", "0 0 18px rgba(255,215,0,0.8)", "0 0 8px rgba(255,215,0,0.3)"] } : {}}
-            transition={{ duration: 1.2, repeat: Infinity }}>
-            ₹{fmtWin}
+    <div className="flex flex-col items-center gap-1 flex-shrink-0" style={{ width: 66 }}>
+      <motion.button
+        whileTap={{ scale: 0.91 }}
+        onClick={canAfford ? onClick : undefined}
+        className="relative flex items-center justify-center rounded-full cursor-pointer"
+        style={{
+          width: 62, height: 62,
+          background: isSelected
+            ? "linear-gradient(135deg, #FFD700, #ffa500)"
+            : canAfford
+            ? `rgba(255,255,255,0.05)`
+            : "rgba(255,255,255,0.02)",
+          border: isSelected
+            ? "2.5px solid #FFD700"
+            : canAfford
+            ? `2px solid ${accent}55`
+            : "1.5px solid rgba(255,255,255,0.08)",
+          boxShadow: isSelected
+            ? `0 0 22px rgba(255,215,0,0.65), 0 0 44px rgba(255,215,0,0.25)`
+            : canAfford
+            ? `0 0 12px ${accent}22`
+            : "none",
+          opacity: canAfford ? 1 : 0.32,
+          transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s",
+        }}
+        animate={isSelected ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+        transition={{ duration: 0.9, repeat: isSelected ? Infinity : 0 }}
+      >
+        {/* Shimmer on selected */}
+        {isSelected && (
+          <motion.div
+            className="absolute inset-0 rounded-full pointer-events-none overflow-hidden"
+            style={{ borderRadius: "50%" }}
+          >
+            <motion.div
+              style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%)",
+              }}
+              animate={{ x: ["-120%", "220%"] }}
+              transition={{ duration: 1.3, repeat: Infinity, repeatDelay: 1 }}
+            />
           </motion.div>
-        </div>
-      </div>
+        )}
 
-      <div className="px-2.5 pb-3">
-        <motion.div
-          className="w-full py-2 rounded-xl font-black text-xs text-center relative overflow-hidden"
-          style={{
-            background: disabled
-              ? "rgba(80,80,80,0.4)"
-              : isSelected
-              ? "linear-gradient(135deg, #16a34a, #15803d)"
-              : "linear-gradient(135deg, rgba(22,163,74,0.7), rgba(21,128,61,0.7))",
-            color: disabled ? "rgba(255,255,255,0.3)" : "#fff",
-            boxShadow: isSelected ? "0 0 12px rgba(22,163,74,0.6)" : "none",
-            letterSpacing: "0.04em",
-          }}>
-          {isSelected && (
-            <motion.div className="absolute inset-0 pointer-events-none"
-              style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.2) 50%, transparent 65%)" }}
-              animate={{ x: ["-110%", "210%"] }} transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 0.6 }} />
-          )}
-          {disabled ? "Need More ₹" : "PLAY NOW"}
-        </motion.div>
-      </div>
-    </motion.button>
-  );
-}
+        <span style={{
+          fontSize: fee >= 1000 ? 11 : fee >= 100 ? 13 : 16,
+          fontWeight: 900,
+          color: isSelected ? "#000" : canAfford ? "#fff" : "rgba(255,255,255,0.25)",
+          letterSpacing: "-0.02em",
+        }}>
+          {label}
+        </span>
 
-// ─── GAME HEADER ──────────────────────────────────────────────
-
-function GameHeader({ game, onClose }: { game: SheetGame; onClose: () => void }) {
-  return (
-    <div className="relative shrink-0 px-5 pb-4 overflow-hidden">
-      <FloatingCoins />
-      <motion.button whileTap={{ scale: 0.9 }} onClick={onClose}
-        className="absolute top-0 right-5 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer z-10"
-        style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.45)" }}>
-        ✕
+        {/* Checkmark overlay on selected */}
+        {isSelected && (
+          <motion.div
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+            style={{ background: "#22c55e", border: "1.5px solid #fff", fontSize: 10, fontWeight: 900, color: "#fff" }}
+            initial={{ scale: 0 }} animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22 }}
+          >
+            ✓
+          </motion.div>
+        )}
       </motion.button>
-      <div className="flex items-center gap-4">
-        <motion.div
-          className="relative shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center text-4xl"
-          style={{
-            background: game.gradient,
-            boxShadow: "0 0 24px rgba(139,92,246,0.5), 0 0 48px rgba(139,92,246,0.2)",
-            border: "2px solid rgba(255,255,255,0.15)",
-          }}
-          animate={{ boxShadow: [
-            "0 0 20px rgba(139,92,246,0.4), 0 0 40px rgba(139,92,246,0.15)",
-            "0 0 35px rgba(255,215,0,0.4), 0 0 60px rgba(139,92,246,0.25)",
-            "0 0 20px rgba(139,92,246,0.4), 0 0 40px rgba(139,92,246,0.15)",
-          ] }}
-          transition={{ duration: 2.2, repeat: Infinity }}>
-          {game.icon}
-          <div className="absolute top-1 left-2 w-8 h-3 rounded-full opacity-30"
-            style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.8), transparent)" }} />
-        </motion.div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-2xl font-black text-white leading-tight">{game.name}</h2>
-          <motion.div className="h-px w-24 mt-0.5 rounded-full"
-            style={{ background: "linear-gradient(90deg, #a78bfa, #FFD700)" }}
-            animate={{ width: ["60px", "96px", "60px"] }} transition={{ duration: 2, repeat: Infinity }} />
-          <p className="text-sm font-bold mt-2"
-            style={{ background: "linear-gradient(90deg, #a78bfa, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            ✨ Play &amp; Win Real Cash
-          </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            <motion.div className="w-1.5 h-1.5 rounded-full bg-red-500"
-              animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.9, repeat: Infinity }} />
-            <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>
-              {game.players}
-            </span>
-          </div>
-        </div>
-      </div>
+
+      {/* Tag below button */}
+      {isBest ? (
+        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+          style={{ background: "rgba(255,215,0,0.18)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.4)", letterSpacing: "0.04em" }}>
+          BEST
+        </span>
+      ) : !canAfford ? (
+        <span className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.18)" }}>Low bal</span>
+      ) : (
+        <span className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.0)" }}>_</span>
+      )}
     </div>
   );
 }
 
-// ─── MAIN SHEET ───────────────────────────────────────────────
+// ─── TROPHY WINNINGS CARD ─────────────────────────────────────────────────────
+
+function WinningsCard({ fee, accent }: { fee: number; accent: string }) {
+  const prize = Math.floor(fee * 2 * (1 - PLATFORM_PCT));
+  return (
+    <motion.div
+      className="mx-5 flex items-center justify-between px-4 py-3 rounded-2xl"
+      style={{
+        background: "linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,140,0,0.08))",
+        border: "1.5px solid rgba(255,215,0,0.35)",
+        boxShadow: "0 0 24px rgba(255,215,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)",
+      }}
+      key={fee}
+      initial={{ scale: 0.97, opacity: 0.8 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="flex items-center gap-3">
+        <motion.span
+          className="text-2xl"
+          animate={{ rotate: [0, -8, 8, 0] }}
+          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1 }}
+        >🏆</motion.span>
+        <div>
+          <div className="text-[10px] font-black tracking-widest uppercase"
+            style={{ color: "rgba(255,215,0,0.6)" }}>WINNINGS</div>
+          <motion.div
+            className="font-black text-2xl leading-tight"
+            style={{ color: "#FFD700", textShadow: "0 0 16px rgba(255,215,0,0.6)" }}
+            key={prize}
+            initial={{ y: -6, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.25 }}
+          >
+            ₹{prize.toLocaleString("en-IN")}
+          </motion.div>
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-0.5">
+        <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.3)" }}>Entry</div>
+        <div className="text-sm font-black" style={{ color: "rgba(255,255,255,0.55)" }}>₹{fee}</div>
+        <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.2)" }}>Platform 10%</div>
+      </div>
+
+      {/* Shine sweep */}
+      <motion.div className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden">
+        <motion.div
+          style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%)",
+          }}
+          animate={{ x: ["-130%", "230%"] }}
+          transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
+        />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Props) {
   const { total, wallet } = useWallet();
   const bonus = wallet.bonus;
-  const [selected, setSelected] = useState<number | null>(null);
 
-  const tiers = (game?.entryFees && game.entryFees.length > 0) ? game.entryFees : DEFAULT_ENTRY_TIERS;
+  const cfg = useMemo(() => getCfg(game?.id ?? ""), [game?.id]);
+  const tiers = useMemo(() => {
+    const raw = (game?.entryFees && game.entryFees.length > 0) ? game.entryFees : cfg.defaultFees;
+    return raw.slice().sort((a, b) => a - b);
+  }, [game?.entryFees, cfg.defaultFees]);
+
+  const bestIdx = Math.floor(tiers.length / 2);
+  const defaultFee = tiers[bestIdx] ?? tiers[0];
+  const [selected, setSelected] = useState<number>(defaultFee);
+
+  // Reset selection when game changes
+  useMemo(() => { setSelected(defaultFee); }, [defaultFee]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const minFee = Math.min(...tiers);
   const insufficient = total < minFee;
+  const canPlaySelected = total >= selected;
 
-  function handlePlay(fee: number) {
-    setSelected(fee);
-    setTimeout(() => {
-      onPlay(fee);
-      setSelected(null);
-    }, 320);
+  function handlePlay() {
+    if (!canPlaySelected) return;
+    onPlay(selected);
   }
 
   return (
     <AnimatePresence>
       {game && (
         <>
-          {/* ── Backdrop ── */}
+          {/* ── Dark backdrop ── */}
           <motion.div
             className="fixed inset-0 z-[80]"
-            style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(14px)", maxWidth: 480, margin: "0 auto" }}
+            style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", maxWidth: 480, margin: "0 auto" }}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
           />
@@ -240,218 +409,270 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
             className="fixed bottom-0 inset-x-0 z-[90] flex flex-col overflow-hidden"
             style={{
               maxWidth: 480, margin: "0 auto",
-              maxHeight: "92dvh",
+              maxHeight: "93dvh",
               borderRadius: "28px 28px 0 0",
-              background: "linear-gradient(175deg, #110330 0%, #080118 40%, #040010 100%)",
-              border: "1.5px solid rgba(139,92,246,0.35)",
+              background: cfg.mainGrad,
+              border: `1.5px solid ${cfg.accent}35`,
               borderBottom: "none",
-              boxShadow: "0 -8px 60px rgba(124,58,237,0.3), 0 -2px 20px rgba(124,58,237,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
+              boxShadow: `0 -8px 60px ${cfg.accent}30, 0 -2px 20px ${cfg.accent}18, inset 0 1px 0 rgba(255,255,255,0.06)`,
             }}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 360, damping: 34 }}>
-
-            {/* ── Neon top border glow ── */}
-            <motion.div className="absolute top-0 left-8 right-8 h-px rounded-full"
-              style={{ background: "linear-gradient(90deg, transparent, #a78bfa, #FFD700, #a78bfa, transparent)" }}
-              animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
-
-            {/* ── Handle ── */}
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }} />
+            transition={{ type: "spring", stiffness: 380, damping: 36 }}
+          >
+            {/* ── Drag handle ── */}
+            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+              <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
             </div>
 
-            {/* ── Game Header ── */}
-            <GameHeader game={game} onClose={onClose} />
+            {/* ── TOP HEADER BAR ── */}
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-2.5 relative overflow-hidden"
+              style={{ background: cfg.headerGrad, boxShadow: `0 2px 20px ${cfg.accent}50` }}>
+              {/* Glow line at bottom of header */}
+              <motion.div className="absolute bottom-0 left-8 right-8 h-px rounded-full"
+                style={{ background: `linear-gradient(90deg, transparent, ${cfg.accent}, #FFD700, ${cfg.accent}, transparent)` }}
+                animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
 
-            {/* ── Divider ── */}
-            <div className="mx-5 h-px shrink-0"
-              style={{ background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.3), transparent)" }} />
+              {/* Left: icon + name */}
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl"
+                  style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                  {game.icon}
+                </div>
+                <div>
+                  <div className="font-black text-white text-base leading-tight">{game.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <motion.div className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: "#22c55e" }}
+                      animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.9, repeat: Infinity }} />
+                    <span className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.6)" }}>
+                      {game.players}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: rules + results + close */}
+              <div className="flex items-center gap-1">
+                <button className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer"
+                  style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)", fontSize: 14 }}
+                  title="Rules">📋</button>
+                <button className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer"
+                  style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)", fontSize: 14 }}
+                  title="Results">📊</button>
+                <button onClick={onClose}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer"
+                  style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)", fontSize: 14, color: "rgba(255,255,255,0.7)" }}>
+                  ✕
+                </button>
+              </div>
+            </div>
 
             {/* ── COMING SOON STATE ── */}
             {game.comingSoon ? (
               <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-5">
                 <motion.div
                   className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl"
-                  style={{ background: game.gradient, boxShadow: "0 0 40px rgba(139,92,246,0.4)" }}
-                  animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+                  style={{ background: cfg.headerGrad, boxShadow: `0 0 40px ${cfg.accent}50` }}
+                  animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 2, repeat: Infinity }}>
                   {game.icon}
                 </motion.div>
                 <div className="text-center">
-                  <div className="text-xs font-black tracking-widest uppercase mb-2" style={{ color: "#a78bfa" }}>
-                    Coming Soon
-                  </div>
+                  <div className="text-xs font-black tracking-widest uppercase mb-2" style={{ color: cfg.accent }}>Coming Soon</div>
                   <h3 className="text-2xl font-black text-white mb-2">{game.name}</h3>
                   <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    We're building this game for you. It will launch very soon with exciting prizes!
+                    We're building this game. It will launch very soon with exciting prizes!
                   </p>
                 </div>
-                <div className="w-full px-2 py-3.5 rounded-2xl text-center font-black text-sm"
-                  style={{ background: "rgba(139,92,246,0.12)", border: "1.5px dashed rgba(139,92,246,0.35)", color: "#a78bfa" }}>
+                <div className="w-full px-4 py-3.5 rounded-2xl text-center font-black text-sm"
+                  style={{ background: `${cfg.accent}18`, border: `1.5px dashed ${cfg.accent}50`, color: cfg.accent }}>
                   🔔 Notify Me When Live
                 </div>
-                <motion.button
-                  whileTap={{ scale: 0.96 }} onClick={onClose}
+                <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
                   className="w-full py-3.5 rounded-2xl font-black text-base cursor-pointer"
-                  style={{ background: "linear-gradient(135deg, #FFD700, #ff8c00)", color: "#000" }}>
+                  style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000" }}>
                   Back to Games
                 </motion.button>
               </div>
+
             ) : insufficient ? (
-              /* ── INSUFFICIENT BALANCE STATE ── */
+              /* ── INSUFFICIENT BALANCE ── */
               <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-4">
-                <motion.div
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-4xl"
-                  style={{
-                    background: "rgba(239,68,68,0.12)",
-                    border: "2px solid rgba(239,68,68,0.35)",
-                    boxShadow: "0 0 30px rgba(239,68,68,0.2)",
-                  }}
+                <motion.div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl"
+                  style={{ background: "rgba(239,68,68,0.12)", border: "2px solid rgba(239,68,68,0.35)", boxShadow: "0 0 30px rgba(239,68,68,0.2)" }}
                   animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }}>
                   💳
                 </motion.div>
-
                 <div className="text-center">
                   <h3 className="text-xl font-black text-white mb-1">Insufficient Balance</h3>
                   <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
                     Please add money to play {game.name}
                   </p>
                 </div>
-
-                {/* Balance vs needed */}
                 <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div className="flex items-center justify-between px-4 py-3"
-                    style={{ background: "rgba(239,68,68,0.08)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="flex justify-between px-4 py-3" style={{ background: "rgba(239,68,68,0.08)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>Your Balance</span>
                     <span className="text-base font-black" style={{ color: "#ef4444" }}>₹{total.toFixed(2)}</span>
                   </div>
-                  <div className="flex items-center justify-between px-4 py-3"
-                    style={{ background: "rgba(255,215,0,0.05)" }}>
+                  <div className="flex justify-between px-4 py-3" style={{ background: "rgba(255,215,0,0.05)" }}>
                     <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>Minimum Entry</span>
                     <span className="text-base font-black" style={{ color: "#FFD700" }}>₹{minFee}</span>
                   </div>
                 </div>
-
-                <div className="text-xs text-center font-medium" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  You need at least{" "}
-                  <span style={{ color: "#FFD700" }}>₹{(minFee - total).toFixed(2)}</span>{" "}
-                  more to play
-                </div>
-
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
+                <motion.button whileTap={{ scale: 0.96 }}
                   onClick={() => { onClose(); onAddMoney?.(); }}
                   className="w-full py-4 rounded-2xl font-black text-base cursor-pointer relative overflow-hidden"
-                  style={{
-                    background: "linear-gradient(135deg, #FFD700 0%, #ff8c00 100%)",
-                    color: "#000",
-                    boxShadow: "0 0 24px rgba(255,215,0,0.4)",
-                  }}>
+                  style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000", boxShadow: "0 0 24px rgba(255,215,0,0.4)" }}>
                   <motion.div className="absolute inset-0 pointer-events-none"
-                    style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.3) 50%, transparent 65%)" }}
-                    animate={{ x: ["-110%", "210%"] }} transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.8 }} />
+                    style={{ background: "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.3) 50%,transparent 65%)" }}
+                    animate={{ x: ["-110%","210%"] }} transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.8 }} />
                   💰 Add Money Now
                 </motion.button>
-
-                <button onClick={onClose} className="text-xs cursor-pointer" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  Cancel
-                </button>
+                <button onClick={onClose} className="text-xs cursor-pointer" style={{ color: "rgba(255,255,255,0.3)" }}>Cancel</button>
               </div>
-            ) : (
-              /* ── NORMAL ENTRY FEE STATE ── */
-              <>
-                <div className="flex items-center justify-between px-5 pt-3.5 pb-2 shrink-0">
-                  <p className="text-xs font-black tracking-widest uppercase" style={{ color: "rgba(167,139,250,0.7)" }}>
-                    ⚡ Choose Entry Fee
-                  </p>
-                  <span className="text-[10px] font-bold" style={{ color: "rgba(255,215,0,0.5)" }}>
-                    Win up to 85%
-                  </span>
-                </div>
 
-                <div className="flex-1 overflow-y-auto px-4 pb-3 min-h-0">
-                  <div className="grid grid-cols-3 gap-2.5">
-                    {tiers.map((fee, i) => {
-                      const win = parseFloat((fee * WIN_RATIO).toFixed(2));
-                      const theme = TIER_COLORS[i % TIER_COLORS.length];
-                      const canAfford = total >= fee;
-                      return (
-                        <EntryCard key={fee}
-                          fee={fee} win={win} theme={theme}
-                          isSelected={selected === fee}
-                          disabled={!canAfford}
-                          onSelect={() => { if (canAfford) handlePlay(fee); }}
-                        />
-                      );
-                    })}
+            ) : (
+              /* ── NORMAL ENTRY STATE ── */
+              <>
+                {/* ── MAIN CONTENT AREA (honeycomb + floating assets + winnings) ── */}
+                <div className="flex-shrink-0 relative overflow-hidden"
+                  style={{ height: 180, backgroundImage: HONEYCOMB, backgroundSize: "56px 97px" }}>
+
+                  {/* Floating game assets */}
+                  <FloatingAssets assets={cfg.assets} accent={cfg.accent} />
+
+                  {/* Large glow game title */}
+                  <div className="absolute inset-x-0 top-4 flex justify-center">
+                    <motion.span
+                      className="font-black text-3xl tracking-widest"
+                      style={{
+                        color: "rgba(255,255,255,0.08)",
+                        textShadow: `0 0 30px ${cfg.accent}60`,
+                        letterSpacing: "0.18em",
+                        userSelect: "none",
+                        fontSize: cfg.bigTitle.length > 8 ? "1.5rem" : "1.875rem",
+                      }}
+                      animate={{ opacity: [0.06, 0.14, 0.06], textShadow: [`0 0 30px ${cfg.accent}40`, `0 0 55px ${cfg.accent}80`, `0 0 30px ${cfg.accent}40`] }}
+                      transition={{ duration: 2.5, repeat: Infinity }}
+                    >
+                      {cfg.bigTitle}
+                    </motion.span>
                   </div>
 
-                  {total < Math.max(...tiers) && total >= minFee && (
-                    <motion.div className="mt-3 px-4 py-3 rounded-2xl flex items-center gap-3"
-                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                      style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                      <span className="text-xl">💡</span>
-                      <div>
-                        <p className="text-xs font-black" style={{ color: "#f59e0b" }}>Add Money for Higher Stakes</p>
-                        <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                          Tap Add Money to unlock bigger rooms
-                        </p>
-                      </div>
-                      <motion.button whileTap={{ scale: 0.95 }}
-                        onClick={() => { onClose(); onAddMoney?.(); }}
-                        className="shrink-0 px-3 py-1.5 rounded-xl font-black text-xs cursor-pointer"
-                        style={{ background: "linear-gradient(135deg, #FFD700, #ff8c00)", color: "#000" }}>
-                        Add
-                      </motion.button>
-                    </motion.div>
-                  )}
+                  {/* Winnings card — centered over floating assets */}
+                  <div className="absolute inset-x-0 bottom-3 relative">
+                    <WinningsCard fee={selected} accent={cfg.accent} />
+                  </div>
                 </div>
-              </>
-            )}
 
-            {/* ── BOTTOM BAR ── */}
-            {!game.comingSoon && (
-              <div className="shrink-0 px-5 py-3"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.3)", backdropFilter: "blur(10px)" }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                {/* ── ENTRY FEE SECTION ── */}
+                <div className="flex-shrink-0 px-4 pt-3 pb-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-black tracking-widest uppercase"
+                      style={{ color: `${cfg.accent}bb` }}>⚡ Choose Entry Fee</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "rgba(34,197,94,0.7)" }}>
+                      Win up to 90%
+                    </span>
+                  </div>
+
+                  {/* Circular buttons — horizontal scroll */}
+                  <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar justify-center">
+                    {tiers.map((fee, i) => (
+                      <FeeButton
+                        key={fee}
+                        fee={fee}
+                        isSelected={selected === fee}
+                        canAfford={total >= fee}
+                        isBest={i === bestIdx}
+                        accent={cfg.accent}
+                        onClick={() => setSelected(fee)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Add money hint (if some tiers unaffordable) */}
+                {total < Math.max(...tiers) && (
+                  <div className="flex-shrink-0 flex items-center gap-2 mx-4 mb-1 px-3 py-2 rounded-xl"
+                    style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.18)" }}>
+                    <span className="text-sm">💡</span>
+                    <span className="text-[10px] font-bold flex-1" style={{ color: "rgba(245,158,11,0.7)" }}>
+                      Add money to unlock higher-stakes rooms
+                    </span>
+                    <motion.button whileTap={{ scale: 0.95 }}
+                      onClick={() => { onClose(); onAddMoney?.(); }}
+                      className="px-2.5 py-1 rounded-lg font-black text-[10px] cursor-pointer"
+                      style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000" }}>
+                      Add
+                    </motion.button>
+                  </div>
+                )}
+
+                {/* ── WALLET BAR ── */}
+                <div className="flex-shrink-0 flex items-center justify-between px-4 py-2"
+                  style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                      style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)" }}>
-                      <span className="text-base">💰</span>
+                      style={{ background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.18)" }}>
+                      <span>💰</span>
                       <div>
-                        <div className="text-[10px] font-bold" style={{ color: "rgba(255,215,0,0.6)" }}>Balance</div>
+                        <div className="text-[9px] font-bold" style={{ color: "rgba(255,215,0,0.55)" }}>Balance</div>
                         <div className="text-sm font-black" style={{ color: "#FFD700" }}>₹{total.toFixed(0)}</div>
                       </div>
                     </div>
-
                     {bonus > 0 && (
                       <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl"
-                        style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                        style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.18)" }}>
                         <span className="text-xs">🎁</span>
                         <div>
-                          <div className="text-[9px] font-bold" style={{ color: "rgba(34,197,94,0.6)" }}>Bonus</div>
+                          <div className="text-[9px] font-bold" style={{ color: "rgba(34,197,94,0.55)" }}>Bonus</div>
                           <div className="text-xs font-black" style={{ color: "#22c55e" }}>₹{bonus.toFixed(0)}</div>
                         </div>
                       </div>
                     )}
                   </div>
-
-                  {insufficient ? (
-                    <motion.button whileTap={{ scale: 0.96 }}
-                      onClick={() => { onClose(); onAddMoney?.(); }}
-                      className="px-4 py-2 rounded-xl font-black text-xs cursor-pointer"
-                      style={{ background: "linear-gradient(135deg, #FFD700, #ff8c00)", color: "#000" }}>
-                      + Add Money
-                    </motion.button>
-                  ) : (
-                    <div className="flex flex-col items-center gap-0.5 px-2">
-                      <span className="text-lg">🔒</span>
-                      <span className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.25)" }}>Secure</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 text-[10px]" style={{ color: "rgba(255,255,255,0.22)" }}>
+                    <span>🔒</span><span className="font-bold">Secure</span>
+                  </div>
                 </div>
-              </div>
+
+                {/* ── PLAY NOW BUTTON ── */}
+                <div className="flex-shrink-0 px-4 pb-5 pt-1">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handlePlay}
+                    disabled={!canPlaySelected}
+                    className="w-full py-4 rounded-2xl font-black text-lg cursor-pointer relative overflow-hidden tracking-wide"
+                    style={{
+                      background: canPlaySelected
+                        ? "linear-gradient(135deg, #16a34a, #15803d)"
+                        : "rgba(255,255,255,0.06)",
+                      color: canPlaySelected ? "#fff" : "rgba(255,255,255,0.2)",
+                      boxShadow: canPlaySelected ? "0 0 28px rgba(34,197,94,0.45), 0 0 60px rgba(34,197,94,0.2)" : "none",
+                      border: canPlaySelected ? "none" : "1px solid rgba(255,255,255,0.08)",
+                      letterSpacing: "0.08em",
+                    }}
+                    animate={canPlaySelected ? {
+                      boxShadow: [
+                        "0 0 20px rgba(34,197,94,0.3), 0 0 40px rgba(34,197,94,0.15)",
+                        "0 0 35px rgba(34,197,94,0.6), 0 0 70px rgba(34,197,94,0.25)",
+                        "0 0 20px rgba(34,197,94,0.3), 0 0 40px rgba(34,197,94,0.15)",
+                      ],
+                    } : {}}
+                    transition={{ duration: 1.8, repeat: Infinity }}
+                  >
+                    {canPlaySelected && (
+                      <motion.div className="absolute inset-0 pointer-events-none"
+                        style={{ background: "linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.22) 50%,transparent 70%)" }}
+                        animate={{ x: ["-130%","230%"] }}
+                        transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.9 }} />
+                    )}
+                    {canPlaySelected ? `▶ PLAY NOW  ₹${selected}` : `Need ₹${selected - Math.floor(total)} more`}
+                  </motion.button>
+                </div>
+              </>
             )}
           </motion.div>
         </>

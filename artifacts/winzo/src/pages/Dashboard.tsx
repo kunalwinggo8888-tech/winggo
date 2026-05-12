@@ -5,7 +5,6 @@ import { useWallet } from "@/context/useWallet";
 import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 import GameEntrySheet, { SheetGame } from "@/components/GameEntrySheet";
-import SolitaireEntrySheet from "@/components/SolitaireEntrySheet";
 
 const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports", "Battle", "Arcade"];
 
@@ -188,15 +187,9 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
   const [showSpinModal, setShowSpinModal] = useState(false);
   const [liveGames, setLiveGames] = useState<GameConfig[]>([]);
   const [pendingGame, setPendingGame] = useState<SheetGame | null>(null);
-  const [showSolitaireSheet, setShowSolitaireSheet] = useState(false);
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function openEntrySheet(game: { id: string; name: string; icon: string; gradient: string; players: string }) {
-    // Solitaire uses its own premium entry sheet
-    if (game.id === "solitaire" || game.id === "11") {
-      setShowSolitaireSheet(true);
-      return;
-    }
     const gameConfig = liveGames.find((g) => g.id === game.id);
     const entryFees = gameConfig?.entryFees;
     const comingSoon = !IMPLEMENTED_GAMES.has(game.id);
@@ -212,9 +205,10 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     const gameId = pendingGame.id;
     setPendingGame(null);
     // Each game deducts its own fee internally — do NOT deduct here
-    if (gameId === "worldwar" || gameId === "7") { onWorldWar?.(fee); return; }
-    if (gameId === "snakes"   || gameId === "2") { onSnakes?.(fee);   return; }
-    if (gameId === "carrom"   || gameId === "3") { onCarrom?.(fee);   return; }
+    if (gameId === "worldwar"  || gameId === "7")  { onWorldWar?.(fee); return; }
+    if (gameId === "snakes"    || gameId === "2")  { onSnakes?.(fee);   return; }
+    if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }
+    // solitaire + ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }
 
@@ -893,14 +887,6 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
         onClose={() => setPendingGame(null)}
         onPlay={handlePlay}
         onAddMoney={onWallet}
-      />
-
-      {/* ─── SOLITAIRE PREMIUM ENTRY SHEET ─── */}
-      <SolitaireEntrySheet
-        open={showSolitaireSheet}
-        onClose={() => setShowSolitaireSheet(false)}
-        onPlay={(fee) => { setShowSolitaireSheet(false); onLudo?.(fee); }}
-        onAddMoney={() => { setShowSolitaireSheet(false); onWallet?.(); }}
       />
 
       {/* ─── SPIN WHEEL OVERLAY MODAL ─── */}
