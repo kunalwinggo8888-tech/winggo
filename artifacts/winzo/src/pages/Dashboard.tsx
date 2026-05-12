@@ -172,15 +172,16 @@ interface DashboardProps {
   onWorldWar?: (fee?: number) => void;
   onSnakes?: (fee?: number) => void;
   onCarrom?: (fee?: number) => void;
+  onBubble?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo", "5", "solitaire", "11", "snakes", "2", "carrom", "3"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -208,6 +209,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (gameId === "worldwar"  || gameId === "7")  { onWorldWar?.(fee); return; }
     if (gameId === "snakes"    || gameId === "2")  { onSnakes?.(fee);   return; }
     if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }
+    if (gameId === "bubble"    || gameId === "1")  { onBubble?.(fee);   return; }
     // solitaire + ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }
