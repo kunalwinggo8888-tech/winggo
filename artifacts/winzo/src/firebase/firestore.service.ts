@@ -35,6 +35,7 @@ export interface UserProfile {
   lastLoginAt?: number;
   fcmToken?: string;
   banned?: boolean;
+  signupBonusClaimed?: boolean;
 }
 
 export interface WalletBalance {
@@ -42,6 +43,7 @@ export interface WalletBalance {
   deposit: number;
   bonus: number;
   updatedAt?: Timestamp;
+  signupBonusClaimed?: boolean;
 }
 
 export interface FirestoreTransaction {
@@ -137,7 +139,11 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 export async function createUserProfile(uid: string, data: Omit<UserProfile, "uid">): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   try {
-    await setDoc(doc(db, "users", uid), { ...data, lastLoginAt: Date.now() });
+    await setDoc(doc(db, "users", uid), {
+      ...data,
+      lastLoginAt: Date.now(),
+      signupBonusClaimed: true,
+    });
     await initWallet(uid);
   } catch {
     // Swallow — network may be temporarily unavailable; user can still use the app
@@ -174,12 +180,36 @@ export function subscribeUserProfile(uid: string, cb: (p: UserProfile) => void):
 
 const INITIAL_BALANCE: WalletBalance = { winning: 0, deposit: 0, bonus: 50 };
 
+/**
+ * Create wallet for a brand-new user.
+ * Protected: if wallet already exists (e.g. network retry), we do NOT overwrite it.
+ * This guarantees the ₹50 signup bonus is given exactly once.
+ */
 async function initWallet(uid: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
-  await setDoc(doc(db, "wallets", uid), {
+  const walletRef = doc(db, "wallets", uid);
+  const existing = await getDoc(walletRef);
+  if (existing.exists()) return;          // wallet already initialised — never overwrite
+  await setDoc(walletRef, {
     ...INITIAL_BALANCE,
+    signupBonusClaimed: true,
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Returns true if the signup bonus has already been given to this user.
+ * Checked on login to prevent any duplicate-bonus edge-case.
+ */
+export async function hasSignupBonusClaimed(uid: string): Promise<boolean> {
+  if (!FIREBASE_ENABLED || !db) return true;
+  try {
+    const snap = await getDoc(doc(db, "wallets", uid));
+    if (!snap.exists()) return false;
+    return snap.data()?.signupBonusClaimed === true;
+  } catch {
+    return true;  // safe default: assume claimed when we can't check
+  }
 }
 
 /** Subscribe to live wallet balance changes */

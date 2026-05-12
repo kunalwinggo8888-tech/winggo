@@ -41,6 +41,7 @@ function AppInner() {
   const [showSetup, setShowSetup]     = useState(!FIREBASE_ENABLED);
   const [showWelcome, setShowWelcome] = useState(false);
   const [ludoFee, setLudoFee]         = useState(50);
+  const [newUserName, setNewUserName] = useState("");
 
   // Track whether the pending login was a new user signup
   const pendingIsNewUser = useRef(false);
@@ -92,6 +93,9 @@ function AppInner() {
   function handleTransitionComplete() {
     setScreen("dashboard");
     if (pendingIsNewUser.current) {
+      // Capture display name at transition time so popup can greet by name
+      const name = user?.displayName ?? "";
+      setNewUserName(name);
       setShowWelcome(true);
       pendingIsNewUser.current = false;
     }
@@ -232,7 +236,8 @@ function AppInner() {
       {/* Welcome bonus popup — shown once after new user signup */}
       <WelcomeBonusModal
         visible={showWelcome}
-        onClose={() => setShowWelcome(false)}
+        onClose={() => { setShowWelcome(false); setNewUserName(""); }}
+        displayName={newUserName}
       />
 
       <Toaster />
