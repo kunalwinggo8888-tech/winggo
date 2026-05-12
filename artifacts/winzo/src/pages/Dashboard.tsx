@@ -171,15 +171,16 @@ interface DashboardProps {
   onSpin?: () => void;
   onLudo?: (fee?: number) => void;
   onWorldWar?: (fee?: number) => void;
+  onSnakes?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo", "5", "solitaire", "11"]);
+const IMPLEMENTED_GAMES = new Set(["ludo", "5", "solitaire", "11", "snakes", "2"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -211,6 +212,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
     setPendingGame(null);
     // Each game deducts its own fee internally — do NOT deduct here
     if (gameId === "worldwar" || gameId === "7") { onWorldWar?.(fee); return; }
+    if (gameId === "snakes"   || gameId === "2") { onSnakes?.(fee);   return; }
     onLudo?.(fee);
   }
 

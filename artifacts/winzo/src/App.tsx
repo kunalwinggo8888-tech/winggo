@@ -14,6 +14,7 @@ import Dashboard from "@/pages/Dashboard";
 import SpinWheel from "@/pages/SpinWheel";
 import LudoGame from "@/pages/LudoGame";
 import WorldWarGame from "@/pages/WorldWarGame";
+import SnakesGame from "@/pages/SnakesGame";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
@@ -28,7 +29,7 @@ const queryClient = new QueryClient();
 
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
-  | "spinwheel" | "ludo" | "worldwar"
+  | "spinwheel" | "ludo" | "worldwar" | "snakes"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -42,6 +43,7 @@ function AppInner() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [ludoFee, setLudoFee]         = useState(50);
   const [worldWarFee, setWorldWarFee] = useState<number | undefined>(undefined);
+  const [snakesFee, setSnakesFee]     = useState(10);
   const [newUserName, setNewUserName] = useState("");
 
   // Track whether the pending login was a new user signup
@@ -182,6 +184,7 @@ function AppInner() {
             onSpin={() => setScreen("spinwheel")}
             onLudo={(fee) => { setLudoFee(fee ?? 50); setScreen("ludo"); }}
             onWorldWar={(fee) => { setWorldWarFee(fee); setScreen("worldwar"); }}
+            onSnakes={(fee) => { setSnakesFee(fee ?? 10); setScreen("snakes"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -197,6 +200,10 @@ function AppInner() {
 
         {screen === "worldwar" && (
           <WorldWarGame key="worldwar" onBack={() => setScreen("dashboard")} initialFee={worldWarFee} />
+        )}
+
+        {screen === "snakes" && (
+          <SnakesGame key="snakes" onBack={() => setScreen("dashboard")} initialFee={snakesFee} />
         )}
 
         {screen === "leaderboard" && (
