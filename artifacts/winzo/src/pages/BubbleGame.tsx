@@ -24,7 +24,7 @@ const POP_MIN      = 3;
 
 const COLORS  = ["#EF4444","#3B82F6","#22C55E","#F59E0B","#A855F7","#EC4899"];
 const DARKS   = ["#991B1B","#1E40AF","#166534","#92400E","#5B21B6","#9D174D"];
-const LIGHTS  = ["#FCA5A5","#93C5FD","#86EFAC","FDE68A","#C4B5FD","#FBCFE8"];
+const LIGHTS  = ["#FCA5A5","#93C5FD","#86EFAC","#FDE68A","#C4B5FD","#FBCFE8"];
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────────
 
