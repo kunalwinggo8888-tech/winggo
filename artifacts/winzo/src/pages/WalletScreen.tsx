@@ -3,9 +3,12 @@
  * Full WinZO-style wallet with:
  *  - Add Cash (Razorpay presets + custom)
  *  - Withdraw to UPI
- *  - Complete Transaction History (filter: All / Deposit / Win / Withdraw / Fee / Bonus)
- *  - Game History (win/loss records per game)
+ *  - Transaction History (filter: All / Deposit / Winnings / Withdraw / Games / Rewards)
+ *  - Game History (real data derived from fee+win transaction pairs)
  *  - Transaction IDs + statuses + real-time balance
+ *
+ * NOTE: All fake/demo data has been removed. New users start with empty history.
+ *       Real data comes from Firebase Firestore (or local context actions in demo mode).
  */
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,27 +47,17 @@ const TX_ICONS: Record<string, string> = {
   win: "🏆", withdraw: "📤", deposit: "📥", bonus: "🎁", fee: "🎮",
 };
 
+// Filter tabs — clean labels matching brand design
 const TX_FILTER_TABS = [
   { id: "all",      label: "All",      icon: "📋" },
   { id: "deposit",  label: "Deposit",  icon: "📥" },
   { id: "win",      label: "Winnings", icon: "🏆" },
   { id: "withdraw", label: "Withdraw", icon: "📤" },
-  { id: "fee",      label: "Entry Fee",icon: "🎮" },
-  { id: "bonus",    label: "Bonus",    icon: "🎁" },
+  { id: "fee",      label: "Games",    icon: "🎮" },
+  { id: "bonus",    label: "Rewards",  icon: "🎁" },
 ] as const;
 
 type TxFilterType = (typeof TX_FILTER_TABS)[number]["id"];
-
-// Demo game history when Firebase not connected
-const DEMO_GAME_HISTORY = [
-  { id: "g1", game: "Ludo Classic",   result: "win",  myScore: 4, oppScore: 2, entry: 10,  prize: 18,   date: "Today, 3:12 PM",     opponent: "Rahul_G" },
-  { id: "g2", game: "World War",      result: "win",  myScore: 8, oppScore: 5, entry: 25,  prize: 45,   date: "Today, 1:30 PM",     opponent: "Priya_X" },
-  { id: "g3", game: "Ludo Classic",   result: "loss", myScore: 1, oppScore: 4, entry: 10,  prize: 0,    date: "Yesterday, 6:45 PM", opponent: "Amit_K" },
-  { id: "g4", game: "Ludo Classic",   result: "win",  myScore: 4, oppScore: 3, entry: 5,   prize: 9,    date: "Yesterday, 5:10 PM", opponent: "Vikram_S" },
-  { id: "g5", game: "World War",      result: "loss", myScore: 3, oppScore: 7, entry: 50,  prize: 0,    date: "2 days ago",         opponent: "Arjun_M" },
-  { id: "g6", game: "Ludo Classic",   result: "win",  myScore: 4, oppScore: 0, entry: 1,   prize: 1.8,  date: "2 days ago",         opponent: "Bot_Easy" },
-];
-
 type MainTab = "add" | "withdraw" | "history" | "games";
 
 interface Props { onBack?: () => void }
@@ -91,20 +84,48 @@ export default function WalletScreen({ onBack }: Props) {
   const bonusPct = customAmt ? 10 : preset.bonus;
   const bonusAmt = Math.round(finalAmt * bonusPct / 100);
 
-  // Filtered transactions
+  // ── Filtered transactions ─────────────────────────────────────────────────
   const filteredTx = useMemo(() => {
     if (txFilter === "all") return transactions as Transaction[];
     return (transactions as Transaction[]).filter((t) => t.type === txFilter);
   }, [transactions, txFilter]);
 
-  // Stats
-  const totalWon       = (transactions as Transaction[]).filter(t => t.type === "win").reduce((s, t) => s + t.rawAmount, 0);
-  const totalDeposited = (transactions as Transaction[]).filter(t => t.type === "deposit").reduce((s, t) => s + t.rawAmount, 0);
-  const totalWithdrawn = (transactions as Transaction[]).filter(t => t.type === "withdraw").reduce((s, t) => s + Math.abs(t.rawAmount), 0);
-  const gamesWon       = DEMO_GAME_HISTORY.filter(g => g.result === "win").length;
-  const gamesLost      = DEMO_GAME_HISTORY.filter(g => g.result === "loss").length;
-  const winRate        = DEMO_GAME_HISTORY.length > 0 ? Math.round(gamesWon / DEMO_GAME_HISTORY.length * 100) : 0;
+  // ── Summary stats from real transactions ─────────────────────────────────
+  const totalWon       = useMemo(() => (transactions as Transaction[]).filter(t => t.type === "win").reduce((s, t) => s + t.rawAmount, 0), [transactions]);
+  const totalDeposited = useMemo(() => (transactions as Transaction[]).filter(t => t.type === "deposit").reduce((s, t) => s + t.rawAmount, 0), [transactions]);
+  const totalWithdrawn = useMemo(() => (transactions as Transaction[]).filter(t => t.type === "withdraw").reduce((s, t) => s + Math.abs(t.rawAmount), 0), [transactions]);
 
+  // ── Game history derived from real fee+win transaction pairs ───────────────
+  const gameHistory = useMemo(() => {
+    const feeTxs  = (transactions as Transaction[]).filter(t => t.type === "fee");
+    const winTxs  = (transactions as Transaction[]).filter(t => t.type === "win");
+
+    // Build a lookup by roomId for fast matching
+    const winByRoom = new Map<string, Transaction>();
+    winTxs.forEach(t => { if (t.roomId) winByRoom.set(t.roomId, t); });
+
+    return feeTxs.map(fee => {
+      const winTx   = fee.roomId ? winByRoom.get(fee.roomId) : undefined;
+      // Parse game name from title: "Ludo Entry Fee ₹10" → "Ludo"
+      const gameName = fee.title
+        .replace(/\s*entry\s*(fee)?\s*₹?\d+.*/i, "")
+        .trim() || "Game";
+      return {
+        id:     fee.id,
+        game:   gameName,
+        result: winTx ? "win" as const : "loss" as const,
+        entry:  Math.abs(fee.rawAmount),
+        prize:  winTx ? winTx.rawAmount : 0,
+        date:   fee.time,
+      };
+    });
+  }, [transactions]);
+
+  const gamesWon  = gameHistory.filter(g => g.result === "win").length;
+  const gamesLost = gameHistory.filter(g => g.result === "loss").length;
+  const winRate   = gameHistory.length > 0 ? Math.round(gamesWon / gameHistory.length * 100) : 0;
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const handlePay = useCallback(() => {
     if (finalAmt <= 0) return;
     setShowRazorpay(true);
@@ -126,6 +147,9 @@ export default function WalletScreen({ onBack }: Props) {
       setTimeout(() => setWithdrawDone(false), 3000);
     }, 1400);
   }, [withdrawing, withdrawAmt, wallet.winning, ctxWithdraw]);
+
+  // Suppress unused warning — user is available for display
+  void user;
 
   return (
     <>
@@ -539,10 +563,18 @@ export default function WalletScreen({ onBack }: Props) {
 
                 {/* Transactions list */}
                 {filteredTx.length === 0 ? (
-                  <div className="flex flex-col items-center gap-3 py-12">
-                    <span className="text-4xl opacity-40">📋</span>
-                    <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.3)" }}>
-                      {FIREBASE_ENABLED ? "No transactions yet" : "No transactions in this category"}
+                  <div className="flex flex-col items-center gap-3 py-14">
+                    <motion.span className="text-5xl opacity-30"
+                      animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+                      📋
+                    </motion.span>
+                    <p className="text-sm font-black" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      No transactions yet
+                    </p>
+                    <p className="text-xs text-center px-8" style={{ color: "rgba(255,255,255,0.15)" }}>
+                      {txFilter === "all"
+                        ? "Deposit cash or play a game to see your history here"
+                        : `No ${TX_FILTER_TABS.find(f => f.id === txFilter)?.label.toLowerCase()} transactions yet`}
                     </p>
                   </div>
                 ) : (
@@ -606,7 +638,6 @@ export default function WalletScreen({ onBack }: Props) {
                                 className="overflow-hidden">
                                 <div className="px-4 pb-3 pt-1 space-y-2"
                                   style={{ background: "rgba(255,215,0,0.03)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                                  {/* Transaction ID */}
                                   {tx.txId && (
                                     <div className="flex items-center justify-between">
                                       <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Transaction ID</span>
@@ -618,8 +649,7 @@ export default function WalletScreen({ onBack }: Props) {
                                   )}
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Type</span>
-                                    <span className="text-xs font-black capitalize"
-                                      style={{ color: tx.color }}>
+                                    <span className="text-xs font-black capitalize" style={{ color: tx.color }}>
                                       {TX_ICONS[tx.type]} {tx.type}
                                     </span>
                                   </div>
@@ -635,11 +665,11 @@ export default function WalletScreen({ onBack }: Props) {
                                       {tx.time}
                                     </span>
                                   </div>
-                                  {tx.gameId && (
+                                  {tx.roomId && (
                                     <div className="flex items-center justify-between">
-                                      <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Game</span>
-                                      <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.55)" }}>
-                                        {tx.gameId}
+                                      <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Room ID</span>
+                                      <span className="text-xs font-mono font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>
+                                        {tx.roomId}
                                       </span>
                                     </div>
                                   )}
@@ -663,10 +693,10 @@ export default function WalletScreen({ onBack }: Props) {
                 {/* Game stats summary */}
                 <div className="grid grid-cols-4 gap-2">
                   {[
-                    { label: "Played",   value: DEMO_GAME_HISTORY.length.toString(),  color: "#a78bfa", icon: "🎮" },
-                    { label: "Won",      value: gamesWon.toString(),                   color: "#27ae60", icon: "🏆" },
-                    { label: "Lost",     value: gamesLost.toString(),                  color: "#e74c3c", icon: "💀" },
-                    { label: "Win Rate", value: `${winRate}%`,                         color: "#FFD700", icon: "📊" },
+                    { label: "Played",   value: gameHistory.length.toString(), color: "#a78bfa", icon: "🎮" },
+                    { label: "Won",      value: gamesWon.toString(),           color: "#27ae60", icon: "🏆" },
+                    { label: "Lost",     value: gamesLost.toString(),          color: "#e74c3c", icon: "💀" },
+                    { label: "Win Rate", value: `${winRate}%`,                 color: "#FFD700", icon: "📊" },
                   ].map((s) => (
                     <motion.div key={s.label}
                       className="flex flex-col items-center gap-1 py-3 rounded-2xl"
@@ -678,103 +708,98 @@ export default function WalletScreen({ onBack }: Props) {
                   ))}
                 </div>
 
-                {/* Game filter by type */}
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                  {["All Games", "Ludo Classic", "World War"].map((g) => (
-                    <motion.button key={g} whileTap={{ scale: 0.93 }}
-                      className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-black cursor-pointer"
-                      style={{
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        color: "rgba(255,255,255,0.5)",
-                      }}>
-                      {g}
-                    </motion.button>
-                  ))}
-                </div>
-
-                <p className="text-xs font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  🎮 Match History
-                </p>
-
-                {/* Game history list */}
-                <div className="space-y-2">
-                  {DEMO_GAME_HISTORY.map((g, i) => (
-                    <motion.div key={g.id}
-                      className="rounded-2xl overflow-hidden"
-                      style={{
-                        background: g.result === "win" ? "rgba(39,174,96,0.06)" : "rgba(231,76,60,0.05)",
-                        border: g.result === "win" ? "1px solid rgba(39,174,96,0.2)" : "1px solid rgba(231,76,60,0.15)",
-                      }}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}>
-
-                      {/* Header row */}
-                      <div className="flex items-center justify-between px-4 pt-3 pb-2"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base"
-                            style={{ background: "rgba(255,255,255,0.06)" }}>
-                            {g.game === "Ludo Classic" ? "🎲" : "⚔️"}
-                          </div>
-                          <div>
-                            <span className="text-sm font-black text-white">{g.game}</span>
-                            <div className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>vs {g.opponent}</div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-xs font-black px-2 py-0.5 rounded-full"
-                            style={{
-                              background: g.result === "win" ? "rgba(39,174,96,0.2)" : "rgba(231,76,60,0.2)",
-                              color: g.result === "win" ? "#27ae60" : "#e74c3c",
-                              border: `1px solid ${g.result === "win" ? "rgba(39,174,96,0.4)" : "rgba(231,76,60,0.3)"}`,
-                            }}>
-                            {g.result === "win" ? "🏆 WON" : "💀 LOST"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Details row */}
-                      <div className="grid grid-cols-4 gap-2 px-4 py-3">
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }}>ENTRY</span>
-                          <span className="text-sm font-black" style={{ color: "#e74c3c" }}>-₹{g.entry}</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }}>PRIZE</span>
-                          <span className="text-sm font-black" style={{ color: g.result === "win" ? "#27ae60" : "rgba(255,255,255,0.3)" }}>
-                            {g.result === "win" ? `+₹${g.prize}` : "₹0"}
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }}>NET</span>
-                          <span className="text-sm font-black"
-                            style={{ color: g.result === "win" ? "#27ae60" : "#e74c3c" }}>
-                            {g.result === "win" ? `+₹${(g.prize - g.entry).toFixed(1)}` : `-₹${g.entry}`}
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }}>SCORE</span>
-                          <span className="text-sm font-black" style={{ color: "rgba(255,255,255,0.6)" }}>
-                            {g.myScore}–{g.oppScore}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Date */}
-                      <div className="px-4 pb-3">
-                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>🕐 {g.date}</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-
-                {!FIREBASE_ENABLED && (
-                  <div className="py-3 px-4 rounded-2xl text-xs text-center font-bold"
-                    style={{ background: "rgba(255,215,0,0.05)", border: "1px solid rgba(255,215,0,0.12)", color: "rgba(255,215,0,0.5)" }}>
-                    🔥 Real game history will sync from Firebase when you play
+                {/* Game history list or empty state */}
+                {gameHistory.length === 0 ? (
+                  <div className="flex flex-col items-center gap-4 py-14">
+                    <motion.span className="text-5xl"
+                      animate={{ rotate: [-5, 5, -5], scale: [1, 1.08, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}>
+                      🎮
+                    </motion.span>
+                    <div className="text-center">
+                      <p className="text-sm font-black mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        No games played yet
+                      </p>
+                      <p className="text-xs px-8 leading-relaxed" style={{ color: "rgba(255,255,255,0.15)" }}>
+                        Play Ludo or other games to see your match history here
+                      </p>
+                    </div>
+                    <div className="px-4 py-3 rounded-2xl text-center"
+                      style={{ background: "rgba(255,215,0,0.05)", border: "1px solid rgba(255,215,0,0.12)" }}>
+                      <p className="text-xs font-black" style={{ color: "rgba(255,215,0,0.6)" }}>
+                        🏆 Win games to earn real cash!
+                      </p>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <p className="text-xs font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      🎮 Match History
+                    </p>
+                    <div className="space-y-2">
+                      {gameHistory.map((g, i) => (
+                        <motion.div key={g.id}
+                          className="rounded-2xl overflow-hidden"
+                          style={{
+                            background: g.result === "win" ? "rgba(39,174,96,0.06)" : "rgba(231,76,60,0.05)",
+                            border: g.result === "win" ? "1px solid rgba(39,174,96,0.2)" : "1px solid rgba(231,76,60,0.15)",
+                          }}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}>
+
+                          {/* Header row */}
+                          <div className="flex items-center justify-between px-4 pt-3 pb-2"
+                            style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base"
+                                style={{ background: "rgba(255,255,255,0.06)" }}>
+                                {g.game.toLowerCase().includes("ludo") ? "🎲" : g.game.toLowerCase().includes("war") ? "⚔️" : "🎮"}
+                              </div>
+                              <div>
+                                <span className="text-sm font-black text-white">{g.game}</span>
+                                <div className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>{g.date}</div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-xs font-black px-2 py-0.5 rounded-full"
+                                style={{
+                                  background: g.result === "win" ? "rgba(39,174,96,0.2)" : "rgba(231,76,60,0.2)",
+                                  color: g.result === "win" ? "#27ae60" : "#e74c3c",
+                                  border: `1px solid ${g.result === "win" ? "rgba(39,174,96,0.4)" : "rgba(231,76,60,0.3)"}`,
+                                }}>
+                                {g.result === "win" ? "🏆 WON" : "💀 LOST"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Details row */}
+                          <div className="grid grid-cols-3 gap-2 px-4 py-3">
+                            <div className="flex flex-col items-center">
+                              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }} className="text-xs uppercase">Entry</span>
+                              <span className="text-sm font-black" style={{ color: "#e74c3c" }}>-₹{g.entry}</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }} className="text-xs uppercase">Prize</span>
+                              <span className="text-sm font-black"
+                                style={{ color: g.result === "win" ? "#27ae60" : "rgba(255,255,255,0.3)" }}>
+                                {g.result === "win" ? `+₹${g.prize}` : "₹0"}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "9px" }} className="text-xs uppercase">Net</span>
+                              <span className="text-sm font-black"
+                                style={{ color: g.result === "win" ? "#27ae60" : "#e74c3c" }}>
+                                {g.result === "win"
+                                  ? `+₹${(g.prize - g.entry).toFixed(1)}`
+                                  : `-₹${g.entry}`}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </motion.div>
             )}

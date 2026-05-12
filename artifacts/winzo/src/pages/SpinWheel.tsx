@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
+import { useWallet } from "@/context/useWallet";
 
 const SEGMENTS = [
-  { label: "₹5 Cash",              color: "#FFD700", textColor: "#000" },
-  { label: "10 Coins",             color: "#3B82F6", textColor: "#fff" },
-  { label: "Better Luck",          color: "#374151", textColor: "#9CA3AF" },
-  { label: "₹10 Cash",            color: "#EF4444", textColor: "#fff" },
-  { label: "2x Referral",          color: "#8B5CF6", textColor: "#fff" },
-  { label: "₹2 Bonus",            color: "#10B981", textColor: "#fff" },
-  { label: "50 Coins",             color: "#F97316", textColor: "#fff" },
-  { label: "₹20 Cash",            color: "#EC4899", textColor: "#fff" },
+  { label: "₹5 Cash",              color: "#FFD700", textColor: "#000",    cashValue: 5  },
+  { label: "10 Coins",             color: "#3B82F6", textColor: "#fff",    cashValue: 0  },
+  { label: "Better Luck",          color: "#374151", textColor: "#9CA3AF", cashValue: 0  },
+  { label: "₹10 Cash",            color: "#EF4444", textColor: "#fff",    cashValue: 10 },
+  { label: "2x Referral",          color: "#8B5CF6", textColor: "#fff",    cashValue: 0  },
+  { label: "₹2 Bonus",            color: "#10B981", textColor: "#fff",    cashValue: 2  },
+  { label: "50 Coins",             color: "#F97316", textColor: "#fff",    cashValue: 0  },
+  { label: "₹20 Cash",            color: "#EC4899", textColor: "#fff",    cashValue: 20 },
 ];
 
 const N = SEGMENTS.length;
@@ -109,6 +110,8 @@ interface SpinWheelProps {
 }
 
 export default function SpinWheel({ onBack }: SpinWheelProps) {
+  const { addBonus } = useWallet();
+
   const [rotation, setRotation]   = useState(0);
   const [spinning, setSpinning]   = useState(false);
   const [winner, setWinner]       = useState<typeof SEGMENTS[0] | null>(null);
@@ -131,15 +134,22 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
     setSpinning(true);
 
     setTimeout(() => {
+      const seg = SEGMENTS[winIdx];
       setSpinning(false);
-      setWinner(SEGMENTS[winIdx]);
+      setWinner(seg);
       setShowModal(true);
       setConfetti(true);
       localStorage.setItem(DAILY_KEY, todayStr());
       setAlreadySpun(true);
+
+      // Record cash rewards as real wallet transactions
+      if (seg.cashValue > 0) {
+        addBonus(seg.cashValue, `Daily Spin — ${seg.label}`);
+      }
+
       setTimeout(() => setConfetti(false), 3500);
     }, 4500);
-  }, [spinning, alreadySpun]);
+  }, [spinning, alreadySpun, addBonus]);
 
   return (
     <motion.div
@@ -385,9 +395,9 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
                 {winner.label}
               </div>
 
-              {winner.label !== "Better Luck" && (
+              {winner.cashValue > 0 && (
                 <p className="text-zinc-400 text-xs mb-5">
-                  Reward added to your wallet automatically
+                  ₹{winner.cashValue} added to your wallet automatically
                 </p>
               )}
 

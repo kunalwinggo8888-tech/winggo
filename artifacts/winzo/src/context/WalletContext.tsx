@@ -8,10 +8,10 @@
  *  2. Subscribe to Firestore → patch in real balance when it arrives
  *  3. On every Firestore update → write back to localStorage cache
  *
- * This ensures:
- *  - Balance never flashes to ₹50 on app open (uses cached real balance)
- *  - Balance updates persist across sessions even if Firestore is slow
- *  - Wallet never resets to the signup bonus again
+ * Transaction history:
+ *  - New users start with completely EMPTY history — no fake/demo data
+ *  - History is populated only by real user actions (deposit, withdraw, game win/loss, spin, bonus)
+ *  - Demo mode (Firebase disabled) also starts empty and updates locally as user acts
  */
 import { createContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Timestamp } from "firebase/firestore";
@@ -42,6 +42,7 @@ export interface Transaction {
   color: string;
   status?: "pending" | "completed" | "rejected";
   gameId?: string;
+  roomId?: string;
   txId?: string;
 }
 
@@ -80,6 +81,7 @@ function firestoreTxToLocal(tx: FirestoreTransaction): Transaction {
     color:     tx.color,
     status:    tx.status,
     gameId:    tx.gameId,
+    roomId:    tx.roomId,
     txId:      tx.id,
   };
 }
@@ -88,15 +90,14 @@ let _txId = 100;
 function nextId() { return ++_txId; }
 
 // ─── LOCALSTORAGE WALLET CACHE ────────────────────────────────────────────────
-// Prevents "₹50 flash" — loads last-known real balance instantly on app open
 
 const LS_WALLET_KEY = "winggo_wallet_cache";
 
 function loadCachedWallet(uid: string | null): WalletData {
-  if (!uid || !FIREBASE_ENABLED) return { winning: 0, deposit: 0, bonus: 50 };
+  if (!uid || !FIREBASE_ENABLED) return { winning: 0, deposit: 0, bonus: 0 };
   try {
     const raw = localStorage.getItem(`${LS_WALLET_KEY}_${uid}`);
-    if (!raw) return { winning: 0, deposit: 0, bonus: 0 }; // New user — show 0 until Firestore fires
+    if (!raw) return { winning: 0, deposit: 0, bonus: 0 };
     return JSON.parse(raw) as WalletData;
   } catch {
     return { winning: 0, deposit: 0, bonus: 0 };
@@ -109,20 +110,10 @@ function saveWalletCache(uid: string, wallet: WalletData): void {
   } catch { /* storage full — non-fatal */ }
 }
 
-// ─── DEMO / INITIAL STATE ────────────────────────────────────────────────────
+// ─── INITIAL STATE ────────────────────────────────────────────────────────────
+// New users always start with empty history — no fake/demo transactions
 
-const DEMO_WALLET: WalletData = { winning: 0, deposit: 0, bonus: 50 };
-
-const DEMO_TX: Transaction[] = [
-  { id: 1, type: "win",      title: "Ludo Classic Win",    rawAmount:  250, display: "+₹250", time: "Today, 3:12 PM",     color: "#27ae60", status: "completed", txId: "TX001" },
-  { id: 2, type: "withdraw", title: "Withdrawal to UPI",   rawAmount: -500, display: "-₹500", time: "Today, 11:45 AM",    color: "#e74c3c", status: "completed", txId: "TX002" },
-  { id: 3, type: "deposit",  title: "Deposit + 15% Bonus", rawAmount:  575, display: "+₹575", time: "Yesterday, 8:20 PM", color: "#3498db", status: "completed", txId: "TX003" },
-  { id: 4, type: "win",      title: "World War Reward",    rawAmount:  190, display: "+₹190", time: "Yesterday, 4:05 PM", color: "#27ae60", status: "completed", txId: "TX004" },
-  { id: 5, type: "bonus",    title: "Referral Bonus",      rawAmount:   50, display: "+₹50",  time: "2 days ago",         color: "#FFD700", status: "completed", txId: "TX005" },
-  { id: 6, type: "win",      title: "Spin Wheel Win",      rawAmount:   25, display: "+₹25",  time: "2 days ago",         color: "#27ae60", status: "completed", txId: "TX006" },
-  { id: 7, type: "fee",      title: "Ludo Entry Fee",      rawAmount:  -10, display: "-₹10",  time: "3 days ago",         color: "#e74c3c", status: "completed", txId: "TX007" },
-  { id: 8, type: "deposit",  title: "Deposit",             rawAmount:  300, display: "+₹300", time: "3 days ago",         color: "#3498db", status: "completed", txId: "TX008" },
-];
+const EMPTY_WALLET: WalletData = { winning: 0, deposit: 0, bonus: 0 };
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
@@ -132,16 +123,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
-  // Initialize from localStorage cache — no ₹50 flash for returning users
+  // Initialize from localStorage cache — no flash for returning users
   const [wallet, setWallet]     = useState<WalletData>(() => loadCachedWallet(uid));
-  const [transactions, setTx]   = useState<Transaction[]>(FIREBASE_ENABLED ? [] : DEMO_TX);
+  // Always start empty — real transactions load from Firestore or accumulate via local actions
+  const [transactions, setTx]   = useState<Transaction[]>([]);
   const [isSynced, setIsSynced] = useState(false);
 
   // ── Firestore real-time subscriptions ────────────────────────────────────────
   useEffect(() => {
     if (!FIREBASE_ENABLED || !uid) {
-      setWallet(DEMO_WALLET);
-      setTx(DEMO_TX);
+      // Demo mode or not logged in — show real balance from cache, empty history
+      const cached = loadCachedWallet(uid);
+      setWallet(cached.winning === 0 && cached.deposit === 0 && cached.bonus === 0
+        ? { winning: 0, deposit: 0, bonus: 50 }   // new demo user gets the ₹50 bonus display
+        : cached
+      );
+      setTx([]);
       setIsSynced(false);
       return;
     }
@@ -159,7 +156,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       };
       setWallet(realWallet);
       setIsSynced(true);
-      // Persist real balance to localStorage for instant load next session
       saveWalletCache(uid, realWallet);
     });
 
@@ -211,7 +207,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const addWinning = useCallback((amount: number, title = "Game Win", roomId?: string) => {
     if (!FIREBASE_ENABLED || !uid) {
       setWallet((w) => ({ ...w, winning: w.winning + amount }));
-      pushLocalTx({ type: "win", title, rawAmount: amount, display: `+₹${amount}`, color: "#27ae60", status: "completed" });
+      pushLocalTx({ type: "win", title, rawAmount: amount, display: `+₹${amount}`, color: "#27ae60", status: "completed", roomId });
     } else {
       setWallet((w) => {
         const updated = { ...w, winning: w.winning + amount };
@@ -225,7 +221,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const deductFee = useCallback((amount: number, title = "Entry Fee", roomId?: string) => {
     if (!FIREBASE_ENABLED || !uid) {
       setWallet((w) => ({ ...w, deposit: Math.max(0, w.deposit - amount) }));
-      pushLocalTx({ type: "fee", title, rawAmount: -amount, display: `-₹${amount}`, color: "#e74c3c", status: "completed" });
+      pushLocalTx({ type: "fee", title, rawAmount: -amount, display: `-₹${amount}`, color: "#e74c3c", status: "completed", roomId });
     } else {
       setWallet((w) => {
         const updated = { ...w, deposit: Math.max(0, w.deposit - amount) };
