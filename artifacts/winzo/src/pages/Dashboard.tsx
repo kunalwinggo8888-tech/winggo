@@ -5,6 +5,7 @@ import { useWallet } from "@/context/useWallet";
 import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 import GameEntrySheet, { SheetGame } from "@/components/GameEntrySheet";
+import SolitaireEntrySheet from "@/components/SolitaireEntrySheet";
 
 const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports", "Battle", "Arcade"];
 
@@ -142,6 +143,15 @@ const GAMES = [
     gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
     icon: "🗡️",
   },
+  {
+    id: 11,
+    name: "Solitaire",
+    category: "Card Games",
+    players: "2.1L playing",
+    prize: "₹5,000",
+    gradient: "linear-gradient(135deg, #e91e8c 0%, #6a0050 100%)",
+    icon: "🃏",
+  },
 ];
 
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
@@ -151,7 +161,8 @@ const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: s
   carrom:   { gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)", players: "2.9L playing", prize: "₹3,000",    category: "Board",     icon: "🎯" },
   snakes:   { gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", players: "1.9L playing", prize: "₹8,000",    category: "Board",     icon: "🐍" },
   bubble:   { gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", players: "2.4L playing", prize: "₹5,000",    category: "Casual",    icon: "🫧" },
-  cricket:  { gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)", players: "6.1L playing", prize: "₹25,000",   category: "Cricket",   icon: "🏏" },
+  cricket:   { gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)", players: "6.1L playing", prize: "₹25,000",  category: "Cricket",    icon: "🏏" },
+  solitaire: { gradient: "linear-gradient(135deg, #e91e8c 0%, #6a0050 100%)", players: "2.1L playing", prize: "₹5,000",   category: "Card Games", icon: "🃏" },
 };
 
 const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
@@ -166,7 +177,7 @@ interface DashboardProps {
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo", "5"]);
+const IMPLEMENTED_GAMES = new Set(["ludo", "5", "solitaire", "11"]);
 
 export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
@@ -175,9 +186,15 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
   const [showSpinModal, setShowSpinModal] = useState(false);
   const [liveGames, setLiveGames] = useState<GameConfig[]>([]);
   const [pendingGame, setPendingGame] = useState<SheetGame | null>(null);
+  const [showSolitaireSheet, setShowSolitaireSheet] = useState(false);
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function openEntrySheet(game: { id: string; name: string; icon: string; gradient: string; players: string }) {
+    // Solitaire uses its own premium entry sheet
+    if (game.id === "solitaire" || game.id === "11") {
+      setShowSolitaireSheet(true);
+      return;
+    }
     const gameConfig = liveGames.find((g) => g.id === game.id);
     const entryFees = gameConfig?.entryFees;
     const comingSoon = !IMPLEMENTED_GAMES.has(game.id);
@@ -219,20 +236,24 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
   const allDisplayGames = liveGames
     .filter((g) => g.isActive)
     .map((g) => {
-      const v = GAME_VISUALS[g.id ?? ""] ?? {};
+      const id = g.id ?? "";
+      const v = GAME_VISUALS[id] ?? {};
       return {
-        id:       g.id ?? "",
-        name:     g.name,
-        category: v.category ?? g.category,
-        players:  v.players ?? "1L+ playing",
-        prize:    v.prize ?? `₹${Math.max(...g.entryFees) * g.prizeMultiplier * 10}`,
-        gradient: v.gradient ?? FALLBACK_GRADIENT,
-        icon:     v.icon ?? g.thumbnail,
+        id,
+        name:       g.name,
+        category:   v.category ?? g.category,
+        players:    v.players ?? "1L+ playing",
+        prize:      v.prize ?? `₹${Math.max(...g.entryFees) * g.prizeMultiplier * 10}`,
+        gradient:   v.gradient ?? FALLBACK_GRADIENT,
+        icon:       v.icon ?? g.thumbnail,
+        comingSoon: !IMPLEMENTED_GAMES.has(id),
       };
     });
 
   // Fallback to static GAMES when Firestore is loading (empty)
-  const displayGames = allDisplayGames.length > 0 ? allDisplayGames : GAMES.map((g) => ({ ...g, id: String(g.id) }));
+  const displayGames = allDisplayGames.length > 0
+    ? allDisplayGames
+    : GAMES.map((g) => ({ ...g, id: String(g.id), comingSoon: !IMPLEMENTED_GAMES.has(String(g.id)) && !IMPLEMENTED_GAMES.has(g.name.toLowerCase().replace(/\s+/g,"").split("classic")[0]) }));
 
   const filteredGames =
     activeCategory === "All Games"
@@ -656,6 +677,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
             {[
               { id: "ludo",    name: "Ludo",          icon: "🎲", gradient: "linear-gradient(135deg, #a18cd1, #fbc2eb)", minFee: "₹1" },
+              { id: "solitaire",name: "Solitaire",      icon: "🃏", gradient: "linear-gradient(135deg, #e91e8c, #6a0050)", minFee: "₹1" },
               { id: "worldwar",name: "World War",      icon: "⚔️", gradient: "linear-gradient(135deg, #667eea, #764ba2)", minFee: "₹10" },
               { id: "snakes",  name: "Snake & Ladder", icon: "🐍", gradient: "linear-gradient(135deg, #11998e, #38ef7d)", minFee: "₹2" },
               { id: "carrom",  name: "Carrom",         icon: "🎯", gradient: "linear-gradient(135deg, #f7971e, #ffd200)", minFee: "₹5" },
@@ -867,6 +889,14 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
         onClose={() => setPendingGame(null)}
         onPlay={handlePlay}
         onAddMoney={onWallet}
+      />
+
+      {/* ─── SOLITAIRE PREMIUM ENTRY SHEET ─── */}
+      <SolitaireEntrySheet
+        open={showSolitaireSheet}
+        onClose={() => setShowSolitaireSheet(false)}
+        onPlay={(fee) => { setShowSolitaireSheet(false); onLudo?.(fee); }}
+        onAddMoney={() => { setShowSolitaireSheet(false); onWallet?.(); }}
       />
 
       {/* ─── SPIN WHEEL OVERLAY MODAL ─── */}
