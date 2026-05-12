@@ -59,10 +59,13 @@ const TAG_CFG = {
 };
 
 // ─── ROOT ─────────────────────────────────────────────────────
-export default function WorldWarGame({ onBack }: { onBack?: () => void }) {
-  const [phase, setPhase]       = useState<Phase>("lobby");
+export default function WorldWarGame({ onBack, initialFee }: { onBack?: () => void; initialFee?: number }) {
+  const startRoom = initialFee
+    ? (INITIAL_ROOMS.find((r) => r.entryFee === initialFee) ?? INITIAL_ROOMS[0])
+    : INITIAL_ROOMS[0];
+  const [phase, setPhase]       = useState<Phase>(initialFee ? "card-pick" : "lobby");
   const [team, setTeam]         = useState<Team>("karan");
-  const [room, setRoom]         = useState<Room>(INITIAL_ROOMS[0]);
+  const [room, setRoom]         = useState<Room>(startRoom);
   const { deductFee, addWinning } = useWallet();
 
   const handleJoin = useCallback((r: Room) => {

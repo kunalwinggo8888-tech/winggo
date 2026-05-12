@@ -722,9 +722,9 @@ export async function seedGamesIfEmpty(): Promise<void> {
 export const DEFAULT_GAMES: GameConfig[] = [
   { id: "ludo",    name: "Ludo Classic",     category: "board",   thumbnail: "🎲", entryFees: [1,5,10,50], prizeMultiplier: 1.8, maxPlayers: 4, isActive: true,  isBotEnabled: true, botJoinDelaySec: 15 },
   { id: "worldwar",name: "World War",         category: "battle",  thumbnail: "⚔️", entryFees: [10,25,50],  prizeMultiplier: 1.9, maxPlayers: 10,isActive: true,  isBotEnabled: true, botJoinDelaySec: 10 },
-  { id: "carrom",  name: "Carrom",            category: "board",   thumbnail: "🎯", entryFees: [5,10,25],   prizeMultiplier: 1.8, maxPlayers: 2, isActive: false, isBotEnabled: true, botJoinDelaySec: 15 },
-  { id: "snakes",  name: "Snake & Ladder",    category: "board",   thumbnail: "🐍", entryFees: [2,5,10],    prizeMultiplier: 1.8, maxPlayers: 4, isActive: false, isBotEnabled: true, botJoinDelaySec: 12 },
-  { id: "bubble",  name: "Bubble Shooter",    category: "arcade",  thumbnail: "🫧", entryFees: [5,10],      prizeMultiplier: 1.7, maxPlayers: 2, isActive: false, isBotEnabled: true, botJoinDelaySec: 20 },
+  { id: "carrom",  name: "Carrom",            category: "board",   thumbnail: "🎯", entryFees: [5,10,25],   prizeMultiplier: 1.8, maxPlayers: 2, isActive: true,  isBotEnabled: true, botJoinDelaySec: 15 },
+  { id: "snakes",  name: "Snake & Ladder",    category: "board",   thumbnail: "🐍", entryFees: [2,5,10],    prizeMultiplier: 1.8, maxPlayers: 4, isActive: true,  isBotEnabled: true, botJoinDelaySec: 12 },
+  { id: "bubble",  name: "Bubble Shooter",    category: "arcade",  thumbnail: "🫧", entryFees: [5,10],      prizeMultiplier: 1.7, maxPlayers: 2, isActive: true,  isBotEnabled: true, botJoinDelaySec: 20 },
   { id: "cricket", name: "Cricket Fantasy",   category: "sports",  thumbnail: "🏏", entryFees: [25,50,100], prizeMultiplier: 2.0, maxPlayers: 6, isActive: false, isBotEnabled: false,botJoinDelaySec: 30 },
 ];
 

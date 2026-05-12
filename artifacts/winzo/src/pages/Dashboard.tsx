@@ -159,14 +159,17 @@ const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
 interface DashboardProps {
   onSpin?: () => void;
   onLudo?: (fee?: number) => void;
-  onWorldWar?: () => void;
+  onWorldWar?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
+// Games that have a real implementation vs coming soon
+const IMPLEMENTED_GAMES = new Set(["ludo", "worldwar", "5", "7"]);
+
 export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLeaderboard, appConfig }: DashboardProps) {
-  const { total, deductFee } = useWallet();
+  const { total } = useWallet();
   const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -175,15 +178,22 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function openEntrySheet(game: { id: string; name: string; icon: string; gradient: string; players: string }) {
-    if (game.id === "worldwar" || game.id === "7") { onWorldWar?.(); return; }
-    setPendingGame({ id: game.id, name: game.name, icon: game.icon, gradient: game.gradient, players: game.players });
+    const gameConfig = liveGames.find((g) => g.id === game.id);
+    const entryFees = gameConfig?.entryFees;
+    const comingSoon = !IMPLEMENTED_GAMES.has(game.id);
+    setPendingGame({
+      id: game.id, name: game.name, icon: game.icon,
+      gradient: game.gradient, players: game.players,
+      entryFees, comingSoon,
+    });
   }
 
   function handlePlay(fee: number) {
     if (!pendingGame) return;
-    deductFee(fee, `${pendingGame.name} Entry ₹${fee}`);
+    const gameId = pendingGame.id;
     setPendingGame(null);
-    if (pendingGame.id === "ludo" || pendingGame.id === "5") { onLudo?.(fee); return; }
+    // Each game deducts its own fee internally — do NOT deduct here
+    if (gameId === "worldwar" || gameId === "7") { onWorldWar?.(fee); return; }
     onLudo?.(fee);
   }
 
@@ -526,41 +536,158 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
           );
         })()}
 
-        {/* ─── SPIN & WIN PROMO CARD ─── */}
+        {/* ─── SPIN WHEEL CENTER FEATURE ─── */}
         <motion.button
           data-testid="button-spin-promo"
-          onClick={onSpin}
+          onClick={() => setShowSpinModal(true)}
           whileTap={{ scale: 0.97 }}
-          className="mx-4 mt-4 w-[calc(100%-2rem)] rounded-2xl overflow-hidden cursor-pointer flex items-center justify-between px-5 py-4 relative"
+          className="mx-4 mt-4 w-[calc(100%-2rem)] rounded-3xl overflow-hidden cursor-pointer relative"
           style={{
-            background: "linear-gradient(135deg, #1a0a3e 0%, #2d1060 50%, #1a0a3e 100%)",
-            border: "1.5px solid rgba(139,92,246,0.4)",
-            boxShadow: "0 0 24px rgba(139,92,246,0.2)",
+            background: "linear-gradient(135deg, #0f0524 0%, #1e0b4a 40%, #2d1060 70%, #1e0b4a 100%)",
+            border: "1.5px solid rgba(139,92,246,0.45)",
           }}
           animate={{
             boxShadow: [
-              "0 0 20px rgba(139,92,246,0.2)",
-              "0 0 36px rgba(255,215,0,0.25)",
-              "0 0 20px rgba(139,92,246,0.2)",
+              "0 0 24px rgba(139,92,246,0.25), 0 0 48px rgba(139,92,246,0.08)",
+              "0 0 40px rgba(255,215,0,0.35), 0 0 70px rgba(139,92,246,0.2)",
+              "0 0 24px rgba(139,92,246,0.25), 0 0 48px rgba(139,92,246,0.08)",
             ],
           }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-purple-400 mb-1">Daily Reward</div>
-            <div className="text-white font-black text-lg leading-tight">Spin &amp; Win!</div>
-            <div className="text-zinc-400 text-xs mt-0.5">Win up to ₹20 Cash every day</div>
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-4xl">🎡</span>
-            <span
-              className="text-xs font-black px-2 py-0.5 rounded-full text-black"
-              style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}
-            >
-              FREE
-            </span>
+          {/* Top shimmer */}
+          <motion.div className="absolute top-0 left-0 right-0 h-px"
+            style={{ background: "linear-gradient(90deg, transparent, #a78bfa, #FFD700, #a78bfa, transparent)" }}
+            animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} />
+
+          <div className="flex items-center justify-between px-5 py-5">
+            {/* Left: text info */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <motion.div className="w-2 h-2 rounded-full"
+                  style={{ background: "#FFD700" }}
+                  animate={{ opacity: [1, 0.2, 1], scale: [1, 1.4, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }} />
+                <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: "#a78bfa" }}>
+                  Free Daily Reward
+                </span>
+              </div>
+              <div className="text-white font-black text-2xl leading-tight mb-1">
+                Spin &amp; Win!
+              </div>
+              <div className="text-sm font-medium mb-3" style={{ color: "rgba(255,255,255,0.5)" }}>
+                Win up to <span className="font-black" style={{ color: "#FFD700" }}>₹20 Cash</span> every day
+              </div>
+              {/* Reward chips */}
+              <div className="flex gap-1.5 flex-wrap">
+                {["₹5", "₹10", "₹20"].map((amt) => (
+                  <span key={amt} className="px-2.5 py-1 rounded-full text-xs font-black"
+                    style={{ background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700" }}>
+                    {amt}
+                  </span>
+                ))}
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)" }}>
+                  Bonus
+                </span>
+              </div>
+            </div>
+
+            {/* Right: spinning wheel SVG */}
+            <div className="shrink-0 ml-4 flex flex-col items-center gap-2">
+              {/* Pointer */}
+              <div className="w-3 h-3 relative">
+                <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-0 h-0"
+                  style={{ borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "12px solid #FFD700" }} />
+              </div>
+              {/* Wheel */}
+              <motion.svg
+                width="100" height="100" viewBox="0 0 100 100"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                style={{ filter: "drop-shadow(0 0 12px rgba(139,92,246,0.6))" }}
+              >
+                {[
+                  { start: 0,   end: 45,  color: "#FFD700", label: "₹5"  },
+                  { start: 45,  end: 90,  color: "#374151", label: "🍀"  },
+                  { start: 90,  end: 135, color: "#EF4444", label: "₹10" },
+                  { start: 135, end: 180, color: "#3B82F6", label: "🪙"  },
+                  { start: 180, end: 225, color: "#10B981", label: "₹2"  },
+                  { start: 225, end: 270, color: "#8B5CF6", label: "🎁"  },
+                  { start: 270, end: 315, color: "#F97316", label: "🪙"  },
+                  { start: 315, end: 360, color: "#EC4899", label: "₹20" },
+                ].map((seg, i) => {
+                  const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
+                  const cx = 50, cy = 50, r = 46, ir = 12;
+                  const x1 = cx + r * Math.cos(toRad(seg.start));
+                  const y1 = cy + r * Math.sin(toRad(seg.start));
+                  const x2 = cx + r * Math.cos(toRad(seg.end));
+                  const y2 = cy + r * Math.sin(toRad(seg.end));
+                  const ix1 = cx + ir * Math.cos(toRad(seg.start));
+                  const iy1 = cy + ir * Math.sin(toRad(seg.start));
+                  const ix2 = cx + ir * Math.cos(toRad(seg.end));
+                  const iy2 = cy + ir * Math.sin(toRad(seg.end));
+                  return (
+                    <path key={i}
+                      d={`M${ix1},${iy1} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} L${ix2},${iy2} A${ir},${ir} 0 0,0 ${ix1},${iy1} Z`}
+                      fill={seg.color} stroke="#0f0524" strokeWidth="1.2" />
+                  );
+                })}
+                <circle cx="50" cy="50" r="12" fill="#1a0a3e" stroke="#FFD700" strokeWidth="2" />
+                <circle cx="50" cy="50" r="5" fill="#FFD700" />
+              </motion.svg>
+
+              <motion.div
+                className="px-4 py-1.5 rounded-full font-black text-xs text-black"
+                style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)", boxShadow: "0 0 12px rgba(255,215,0,0.5)" }}
+                animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                SPIN NOW
+              </motion.div>
+            </div>
           </div>
         </motion.button>
+
+        {/* ─── TOP 5 FEATURED GAMES ─── */}
+        <div className="mt-5 px-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-bold text-base">🔥 Popular Games</h3>
+            <span className="text-xs font-bold" style={{ color: "#FFD700" }}>5 Games Live</span>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {[
+              { id: "ludo",    name: "Ludo",          icon: "🎲", gradient: "linear-gradient(135deg, #a18cd1, #fbc2eb)", minFee: "₹1" },
+              { id: "worldwar",name: "World War",      icon: "⚔️", gradient: "linear-gradient(135deg, #667eea, #764ba2)", minFee: "₹10" },
+              { id: "snakes",  name: "Snake & Ladder", icon: "🐍", gradient: "linear-gradient(135deg, #11998e, #38ef7d)", minFee: "₹2" },
+              { id: "carrom",  name: "Carrom",         icon: "🎯", gradient: "linear-gradient(135deg, #f7971e, #ffd200)", minFee: "₹5" },
+              { id: "bubble",  name: "Bubble Shooter", icon: "🫧", gradient: "linear-gradient(135deg, #f093fb, #f5576c)", minFee: "₹5" },
+            ].map((g) => {
+              return (
+                <motion.div
+                  key={g.id}
+                  whileTap={{ scale: 0.93 }}
+                  onClick={() => openEntrySheet({ id: g.id, name: g.name, icon: g.icon, gradient: g.gradient, players: "1L+ playing" })}
+                  className="flex-shrink-0 w-28 rounded-2xl overflow-hidden cursor-pointer"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  <div className="relative h-20 flex items-center justify-center"
+                    style={{ background: g.gradient }}>
+                    <span className="text-4xl">{g.icon}</span>
+                    <span className="absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-lg text-black"
+                      style={{ background: "#FFD700" }}>
+                      {g.minFee}+
+                    </span>
+                  </div>
+                  <div className="px-2.5 py-2">
+                    <div className="text-white font-bold text-xs leading-tight truncate">{g.name}</div>
+                    <div className="mt-1.5 w-full py-1 rounded-lg text-center text-[10px] font-black text-black"
+                      style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}>
+                      Play
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* ─── QUICK STATS STRIP ─── */}
         <div className="flex gap-3 mx-4 mt-4 overflow-x-auto pb-1 no-scrollbar">
@@ -704,6 +831,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
         game={pendingGame}
         onClose={() => setPendingGame(null)}
         onPlay={handlePlay}
+        onAddMoney={onWallet}
       />
 
       {/* ─── SPIN WHEEL OVERLAY MODAL ─── */}

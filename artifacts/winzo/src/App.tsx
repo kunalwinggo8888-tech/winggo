@@ -41,6 +41,7 @@ function AppInner() {
   const [showSetup, setShowSetup]     = useState(!FIREBASE_ENABLED);
   const [showWelcome, setShowWelcome] = useState(false);
   const [ludoFee, setLudoFee]         = useState(50);
+  const [worldWarFee, setWorldWarFee] = useState<number | undefined>(undefined);
   const [newUserName, setNewUserName] = useState("");
 
   // Track whether the pending login was a new user signup
@@ -180,7 +181,7 @@ function AppInner() {
             appConfig={appConfig}
             onSpin={() => setScreen("spinwheel")}
             onLudo={(fee) => { setLudoFee(fee ?? 50); setScreen("ludo"); }}
-            onWorldWar={() => setScreen("worldwar")}
+            onWorldWar={(fee) => { setWorldWarFee(fee); setScreen("worldwar"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -195,7 +196,7 @@ function AppInner() {
         )}
 
         {screen === "worldwar" && (
-          <WorldWarGame key="worldwar" onBack={() => setScreen("dashboard")} />
+          <WorldWarGame key="worldwar" onBack={() => setScreen("dashboard")} initialFee={worldWarFee} />
         )}
 
         {screen === "leaderboard" && (
