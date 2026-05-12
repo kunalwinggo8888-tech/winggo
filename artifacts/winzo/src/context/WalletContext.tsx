@@ -21,6 +21,7 @@ import {
   subscribeWallet, subscribeTransactions,
   firestoreDeposit, firestoreWithdraw, firestoreAddWinning,
   firestoreDeductFee, firestoreAddBonus,
+  uploadDepositScreenshot, submitScreenshotDeposit,
   WalletBalance, FirestoreTransaction, BankDetails,
 } from "@/firebase/firestore.service";
 
@@ -57,6 +58,7 @@ export interface WalletContextType {
   addWinning: (amount: number, title?: string, roomId?: string) => void;
   deductFee: (amount: number, title?: string, roomId?: string) => void;
   addBonus: (amount: number, title?: string) => void;
+  submitDepositRequest: (amount: number, file: File | null, utrRef: string) => Promise<void>;
   isSynced: boolean;
 }
 
@@ -252,10 +254,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [uid, pushLocalTx]);
 
+  const submitDepositRequest = useCallback(async (amount: number, file: File | null, utrRef: string) => {
+    const email       = user?.email       ?? "";
+    const displayName = user?.displayName ?? "User";
+    if (!FIREBASE_ENABLED || !uid) {
+      pushLocalTx({ type: "deposit", title: `Deposit Request — ₹${amount}`, rawAmount: amount, display: `+₹${amount}`, color: "#3498db", status: "pending" });
+      return;
+    }
+    let screenshotUrl = "";
+    if (file) {
+      screenshotUrl = await uploadDepositScreenshot(uid, file);
+    }
+    await submitScreenshotDeposit(uid, email, displayName, amount, screenshotUrl, utrRef);
+  }, [uid, user, pushLocalTx]);
+
   const total = parseFloat((wallet.winning + wallet.deposit + wallet.bonus).toFixed(2));
 
   return (
-    <WalletContext.Provider value={{ wallet, transactions, total, addDeposit, withdraw, addWinning, deductFee, addBonus, isSynced }}>
+    <WalletContext.Provider value={{ wallet, transactions, total, addDeposit, withdraw, addWinning, deductFee, addBonus, submitDepositRequest, isSynced }}>
       {children}
     </WalletContext.Provider>
   );

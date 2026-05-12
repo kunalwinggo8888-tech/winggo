@@ -667,6 +667,70 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
   };
 }
 
+// ─── DEPOSIT REQUESTS (Screenshot Verification) ──────────────────────────────
+
+export interface DepositRequest {
+  id?: string;
+  uid: string;
+  email: string;
+  displayName: string;
+  amount: number;
+  screenshotUrl: string;
+  utrRef: string;
+  status: "pending" | "approved" | "rejected";
+  requestedAt: Timestamp | number;
+  processedAt?: Timestamp | number;
+  processedBy?: string;
+  rejectionReason?: string;
+}
+
+export function subscribeScreenshotDeposits(
+  statusFilter: "pending" | "all",
+  cb: (reqs: DepositRequest[]) => void,
+): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  const q = statusFilter === "pending"
+    ? query(collection(adminDb, "depositRequests"), where("status", "==", "pending"), orderBy("requestedAt", "desc"), limit(100))
+    : query(collection(adminDb, "depositRequests"), orderBy("requestedAt", "desc"), limit(100));
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DepositRequest)));
+  }, () => cb([]));
+}
+
+export async function approveScreenshotDeposit(requestId: string, adminUid: string): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  const reqRef = doc(adminDb, "depositRequests", requestId);
+  const reqSnap = await getDoc(reqRef);
+  if (!reqSnap.exists()) throw new Error("Request not found");
+  const req = reqSnap.data() as DepositRequest;
+  if (req.status !== "pending") throw new Error("Already processed");
+  const batch = writeBatch(adminDb);
+  batch.update(reqRef, { status: "approved", processedAt: serverTimestamp(), processedBy: adminUid });
+  const walletRef = doc(adminDb, "wallets", req.uid);
+  batch.update(walletRef, { deposit: increment(req.amount), updatedAt: serverTimestamp() });
+  const txRef = doc(collection(adminDb, `wallets/${req.uid}/transactions`));
+  batch.set(txRef, {
+    type: "deposit",
+    title: `Deposit Approved — ₹${req.amount}`,
+    rawAmount: req.amount,
+    display: `+₹${req.amount}`,
+    color: "#3498db",
+    status: "completed",
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+}
+
+export async function rejectScreenshotDeposit(requestId: string, adminUid: string, reason: string): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await updateDoc(doc(adminDb, "depositRequests", requestId), {
+    status: "rejected",
+    processedAt: serverTimestamp(),
+    processedBy: adminUid,
+    rejectionReason: reason || "Request rejected by admin",
+  });
+}
+
 // suppress unused import warning
 function _noop(_: DocumentData) {}
 void _noop;

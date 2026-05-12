@@ -18,7 +18,8 @@ import {
   getDocs, where, writeBatch,
   DocumentData,
 } from "firebase/firestore";
-import { db, FIREBASE_ENABLED } from "./config";
+import { db, storage, FIREBASE_ENABLED } from "./config";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -730,3 +731,73 @@ export const DEFAULT_GAMES: GameConfig[] = [
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _unused(_: DocumentData) {}
+
+// ─── DEPOSIT REQUESTS (Screenshot System) ────────────────────────────────────
+
+export interface DepositRequest {
+  id?: string;
+  uid: string;
+  email: string;
+  displayName: string;
+  amount: number;
+  screenshotUrl: string;
+  utrRef: string;
+  status: "pending" | "approved" | "rejected";
+  requestedAt: Timestamp | number;
+  processedAt?: Timestamp | number;
+  processedBy?: string;
+  rejectionReason?: string;
+}
+
+export async function uploadDepositScreenshot(uid: string, file: File): Promise<string> {
+  if (!FIREBASE_ENABLED || !storage) {
+    return "https://placehold.co/400x300/0a0a0f/FFD700?text=Screenshot";
+  }
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const sRef = storageRef(storage, `depositScreenshots/${uid}/${Date.now()}.${ext}`);
+  await uploadBytes(sRef, file);
+  return getDownloadURL(sRef);
+}
+
+export async function submitScreenshotDeposit(
+  uid: string,
+  email: string,
+  displayName: string,
+  amount: number,
+  screenshotUrl: string,
+  utrRef: string,
+): Promise<string> {
+  if (!FIREBASE_ENABLED || !db) return `local_${Date.now()}`;
+  const req: Omit<DepositRequest, "id"> = {
+    uid, email, displayName, amount, screenshotUrl, utrRef,
+    status: "pending",
+    requestedAt: serverTimestamp() as Timestamp,
+  };
+  const docRef = await addDoc(collection(db, "depositRequests"), req);
+  await addDoc(collection(db, `wallets/${uid}/transactions`), {
+    type: "deposit",
+    title: `Deposit Request — ₹${amount}`,
+    rawAmount: amount,
+    display: `+₹${amount}`,
+    color: "#3498db",
+    status: "pending",
+    createdAt: serverTimestamp(),
+  });
+  return docRef.id;
+}
+
+export function subscribeUserDepositRequests(
+  uid: string,
+  cb: (reqs: DepositRequest[]) => void,
+): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb([]); return () => {}; }
+  const q = query(
+    collection(db, "depositRequests"),
+    where("uid", "==", uid),
+    orderBy("requestedAt", "desc"),
+    limit(20),
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DepositRequest)));
+  }, () => cb([]));
+}

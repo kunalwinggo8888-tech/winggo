@@ -166,7 +166,7 @@ interface DashboardProps {
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo", "worldwar", "5", "7"]);
+const IMPLEMENTED_GAMES = new Set(["ludo", "5"]);
 
 export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
@@ -669,19 +669,36 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
                   className="flex-shrink-0 w-28 rounded-2xl overflow-hidden cursor-pointer"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
                   <div className="relative h-20 flex items-center justify-center"
-                    style={{ background: g.gradient }}>
+                    style={{ background: g.gradient, opacity: g.id === "worldwar" ? 0.75 : 1 }}>
                     <span className="text-4xl">{g.icon}</span>
-                    <span className="absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-lg text-black"
-                      style={{ background: "#FFD700" }}>
-                      {g.minFee}+
-                    </span>
+                    {g.id === "worldwar" ? (
+                      <div className="absolute inset-0 flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.4)" }}>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-lg"
+                          style={{ background: "rgba(255,215,0,0.2)", border: "1px solid rgba(255,215,0,0.5)", color: "#FFD700" }}>
+                          SOON
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-lg text-black"
+                        style={{ background: "#FFD700" }}>
+                        {g.minFee}+
+                      </span>
+                    )}
                   </div>
                   <div className="px-2.5 py-2">
                     <div className="text-white font-bold text-xs leading-tight truncate">{g.name}</div>
-                    <div className="mt-1.5 w-full py-1 rounded-lg text-center text-[10px] font-black text-black"
-                      style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}>
-                      Play
-                    </div>
+                    {g.id === "worldwar" ? (
+                      <div className="mt-1.5 w-full py-1 rounded-lg text-center text-[10px] font-black"
+                        style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", color: "rgba(255,215,0,0.5)" }}>
+                        Coming Soon
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 w-full py-1 rounded-lg text-center text-[10px] font-black text-black"
+                        style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}>
+                        Play
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               );
@@ -790,15 +807,28 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
                       background: game.gradient,
                     }}
                   >
-                    <span className="text-5xl">{game.icon}</span>
+                    <span className="text-5xl" style={{ opacity: game.comingSoon ? 0.6 : 1 }}>{game.icon}</span>
 
-                    {/* Prize badge */}
-                    <span
-                      className="absolute top-2 right-2 px-1.5 py-0.5 rounded-lg text-xs font-black text-black"
-                      style={{ background: "#FFD700", fontSize: "10px" }}
-                    >
-                      {game.prize}
-                    </span>
+                    {/* Coming Soon overlay */}
+                    {game.comingSoon && (
+                      <div className="absolute inset-0 flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(1px)" }}>
+                        <span className="px-2 py-1 rounded-lg text-[10px] font-black tracking-wide"
+                          style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.5)", color: "#FFD700" }}>
+                          🛠️ COMING SOON
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Prize badge (only when not coming soon) */}
+                    {!game.comingSoon && (
+                      <span
+                        className="absolute top-2 right-2 px-1.5 py-0.5 rounded-lg text-xs font-black text-black"
+                        style={{ background: "#FFD700", fontSize: "10px" }}
+                      >
+                        {game.prize}
+                      </span>
+                    )}
                   </div>
 
                   {/* Card info */}
@@ -808,15 +838,20 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onWallet, onLead
                     </div>
                     <div className="text-zinc-500 text-xs mt-0.5">{game.players}</div>
 
-                    {/* Play Now */}
-                    <div
-                      className="mt-2 w-full py-1.5 rounded-xl text-center text-xs font-bold text-black"
-                      style={{
-                        background: "linear-gradient(90deg, #FFD700, #ff8c00)",
-                      }}
-                    >
-                      Play Now
-                    </div>
+                    {/* Play Now / Coming Soon button */}
+                    {game.comingSoon ? (
+                      <div className="mt-2 w-full py-1.5 rounded-xl text-center text-xs font-bold"
+                        style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.25)", color: "rgba(255,215,0,0.6)" }}>
+                        Coming Soon
+                      </div>
+                    ) : (
+                      <div
+                        className="mt-2 w-full py-1.5 rounded-xl text-center text-xs font-bold text-black"
+                        style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}
+                      >
+                        Play Now
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}

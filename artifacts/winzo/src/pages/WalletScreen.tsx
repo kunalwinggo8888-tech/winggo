@@ -3,12 +3,11 @@
  * Tabs: Add Money | Bonus | Withdrawal | History
  * Dark gold/purple theme, mobile-first 480px
  */
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
 import { useAuth } from "@/context/useAuth";
 import type { BankDetails } from "@/context/WalletContext";
-import RazorpayGateway from "@/components/RazorpayGateway";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -167,27 +166,93 @@ function TxRow({ tx }: {
   );
 }
 
+// ─── ADD MONEY CONSTANTS ──────────────────────────────────────────────────────
+
+const OWNER_UPI  = "winggo@axl";
+const OWNER_NAME = "WINGGO Gaming";
+
 // ─── ADD MONEY TAB ────────────────────────────────────────────────────────────
 
-function AddMoneyTab({
-  onDeposit,
-}: {
-  onDeposit: (amount: number, bonusPct: number) => void;
+type DepositStep = "info" | "upload" | "done";
+
+function AddMoneyTab({ onSubmit }: {
+  onSubmit: (amount: number, file: File | null, utrRef: string) => Promise<void>;
 }) {
-  const [selected, setSelected] = useState<number>(100);
-  const [custom, setCustom]     = useState("");
-  const [showPay, setShowPay]   = useState(false);
+  const [step, setStep]               = useState<DepositStep>("info");
+  const [selected, setSelected]       = useState<number>(100);
+  const [custom, setCustom]           = useState("");
+  const [file, setFile]               = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [utrRef, setUtrRef]           = useState("");
+  const [loading, setLoading]         = useState(false);
+  const fileInputRef                  = useRef<HTMLInputElement>(null);
 
   const finalAmt = custom ? (parseInt(custom, 10) || 0) : selected;
   const bonusPct = finalAmt >= 1000 ? 20 : finalAmt >= 500 ? 15 : finalAmt >= 200 ? 10 : 0;
   const bonusAmt = Math.round(finalAmt * bonusPct / 100);
 
-  function handlePreset(v: number) { setSelected(v); setCustom(""); }
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=${OWNER_UPI}&pn=${OWNER_NAME}&cu=INR`)}&color=FFD700&bgcolor=0a0a0f`;
 
-  return (
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+    if (f) setFilePreview(URL.createObjectURL(f));
+  }
+
+  async function handleSubmit() {
+    if (finalAmt < 10 || !file) return;
+    setLoading(true);
+    try {
+      await onSubmit(finalAmt, file, utrRef.trim());
+      setStep("done");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Step: Info (UPI + QR + Instructions) ─────────────────────────────────────
+  if (step === "info") return (
     <div className="px-4 space-y-4">
 
-      {/* Presets */}
+      {/* UPI card */}
+      <div className="rounded-2xl p-4 relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg,#1a1200,#0a0a0f)",
+          border: "1.5px solid rgba(255,215,0,0.4)",
+          boxShadow: "0 0 40px rgba(255,215,0,0.12)",
+        }}>
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 50% 0%,rgba(255,215,0,0.12) 0%,transparent 70%)" }} />
+        <p className="text-[10px] font-black uppercase tracking-widest mb-2 relative z-10"
+          style={{ color: "rgba(255,215,0,0.55)" }}>📲 Pay via UPI</p>
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="flex-1">
+            <p className="font-black text-lg text-white">{OWNER_NAME}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="font-black text-base" style={{ color: "#FFD700" }}>{OWNER_UPI}</p>
+              <button
+                onClick={() => { navigator.clipboard?.writeText(OWNER_UPI).catch(() => {}); }}
+                className="px-2 py-0.5 rounded-lg text-[10px] font-black"
+                style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.4)", color: "#FFD700" }}>
+                COPY
+              </button>
+            </div>
+            <div className="flex gap-1.5 mt-2 flex-wrap">
+              {["GPay","PhonePe","Paytm","BHIM"].map((app) => (
+                <span key={app} className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
+                  {app}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl overflow-hidden shrink-0" style={{ border: "2px solid rgba(255,215,0,0.5)", background: "#fff", padding: 4 }}>
+            <img src={qrUrl} alt="UPI QR" width={76} height={76} className="block" />
+          </div>
+        </div>
+      </div>
+
+      {/* Amount presets */}
       <div>
         <p className="text-xs font-bold uppercase tracking-widest mb-2.5"
           style={{ color: "rgba(255,255,255,0.4)" }}>Select Amount</p>
@@ -196,7 +261,7 @@ function AddMoneyTab({
             const isActive = !custom && selected === v;
             const pct = v >= 1000 ? 20 : v >= 500 ? 15 : v >= 200 ? 10 : 0;
             return (
-              <button key={v} onClick={() => handlePreset(v)}
+              <button key={v} onClick={() => { setSelected(v); setCustom(""); }}
                 className="rounded-xl p-3 flex flex-col items-center gap-0.5 transition-all"
                 style={{
                   background: isActive
@@ -205,9 +270,7 @@ function AddMoneyTab({
                   border: `1.5px solid ${isActive ? "rgba(255,215,0,0.6)" : "rgba(255,255,255,0.07)"}`,
                   boxShadow: isActive ? "0 0 20px rgba(255,215,0,0.2)" : "none",
                 }}>
-                <span className="font-black text-base" style={{ color: isActive ? "#FFD700" : "#fff" }}>
-                  ₹{v}
-                </span>
+                <span className="font-black text-base" style={{ color: isActive ? "#FFD700" : "#fff" }}>₹{v}</span>
                 {pct > 0 && (
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
                     style={{ background: "rgba(34,197,94,0.2)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.3)" }}>
@@ -220,104 +283,80 @@ function AddMoneyTab({
         </div>
       </div>
 
-      {/* Custom input */}
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest mb-2"
-          style={{ color: "rgba(255,255,255,0.4)" }}>Custom Amount</p>
-        <div className="relative">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-base"
-            style={{ color: "#FFD700" }}>₹</span>
-          <input
-            type="number" inputMode="numeric"
-            value={custom}
-            onChange={(e) => { setCustom(e.target.value); if (e.target.value) setSelected(0); }}
-            placeholder="Enter amount"
-            className="w-full pl-8 pr-4 py-3 rounded-xl font-bold text-white outline-none"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: `1.5px solid ${custom ? "rgba(255,215,0,0.5)" : "rgba(255,255,255,0.1)"}`,
-              fontSize: 15,
-            }}
-          />
-        </div>
+      {/* Custom amount */}
+      <div className="relative">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-base" style={{ color: "#FFD700" }}>₹</span>
+        <input type="number" inputMode="numeric" value={custom} placeholder="Enter custom amount"
+          onChange={(e) => { setCustom(e.target.value); if (e.target.value) setSelected(0); }}
+          className="w-full pl-8 pr-4 py-3 rounded-xl font-bold text-white outline-none"
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            border: `1.5px solid ${custom ? "rgba(255,215,0,0.5)" : "rgba(255,255,255,0.1)"}`,
+            fontSize: 15,
+          }}
+        />
       </div>
 
       {/* Bonus preview */}
       <AnimatePresence>
         {finalAmt > 0 && bonusPct > 0 && (
-          <motion.div
-            key="bonus-preview"
+          <motion.div key="bonus-preview"
             initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="rounded-xl px-4 py-3 flex items-center justify-between overflow-hidden"
-            style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}
-          >
+            style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
             <div>
-              <p className="text-xs font-black" style={{ color: "#4ade80" }}>🎉 Cash Bonus Unlocked!</p>
+              <p className="text-xs font-black" style={{ color: "#4ade80" }}>🎉 Deposit Bonus Unlocked!</p>
               <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Pay ₹{finalAmt} → get +₹{bonusAmt} extra bonus
+                Deposit ₹{finalAmt} → get +₹{bonusAmt} extra bonus
               </p>
             </div>
-            <div className="text-right">
-              <p className="font-black text-lg" style={{ color: "#4ade80" }}>+₹{bonusAmt}</p>
-              <p className="text-[9px] font-bold uppercase" style={{ color: "rgba(34,197,94,0.6)" }}>{bonusPct}% bonus</p>
-            </div>
+            <p className="font-black text-lg" style={{ color: "#4ade80" }}>+₹{bonusAmt}</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Payment methods row */}
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest mb-2"
-          style={{ color: "rgba(255,255,255,0.4)" }}>Pay Via</p>
-        <div className="flex gap-2 flex-wrap">
-          {[["GPay","🟢"],["PhonePe","💜"],["Paytm","🔵"],["UPI","💳"],["NetBanking","🏦"]].map(([name,icon]) => (
-            <div key={name}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                color: "rgba(255,255,255,0.7)",
-              }}>
-              <span>{icon}</span>{name}
+      {/* How to steps */}
+      <div className="rounded-xl p-4 space-y-2"
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+        <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: "rgba(255,215,0,0.6)" }}>
+          How to Add Money
+        </p>
+        {[
+          ["1", "Open GPay, PhonePe, or Paytm"],
+          ["2", "Scan QR code or enter UPI ID above"],
+          ["3", "Send the exact amount selected"],
+          ["4", "Take a screenshot of the confirmation"],
+          ["5", "Click the button below to upload it"],
+        ].map(([n, text]) => (
+          <div key={n} className="flex items-start gap-2.5">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5"
+              style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.4)", color: "#FFD700" }}>
+              {n}
             </div>
-          ))}
-        </div>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{text}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Pay button / RazorpayGateway */}
-      {showPay ? (
-        <RazorpayGateway
-          amount={finalAmt}
-          bonusPct={bonusPct}
-          onSuccess={(_paymentId: string) => {
-            onDeposit(finalAmt, bonusPct);
-            setShowPay(false);
-            setCustom("");
-            setSelected(100);
-          }}
-          onClose={() => setShowPay(false)}
-        />
-      ) : (
-        <button
-          onClick={() => { if (finalAmt >= 10) setShowPay(true); }}
-          disabled={finalAmt < 10}
-          className="w-full py-4 rounded-2xl font-black text-base relative overflow-hidden"
-          style={{
-            background: finalAmt >= 10
-              ? "linear-gradient(135deg,#FFD700 0%,#ff8c00 60%,#e65c00 100%)"
-              : "rgba(255,255,255,0.07)",
-            color: finalAmt >= 10 ? "#000" : "rgba(255,255,255,0.25)",
-            boxShadow: finalAmt >= 10 ? "0 0 30px rgba(255,215,0,0.4)" : "none",
-          }}
-        >
-          {finalAmt >= 10
-            ? `Proceed to Pay ${fmt(finalAmt)}${bonusPct > 0 ? ` + ₹${bonusAmt} Bonus` : ""}`
-            : "Enter amount (min ₹10)"}
-        </button>
-      )}
+      {/* CTA button */}
+      <button
+        onClick={() => { if (finalAmt >= 10) setStep("upload"); }}
+        disabled={finalAmt < 10}
+        className="w-full py-4 rounded-2xl font-black text-base"
+        style={{
+          background: finalAmt >= 10
+            ? "linear-gradient(135deg,#FFD700 0%,#ff8c00 60%,#e65c00 100%)"
+            : "rgba(255,255,255,0.07)",
+          color: finalAmt >= 10 ? "#000" : "rgba(255,255,255,0.25)",
+          boxShadow: finalAmt >= 10 ? "0 0 30px rgba(255,215,0,0.4)" : "none",
+        }}>
+        {finalAmt >= 10
+          ? `I've Sent ₹${finalAmt} — Upload Screenshot →`
+          : "Select an amount (min ₹10)"}
+      </button>
 
-      {/* Bonus tiers info */}
+      {/* Bonus tiers */}
       <div className="rounded-xl p-3"
         style={{ background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.1)" }}>
         <p className="text-[10px] font-black uppercase tracking-widest mb-2"
@@ -331,6 +370,165 @@ function AddMoneyTab({
           ))}
         </div>
       </div>
+    </div>
+  );
+
+  // ── Step: Upload screenshot ─────────────────────────────────────────────────
+  if (step === "upload") return (
+    <div className="px-4 space-y-4">
+
+      {/* Back */}
+      <button onClick={() => setStep("info")}
+        className="flex items-center gap-1.5 text-sm font-bold"
+        style={{ color: "rgba(255,255,255,0.4)" }}>
+        ← Back
+      </button>
+
+      {/* Amount summary */}
+      <div className="rounded-2xl p-4 flex items-center justify-between"
+        style={{
+          background: "linear-gradient(135deg,rgba(52,152,219,0.15),rgba(52,152,219,0.05))",
+          border: "1.5px solid rgba(52,152,219,0.3)",
+        }}>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-0.5"
+            style={{ color: "rgba(96,165,250,0.7)" }}>Payment Amount</p>
+          <p className="font-black text-3xl" style={{ color: "#60a5fa" }}>₹{finalAmt}</p>
+          {bonusPct > 0 && (
+            <p className="text-xs font-bold mt-0.5" style={{ color: "#4ade80" }}>
+              +₹{bonusAmt} bonus will be added on approval
+            </p>
+          )}
+        </div>
+        <div className="text-4xl">💳</div>
+      </div>
+
+      {/* Screenshot upload */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest mb-2"
+          style={{ color: "rgba(255,255,255,0.4)" }}>
+          Upload Payment Screenshot <span style={{ color: "#ef4444" }}>*</span>
+        </p>
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+        <button onClick={() => fileInputRef.current?.click()}
+          className="w-full rounded-2xl flex flex-col items-center justify-center gap-2 transition-all"
+          style={{
+            minHeight: filePreview ? "auto" : 140,
+            background: file ? "rgba(34,197,94,0.06)" : "rgba(255,255,255,0.03)",
+            border: `2px dashed ${file ? "rgba(34,197,94,0.5)" : "rgba(255,255,255,0.15)"}`,
+          }}>
+          {filePreview ? (
+            <div className="relative w-full rounded-2xl overflow-hidden" style={{ maxHeight: 200 }}>
+              <img src={filePreview} alt="Payment screenshot" className="w-full object-cover" style={{ maxHeight: 200 }} />
+              <div className="absolute top-2 right-2 px-2 py-1 rounded-lg text-[10px] font-black"
+                style={{ background: "rgba(34,197,94,0.9)", color: "#fff" }}>
+                ✓ Screenshot added
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 flex flex-col items-center gap-2">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                📸
+              </div>
+              <p className="text-sm font-bold text-white">Tap to upload screenshot</p>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>JPG, PNG accepted · Max 5MB</p>
+            </div>
+          )}
+        </button>
+        {file && (
+          <button onClick={() => { setFile(null); setFilePreview(null); }}
+            className="mt-2 text-xs font-bold w-full text-center"
+            style={{ color: "rgba(239,68,68,0.6)" }}>
+            Remove screenshot
+          </button>
+        )}
+      </div>
+
+      {/* UTR Reference */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest mb-1.5"
+          style={{ color: "rgba(255,255,255,0.4)" }}>
+          UTR / Transaction ID
+          <span className="ml-1 font-medium" style={{ color: "rgba(255,255,255,0.25)", textTransform: "none" }}>(optional)</span>
+        </p>
+        <input type="text" value={utrRef} onChange={(e) => setUtrRef(e.target.value)}
+          placeholder="e.g. 123456789012 (from your payment app)"
+          className="w-full px-4 py-3 rounded-xl font-bold text-white outline-none"
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            border: `1.5px solid ${utrRef ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.1)"}`,
+            fontSize: 14,
+          }}
+        />
+      </div>
+
+      {/* Submit */}
+      <button onClick={handleSubmit} disabled={!file || finalAmt < 10 || loading}
+        className="w-full py-4 rounded-2xl font-black text-base"
+        style={{
+          background: file && !loading
+            ? "linear-gradient(135deg,#FFD700 0%,#ff8c00 60%,#e65c00 100%)"
+            : "rgba(255,255,255,0.07)",
+          color: file && !loading ? "#000" : "rgba(255,255,255,0.25)",
+          boxShadow: file && !loading ? "0 0 30px rgba(255,215,0,0.4)" : "none",
+        }}>
+        {loading ? "⏳ Submitting Request…" : !file ? "Upload screenshot to continue" : `Submit Deposit Request — ₹${finalAmt}`}
+      </button>
+
+      <p className="text-[10px] text-center" style={{ color: "rgba(255,255,255,0.25)" }}>
+        Deposits verified within 30 minutes · Support: 9 AM – 11 PM IST
+      </p>
+    </div>
+  );
+
+  // ── Step: Done (success) ────────────────────────────────────────────────────
+  return (
+    <div className="px-4 flex flex-col items-center py-10 gap-5">
+      <motion.div
+        initial={{ scale: 0.4, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+        className="w-24 h-24 rounded-full flex items-center justify-center text-5xl"
+        style={{
+          background: "radial-gradient(circle,rgba(255,215,0,0.2),rgba(255,215,0,0.04))",
+          border: "2px solid rgba(255,215,0,0.4)",
+          boxShadow: "0 0 60px rgba(255,215,0,0.3)",
+        }}>
+        ✅
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+        className="text-center space-y-1">
+        <h3 className="font-black text-2xl text-white">Request Submitted!</h3>
+        <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+          Your ₹{finalAmt} deposit is under review
+        </p>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+        className="w-full rounded-2xl p-4 space-y-2.5"
+        style={{ background: "rgba(255,215,0,0.05)", border: "1px solid rgba(255,215,0,0.2)" }}>
+        {([
+          ["Amount Requested", `₹${finalAmt}`],
+          ...(bonusPct > 0 ? [["Bonus on Approval", `+₹${bonusAmt}`]] : []),
+          ["Status", "⏳ Pending Review"],
+          ["Estimated Time", "Within 30 minutes"],
+          ["Support Hours", "9 AM – 11 PM IST"],
+        ] as [string, string][]).map(([label, val]) => (
+          <div key={label} className="flex justify-between text-sm">
+            <span style={{ color: "rgba(255,255,255,0.4)" }}>{label}</span>
+            <span className="font-bold" style={{ color: label === "Status" ? "#f59e0b" : "#fff" }}>{val}</span>
+          </div>
+        ))}
+      </motion.div>
+
+      <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+        onClick={() => { setStep("info"); setFile(null); setFilePreview(null); setUtrRef(""); setCustom(""); setSelected(100); }}
+        className="w-full py-3.5 rounded-2xl font-black text-sm"
+        style={{ background: "rgba(255,215,0,0.1)", border: "1.5px solid rgba(255,215,0,0.35)", color: "#FFD700" }}>
+        Submit Another Request
+      </motion.button>
     </div>
   );
 }
@@ -886,23 +1084,22 @@ interface Props {
 }
 
 export default function WalletScreen({ onNavigate, onBack }: Props) {
-  const { wallet, transactions, total, addDeposit, withdraw, isSynced } = useWallet();
+  const { wallet, transactions, total, withdraw, submitDepositRequest, isSynced } = useWallet();
   const { user } = useAuth();
-  const [tab, setTab]         = useState<Tab>("add");
+  const [tab, setTab]           = useState<Tab>("add");
   const [flashMsg, setFlashMsg] = useState("");
 
   const showFlash = useCallback((msg: string) => {
     setFlashMsg(msg);
-    setTimeout(() => setFlashMsg(""), 3000);
+    setTimeout(() => setFlashMsg(""), 4000);
   }, []);
 
-  // No-op: placeholder for future deep-link into a specific tab
   useEffect(() => {}, []);
 
-  function handleDeposit(amount: number, bonusPct: number) {
-    // RazorpayGateway already calls firestoreDeposit internally — just show feedback
-    showFlash(`✅ ₹${amount} added${bonusPct > 0 ? ` + ₹${Math.round(amount * bonusPct / 100)} bonus!` : "!"}`);
-    setTimeout(() => setTab("history"), 2000);
+  async function handleSubmitDeposit(amount: number, file: File | null, utrRef: string) {
+    await submitDepositRequest(amount, file, utrRef);
+    showFlash("✅ Deposit request submitted! Admin will verify within 30 minutes.");
+    setTimeout(() => setTab("history"), 3000);
   }
 
   function handleWithdraw(amount: number, method: "upi" | "bank", details: { upiId?: string; bankDetails?: BankDetails }) {
@@ -985,7 +1182,7 @@ export default function WalletScreen({ onNavigate, onBack }: Props) {
             transition={{ duration: 0.15 }}
             className="pb-6 pt-2"
           >
-            {tab === "add" && <AddMoneyTab onDeposit={handleDeposit} />}
+            {tab === "add" && <AddMoneyTab onSubmit={handleSubmitDeposit} />}
             {tab === "bonus" && (
               <BonusTab
                 bonusBalance={wallet.bonus}
