@@ -21,8 +21,10 @@ import {
   subscribeWallet, subscribeTransactions,
   firestoreDeposit, firestoreWithdraw, firestoreAddWinning,
   firestoreDeductFee, firestoreAddBonus,
-  WalletBalance, FirestoreTransaction,
+  WalletBalance, FirestoreTransaction, BankDetails,
 } from "@/firebase/firestore.service";
+
+export type { BankDetails };
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -51,7 +53,7 @@ export interface WalletContextType {
   transactions: Transaction[];
   total: number;
   addDeposit: (amount: number, bonusPct: number) => void;
-  withdraw: (amount: number, upiId?: string) => void;
+  withdraw: (amount: number, method?: "upi" | "bank", details?: { upiId?: string; bankDetails?: BankDetails }) => void;
   addWinning: (amount: number, title?: string, roomId?: string) => void;
   deductFee: (amount: number, title?: string, roomId?: string) => void;
   addBonus: (amount: number, title?: string) => void;
@@ -190,7 +192,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [uid, pushLocalTx]);
 
-  const withdraw = useCallback((amount: number, upiId = "user@upi") => {
+  const withdraw = useCallback((
+    amount: number,
+    method: "upi" | "bank" = "upi",
+    details: { upiId?: string; bankDetails?: BankDetails } = { upiId: "user@upi" }
+  ) => {
     if (!FIREBASE_ENABLED || !uid) {
       setWallet((w) => ({ ...w, winning: Math.max(0, w.winning - amount) }));
       pushLocalTx({ type: "withdraw", title: "Withdrawal — Pending Approval", rawAmount: -amount, display: `-₹${amount}`, color: "#f39c12", status: "pending" });
@@ -200,7 +206,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         saveWalletCache(uid, updated);
         return updated;
       });
-      firestoreWithdraw(uid, amount, upiId, user?.email ?? "", user?.displayName ?? "").catch(console.error);
+      firestoreWithdraw(uid, amount, method, details, user?.email ?? "", user?.displayName ?? "").catch(console.error);
     }
   }, [uid, user, pushLocalTx]);
 

@@ -207,7 +207,11 @@ function AppInner() {
         )}
 
         {screen === "wallet" && (
-          <WalletScreen key="wallet" onBack={() => setScreen("dashboard")} />
+          <WalletScreen
+            key="wallet"
+            onBack={() => setScreen("dashboard")}
+            onNavigate={(s) => setScreen(s as Screen)}
+          />
         )}
 
         {screen === "profile" && (

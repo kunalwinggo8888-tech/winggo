@@ -76,13 +76,22 @@ export interface DepositRecord {
   createdAt: Timestamp | number;
 }
 
+export interface BankDetails {
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+}
+
 export interface WithdrawRequest {
   id?: string;
   uid: string;
   email: string;
   displayName: string;
   amount: number;
-  upiId: string;
+  method: "upi" | "bank";
+  upiId?: string;
+  bankDetails?: BankDetails;
   status: "pending" | "approved" | "rejected";
   requestedAt: Timestamp;
   processedAt?: Timestamp;
@@ -195,6 +204,15 @@ async function initWallet(uid: string): Promise<void> {
     signupBonusClaimed: true,
     updatedAt: serverTimestamp(),
   });
+  // Record the ₹50 welcome bonus transaction so it shows in history
+  await pushTransaction(uid, {
+    type: "bonus",
+    title: "🎁 Welcome Bonus",
+    rawAmount: 50,
+    display: "+₹50",
+    color: "#FFD700",
+    status: "completed",
+  });
 }
 
 /**
@@ -304,7 +322,14 @@ export async function firestoreDeposit(
 }
 
 /** Withdraw — deducts from winning, creates pending request */
-export async function firestoreWithdraw(uid: string, amount: number, upiId: string, email: string, displayName: string): Promise<string> {
+export async function firestoreWithdraw(
+  uid: string,
+  amount: number,
+  method: "upi" | "bank",
+  paymentDetails: { upiId?: string; bankDetails?: BankDetails },
+  email: string,
+  displayName: string,
+): Promise<string> {
   if (!FIREBASE_ENABLED || !db) return "";
   const batch = writeBatch(db);
   batch.update(doc(db, "wallets", uid), {
@@ -313,15 +338,23 @@ export async function firestoreWithdraw(uid: string, amount: number, upiId: stri
   });
   await batch.commit();
 
-  const reqRef = await addDoc(collection(db, "withdrawRequests"), {
-    uid, email, displayName, amount, upiId,
+  const reqData: Omit<WithdrawRequest, "id"> = {
+    uid, email, displayName, amount, method,
     status: "pending",
     requestedAt: serverTimestamp() as unknown as Timestamp,
-  } satisfies Omit<WithdrawRequest, "id">);
+  };
+  if (method === "upi" && paymentDetails.upiId) reqData.upiId = paymentDetails.upiId;
+  if (method === "bank" && paymentDetails.bankDetails) reqData.bankDetails = paymentDetails.bankDetails;
+
+  const reqRef = await addDoc(collection(db, "withdrawRequests"), reqData);
+
+  const methodLabel = method === "upi"
+    ? `UPI: ${paymentDetails.upiId}`
+    : `Bank: ${paymentDetails.bankDetails?.bankName ?? "Account"}`;
 
   await pushTransaction(uid, {
     type: "withdraw",
-    title: "Withdrawal — Pending Approval",
+    title: `Withdrawal — ${methodLabel}`,
     rawAmount: -amount,
     display: `-₹${amount}`,
     color: "#f39c12",
