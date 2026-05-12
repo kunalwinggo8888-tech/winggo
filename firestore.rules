@@ -3,87 +3,73 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Users ─────────────────────────────────────────────────────────────────
-    // Each user can only read and write their own profile document.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── Wallets ───────────────────────────────────────────────────────────────
-    // Users can read and update their own wallet.
-    // In production, balance-critical writes (win payouts) should go through
-    // Cloud Functions with server-side validation instead.
     match /wallets/{uid} {
-      allow read:  if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Transactions sub-collection
+      match /transactions/{txId} {
+        allow read:   if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid;
+        allow update, delete: if false;
+      }
     }
 
-    // ── Transactions ──────────────────────────────────────────────────────────
-    // Users can read their own transactions and create new ones.
-    // Deletion is blocked — audit trail must be immutable.
-    match /transactions/{txId} {
+    // ── Deposits (admin-readable, user-creatable) ─────────────────────────────
+    match /deposits/{depId} {
       allow read:   if request.auth != null
                     && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null
-                    && request.resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null;
       allow update, delete: if false;
     }
 
-    // ── Games ─────────────────────────────────────────────────────────────────
-    // Any authenticated user can read game config.
-    // Writes are open for now (admin SDK or seeder); lock down in production.
+    // ── Withdraw Requests ─────────────────────────────────────────────────────
+    match /withdrawRequests/{id} {
+      allow read:   if request.auth != null
+                    && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    // ── KYC ───────────────────────────────────────────────────────────────────
+    match /kycRequests/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Games (authenticated read, open write for seeding) ────────────────────
     match /games/{gameId} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null;
     }
 
-    // ── KYC ───────────────────────────────────────────────────────────────────
-    // Users can submit and read their own KYC documents only.
-    match /kyc/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    // ── Leaderboards (authenticated read/write) ───────────────────────────────
+    match /leaderboards/{gameType} {
+      allow read: if request.auth != null;
+      match /players/{uid} {
+        allow read:  if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
-    // ── Config ────────────────────────────────────────────────────────────────
-    // App config is publicly readable (app version, maintenance mode, etc).
-    // Only writable via Firebase Admin SDK (server-side).
+    // ── Config (public read for app version / maintenance flags) ─────────────
     match /config/{docId} {
       allow read:  if true;
       allow write: if false;
     }
 
-    // ── Deposits ──────────────────────────────────────────────────────────────
-    // Users can create and read their own deposit records.
-    match /deposits/{depId} {
-      allow read:   if request.auth != null
-                    && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null
-                    && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if false;
-    }
-
-    // ── Withdrawals ───────────────────────────────────────────────────────────
-    // Users can request withdrawals and track their status.
-    match /withdrawals/{wId} {
-      allow read:   if request.auth != null
-                    && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null
-                    && request.resource.data.uid == request.auth.uid;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    // ── Referrals ─────────────────────────────────────────────────────────────
-    match /referrals/{refId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // ── Matchmaking rooms (Realtime DB handles live state; Firestore for records)
-    match /rooms/{roomId} {
-      allow read, write: if request.auth != null;
-    }
-
     // ── Notifications ─────────────────────────────────────────────────────────
     match /notifications/{uid}/items/{notifId} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Referrals ─────────────────────────────────────────────────────────────
+    match /referrals/{id} {
+      allow read, write: if request.auth != null;
     }
 
     // ── Deny everything else ──────────────────────────────────────────────────

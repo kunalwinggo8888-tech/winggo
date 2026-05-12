@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "presence": {
+      "$uid": {
+        ".read":  "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "matchmaking": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+    "rooms": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+    "worldwar": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+    "leaderboards": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+    "$other": {
+      ".read":  false,
+      ".write": false
+    }
+  }
+}
