@@ -190,7 +190,7 @@ interface Props {
 const BOT_NAMES = ["Rahul B","Priya S","Amit K","Sneha R","Vikram J","Neha P"];
 
 export default function BubbleGame({ onBack, initialFee = 10 }: Props) {
-  const { total, deductFee, addWinning } = useWallet();
+  const { total, addWinning } = useWallet();
   const { user } = useAuth();
 
   const userName = user?.displayName || user?.email?.split("@")[0] || "You";
@@ -520,8 +520,6 @@ export default function BubbleGame({ onBack, initialFee = 10 }: Props) {
   // ─── matchmaking → game ────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "matchmaking") return;
-    // Deduct entry fee
-    deductFee(initialFee, `🫧 Bubble Shooter — Entry ₹${initialFee}`);
 
     // Count down 3s then start
     let cd = 3;

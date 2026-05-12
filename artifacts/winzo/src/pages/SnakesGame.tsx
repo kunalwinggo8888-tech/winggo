@@ -459,7 +459,7 @@ interface Props {
 type Phase = "matchmaking" | "playing" | "result";
 
 export default function SnakesGame({ onBack, initialFee = 10 }: Props) {
-  const { total, deductFee, addWinning } = useWallet();
+  const { total, addWinning } = useWallet();
   const { user } = useAuth();
 
   // ── State ──
@@ -475,17 +475,8 @@ export default function SnakesGame({ onBack, initialFee = 10 }: Props) {
   const [event, setEvent]             = useState<{ who: "player" | "bot"; type: "snake" | "ladder" } | null>(null);
   const [winner, setWinner]           = useState<"player" | "bot" | null>(null);
   const [log, setLog]                 = useState<string[]>([]);
-  const [feeDeducted, setFeeDeducted] = useState(false);
   const [entryFee]                    = useState(initialFee);
   const botTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ── Deduct fee on game start ──
-  useEffect(() => {
-    if (phase === "playing" && !feeDeducted) {
-      deductFee(entryFee, `🐍 Snake & Ladder — Entry ₹${entryFee}`);
-      setFeeDeducted(true);
-    }
-  }, [phase, feeDeducted, deductFee, entryFee]);
 
   // ── Matchmaking complete ──
   function handleMatchFound() {
@@ -633,7 +624,6 @@ export default function SnakesGame({ onBack, initialFee = 10 }: Props) {
     setEvent(null);
     setWinner(null);
     setLog([]);
-    setFeeDeducted(false);
   }
 
   const prize = Math.floor(entryFee * 2 * (1 - PLATFORM_PCT));

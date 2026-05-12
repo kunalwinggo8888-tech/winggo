@@ -367,7 +367,7 @@ function WinningsCard({ fee, accent }: { fee: number; accent: string }) {
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Props) {
-  const { total, wallet } = useWallet();
+  const { total, wallet, deductFee } = useWallet();
   const bonus = wallet.bonus;
 
   const cfg = useMemo(() => getCfg(game?.id ?? ""), [game?.id]);
@@ -388,7 +388,8 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
   const canPlaySelected = total >= selected;
 
   function handlePlay() {
-    if (!canPlaySelected) return;
+    if (!canPlaySelected || !game) return;
+    deductFee(selected, `${game.name} — Entry ₹${selected}`);
     onPlay(selected);
   }
 

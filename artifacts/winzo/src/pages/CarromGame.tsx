@@ -491,7 +491,7 @@ interface Props { onBack: () => void; initialFee?: number }
 type UiPhase = "matchmaking" | "playing" | "result";
 
 export default function CarromGame({ onBack, initialFee = 10 }: Props) {
-  const { total, deductFee, addWinning } = useWallet();
+  const { total, addWinning } = useWallet();
 
   // ── Canvas + game state refs ──
   const canvasRef   = useRef<HTMLCanvasElement>(null);
@@ -519,7 +519,6 @@ export default function CarromGame({ onBack, initialFee = 10 }: Props) {
   const [aimDeg, setAimDeg]       = useState(270);    // degrees display
   const [winner, setWinner]       = useState<0 | 1 | null>(null);
   const [finalScores, setFinalScores] = useState<[number, number]>([0, 0]);
-  const [feeDeducted, setFeeDeducted] = useState(false);
   const [message, setMessage]     = useState("");
 
   // ── Match message flash ──
@@ -527,14 +526,6 @@ export default function CarromGame({ onBack, initialFee = 10 }: Props) {
     setMessage(msg);
     setTimeout(() => setMessage(""), 2200);
   }
-
-  // ── Deduct entry fee on game start ──
-  useEffect(() => {
-    if (uiPhase === "playing" && !feeDeducted) {
-      deductFee(initialFee, `🏵️ Carrom — Entry ₹${initialFee}`);
-      setFeeDeducted(true);
-    }
-  }, [uiPhase, feeDeducted, deductFee, initialFee]);
 
   // ── rAF game loop ──
   useEffect(() => {
@@ -689,7 +680,6 @@ export default function CarromGame({ onBack, initialFee = 10 }: Props) {
   function handleRematch() {
     setUiPhase("matchmaking");
     setWinner(null);
-    setFeeDeducted(false);
     setFinalScores([0, 0]);
   }
 

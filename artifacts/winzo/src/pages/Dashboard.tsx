@@ -205,7 +205,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (!pendingGame) return;
     const gameId = pendingGame.id;
     setPendingGame(null);
-    // Each game deducts its own fee internally — do NOT deduct here
+    // Fee is deducted by GameEntrySheet on PLAY NOW — games must NOT deduct internally
     if (gameId === "worldwar"  || gameId === "7")  { onWorldWar?.(fee); return; }
     if (gameId === "snakes"    || gameId === "2")  { onSnakes?.(fee);   return; }
     if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }

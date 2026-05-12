@@ -227,12 +227,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [uid, pushLocalTx]);
 
   const deductFee = useCallback((amount: number, title = "Entry Fee", roomId?: string) => {
+    // Drain deposit first → winning next → bonus last (priority order)
+    function drainBuckets(w: WalletData): WalletData {
+      let rem = amount;
+      const newDeposit = Math.max(0, w.deposit - rem);
+      rem -= (w.deposit - newDeposit);
+      const newWinning = Math.max(0, w.winning - rem);
+      rem -= (w.winning - newWinning);
+      const newBonus = Math.max(0, w.bonus - rem);
+      return { deposit: newDeposit, winning: newWinning, bonus: newBonus };
+    }
     if (!FIREBASE_ENABLED || !uid) {
-      setWallet((w) => ({ ...w, deposit: Math.max(0, w.deposit - amount) }));
+      setWallet((w) => drainBuckets(w));
       pushLocalTx({ type: "fee", title, rawAmount: -amount, display: `-₹${amount}`, color: "#e74c3c", status: "completed", roomId });
     } else {
       setWallet((w) => {
-        const updated = { ...w, deposit: Math.max(0, w.deposit - amount) };
+        const updated = drainBuckets(w);
         saveWalletCache(uid, updated);
         return updated;
       });
