@@ -126,26 +126,37 @@ function TxCard({ tx }: { tx: Transaction }) {
 function MatchCard({ match }: { match: MatchRecord }) {
   const [expanded, setExpanded] = useState(false);
   const isWin = match.result === "win";
+  const isPractice = match.entryFee === 0;
 
   return (
     <motion.div
       layout
       className="rounded-2xl overflow-hidden cursor-pointer"
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: `1px solid ${isWin ? "rgba(39,174,96,0.2)" : "rgba(231,76,60,0.12)"}`,
+        background: isPractice ? "rgba(16,185,129,0.04)" : "rgba(255,255,255,0.03)",
+        border: isPractice
+          ? "1px solid rgba(16,185,129,0.2)"
+          : `1px solid ${isWin ? "rgba(39,174,96,0.2)" : "rgba(231,76,60,0.12)"}`,
       }}
       onClick={() => setExpanded((e) => !e)}
     >
       {/* Summary row */}
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0"
-          style={{ background: "rgba(255,255,255,0.07)" }}>
+          style={{ background: isPractice ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.07)" }}>
           {match.gameIcon}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-white">{match.gameName}</div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="text-sm font-bold text-white">{match.gameName}</div>
+            {isPractice && (
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                PRACTICE
+              </span>
+            )}
+          </div>
           <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
             {fmtDate(match.date)}
           </div>
@@ -157,9 +168,13 @@ function MatchCard({ match }: { match: MatchRecord }) {
               }}>
               {isWin ? "🏆 WIN" : "❌ LOSS"}
             </span>
-            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
-              Entry {fmt(match.entryFee)}
-            </span>
+            {isPractice ? (
+              <span className="text-[10px]" style={{ color: "rgba(16,185,129,0.6)" }}>Practice Match · FREE</span>
+            ) : (
+              <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                Entry {fmt(match.entryFee)}
+              </span>
+            )}
             {match.opponentName && (
               <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                 vs {match.opponentName}
@@ -169,10 +184,16 @@ function MatchCard({ match }: { match: MatchRecord }) {
         </div>
 
         <div className="shrink-0 text-right">
-          <div className="text-sm font-black"
-            style={{ color: isWin ? "#27ae60" : "#e74c3c" }}>
-            {isWin ? `+${fmt(match.prize)}` : `-${fmt(match.entryFee)}`}
-          </div>
+          {isPractice ? (
+            <div className="text-sm font-black" style={{ color: "#10b981" }}>
+              {isWin ? "🏆 Won" : "Practice"}
+            </div>
+          ) : (
+            <div className="text-sm font-black"
+              style={{ color: isWin ? "#27ae60" : "#e74c3c" }}>
+              {isWin ? `+${fmt(match.prize)}` : `-${fmt(match.entryFee)}`}
+            </div>
+          )}
           <div className="text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.25)" }}>
             {expanded ? "▲" : "▼"}
           </div>
@@ -223,18 +244,20 @@ function MatchCard({ match }: { match: MatchRecord }) {
               {/* Prize / fee breakdown */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl px-3 py-2.5"
-                  style={{ background: "rgba(255,255,255,0.04)" }}>
+                  style={{ background: isPractice ? "rgba(16,185,129,0.06)" : "rgba(255,255,255,0.04)" }}>
                   <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>Entry Fee</div>
-                  <div className="text-sm font-bold text-white mt-0.5">{fmt(match.entryFee)}</div>
+                  <div className="text-sm font-bold mt-0.5" style={{ color: isPractice ? "#10b981" : "#fff" }}>
+                    {isPractice ? "FREE" : fmt(match.entryFee)}
+                  </div>
                 </div>
                 <div className="rounded-xl px-3 py-2.5"
                   style={{ background: "rgba(255,255,255,0.04)" }}>
                   <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    {isWin ? "Prize Won" : "Amount Lost"}
+                    {isPractice ? "Result" : isWin ? "Prize Won" : "Amount Lost"}
                   </div>
                   <div className="text-sm font-bold mt-0.5"
-                    style={{ color: isWin ? "#27ae60" : "#e74c3c" }}>
-                    {isWin ? fmt(match.prize) : fmt(match.entryFee)}
+                    style={{ color: isPractice ? "#10b981" : isWin ? "#27ae60" : "#e74c3c" }}>
+                    {isPractice ? (isWin ? "Won 🏆" : "Lost") : isWin ? fmt(match.prize) : fmt(match.entryFee)}
                   </div>
                 </div>
               </div>

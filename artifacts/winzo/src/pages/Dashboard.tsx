@@ -886,11 +886,19 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
                           {game.players}
                         </div>
                         {implemented ? (
-                          <div
-                            className="mt-1.5 w-full rounded-lg text-center font-black text-black"
-                            style={{ background: "linear-gradient(90deg,#FFD700,#ff8c00)", fontSize: "9px", padding: "4px 0" }}
-                          >
-                            Play Now
+                          <div className="mt-1.5 flex gap-1">
+                            <div
+                              className="flex-1 rounded-lg text-center font-black text-black"
+                              style={{ background: "linear-gradient(90deg,#FFD700,#ff8c00)", fontSize: "8px", padding: "4px 0" }}
+                            >
+                              ▶ Play
+                            </div>
+                            <div
+                              className="rounded-lg text-center font-black"
+                              style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981", fontSize: "8px", padding: "4px 5px" }}
+                            >
+                              FREE
+                            </div>
                           </div>
                         ) : (
                           <div

@@ -271,10 +271,11 @@ interface Props { onBack: () => void; initialFee?: number }
 export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
   const { addWinning } = useWallet();
   const { addMatch }   = useMatchHistory();
-  const isGodMode = initialFee >= 20;
-  const botName   = useRef(BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]);
-  const scored    = useRef(false);
-  const tier      = botTier(initialFee);
+  const isFreeMode = initialFee === 0;
+  const isGodMode  = !isFreeMode && initialFee >= 20;
+  const botName    = useRef(BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]);
+  const scored     = useRef(false);
+  const tier       = isFreeMode ? { label: "🟢 EASY", color: "#4ade80" } : botTier(initialFee);
 
   const [phase,     setPhase]     = useState<"matchmaking" | "playing" | "result">("matchmaking");
   const [pPos,      setPPos]      = useState(0);
@@ -310,10 +311,10 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
       scored.current = true;
       setPhase("result");
       const won   = pScore >= bScore;
-      const prize = won ? Math.floor(initialFee * 2 * 0.9) : 0;
-      if (won) addWinning(prize);
+      const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
+      if (!isFreeMode && won) addWinning(prize);
       addMatch({
-        gameId: "saanpsidi", gameName: "Saanp Sidi", gameIcon: "🐍",
+        gameId: "saanpsidi", gameName: isFreeMode ? "Saanp Sidi (Practice)" : "Saanp Sidi", gameIcon: "🐍",
         result: won ? "win" : "loss", entryFee: initialFee,
         prize, userScore: pScore, opponentScore: bScore,
         opponentName: botName.current, isGodMode,

@@ -373,13 +373,22 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
 
   const minFee = Math.min(...tiers);
   const insufficient = total < minFee;
-  const canPlaySelected = total >= selected;
-  const difficulty = getBotDifficulty(selected);
+  const isFreeMode = selected === 0;
+  const canPlaySelected = isFreeMode || total >= selected;
+  const difficulty = getBotDifficulty(selected === 0 ? 1 : selected);
 
   function handlePlay() {
-    if (!canPlaySelected || !game) return;
+    if (!game) return;
+    if (isFreeMode) { onPlay(0); return; }
+    if (!canPlaySelected) return;
     deductFee(selected, `${game.name} — Entry ₹${selected}`);
     onPlay(selected);
+  }
+
+  function handlePlayFree() {
+    if (!game) return;
+    setSelected(0);
+    onPlay(0);
   }
 
   return (
@@ -495,9 +504,13 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                   💳
                 </motion.div>
                 <div className="text-center">
-                  <h3 className="text-xl font-black text-white mb-1">Insufficient Balance</h3>
+                  <div className="text-xs font-black tracking-widest uppercase mb-1.5 px-3 py-1 rounded-full inline-block"
+                    style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}>
+                    Low Balance
+                  </div>
+                  <h3 className="text-xl font-black text-white mb-1">Play FREE Mode</h3>
                   <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    Please add money to play {game.name}
+                    Practice for free or add money to win real cash
                   </p>
                 </div>
                 <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -510,14 +523,29 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                     <span className="text-base font-black" style={{ color: "#FFD700" }}>₹{minFee}</span>
                   </div>
                 </div>
+                {/* Play FREE button */}
+                <motion.button whileTap={{ scale: 0.96 }}
+                  onClick={handlePlayFree}
+                  className="w-full py-4 rounded-2xl font-black text-base cursor-pointer relative overflow-hidden"
+                  style={{
+                    background: "linear-gradient(135deg,#065f46,#047857,#059669)",
+                    color: "#fff",
+                    boxShadow: "0 0 28px rgba(16,185,129,0.55), 0 0 60px rgba(16,185,129,0.2)",
+                    border: "1.5px solid rgba(16,185,129,0.5)",
+                  }}>
+                  <motion.div className="absolute inset-0 pointer-events-none"
+                    style={{ background: "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.22) 50%,transparent 65%)" }}
+                    animate={{ x: ["-110%","210%"] }} transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.8 }} />
+                  🎮 Play FREE — Practice Mode
+                </motion.button>
                 <motion.button whileTap={{ scale: 0.96 }}
                   onClick={() => { onClose(); onAddMoney?.(); }}
-                  className="w-full py-4 rounded-2xl font-black text-base cursor-pointer relative overflow-hidden"
-                  style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000", boxShadow: "0 0 24px rgba(255,215,0,0.4)" }}>
+                  className="w-full py-3 rounded-2xl font-black text-sm cursor-pointer relative overflow-hidden"
+                  style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000", boxShadow: "0 0 18px rgba(255,215,0,0.3)" }}>
                   <motion.div className="absolute inset-0 pointer-events-none"
                     style={{ background: "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.3) 50%,transparent 65%)" }}
                     animate={{ x: ["-110%","210%"] }} transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.8 }} />
-                  💰 Add Money Now
+                  💰 Add Money to Win Real Cash
                 </motion.button>
                 <button onClick={onClose} className="text-xs cursor-pointer" style={{ color: "rgba(255,255,255,0.3)" }}>Cancel</button>
               </div>
@@ -556,9 +584,42 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                       </motion.span>
                     </div>
 
-                    {/* Winnings card */}
+                    {/* Winnings card / Practice Mode card */}
                     <div className="absolute inset-x-0 bottom-3">
-                      <WinningsCard fee={selected} accent={cfg.accent} />
+                      {isFreeMode ? (
+                        <motion.div
+                          className="mx-5 flex items-center justify-between px-4 py-3 rounded-2xl"
+                          style={{
+                            background: "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.08))",
+                            border: "1.5px solid rgba(16,185,129,0.45)",
+                            boxShadow: "0 0 24px rgba(16,185,129,0.25), inset 0 1px 0 rgba(255,255,255,0.08)",
+                          }}
+                          initial={{ scale: 0.97, opacity: 0.8 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <motion.span className="text-2xl"
+                              animate={{ rotate: [0, -8, 8, 0] }}
+                              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1 }}>🎮</motion.span>
+                            <div>
+                              <div className="text-[10px] font-black tracking-widest uppercase"
+                                style={{ color: "rgba(16,185,129,0.7)" }}>PRACTICE MODE</div>
+                              <div className="font-black text-xl leading-tight"
+                                style={{ color: "#10b981", textShadow: "0 0 16px rgba(16,185,129,0.6)" }}>
+                                FREE
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.3)" }}>Entry Fee</div>
+                            <div className="text-sm font-black" style={{ color: "#10b981" }}>₹0</div>
+                            <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.25)" }}>No Rewards</div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <WinningsCard fee={selected} accent={cfg.accent} />
+                      )}
                     </div>
                   </div>
 
@@ -574,7 +635,60 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                     </div>
 
                     {/* Circular buttons — horizontal scroll */}
-                    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar justify-center">
+                    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar justify-start pl-1">
+                      {/* FREE button — always first */}
+                      <div className="flex flex-col items-center gap-1 flex-shrink-0" style={{ width: 66 }}>
+                        <motion.button
+                          whileTap={{ scale: 0.91 }}
+                          onClick={() => setSelected(0)}
+                          className="relative flex flex-col items-center justify-center rounded-full cursor-pointer"
+                          style={{
+                            width: 62, height: 62,
+                            background: selected === 0
+                              ? "linear-gradient(135deg, #065f46, #059669)"
+                              : "rgba(16,185,129,0.07)",
+                            border: selected === 0
+                              ? "2.5px solid #10b981"
+                              : "2px solid rgba(16,185,129,0.35)",
+                            boxShadow: selected === 0
+                              ? "0 0 22px rgba(16,185,129,0.75), 0 0 44px rgba(16,185,129,0.3)"
+                              : "0 0 12px rgba(16,185,129,0.15)",
+                            transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s",
+                          }}
+                          animate={selected === 0 ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+                          transition={{ duration: 0.9, repeat: selected === 0 ? Infinity : 0 }}
+                        >
+                          {selected === 0 && (
+                            <motion.div className="absolute inset-0 rounded-full pointer-events-none overflow-hidden" style={{ borderRadius: "50%" }}>
+                              <motion.div
+                                style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%)" }}
+                                animate={{ x: ["-120%", "220%"] }}
+                                transition={{ duration: 1.3, repeat: Infinity, repeatDelay: 1 }} />
+                            </motion.div>
+                          )}
+                          <span style={{
+                            fontSize: 13, fontWeight: 900,
+                            color: selected === 0 ? "#fff" : "#10b981",
+                            letterSpacing: "-0.01em",
+                            textShadow: selected === 0 ? "0 0 10px rgba(16,185,129,0.8)" : "none",
+                          }}>FREE</span>
+                          {selected === 0 && (
+                            <motion.div
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+                              style={{ background: "#22c55e", border: "1.5px solid #fff", fontSize: 10, fontWeight: 900, color: "#fff" }}
+                              initial={{ scale: 0 }} animate={{ scale: 1 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 22 }}>
+                              ✓
+                            </motion.div>
+                          )}
+                        </motion.button>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+                          style={{ background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.35)", letterSpacing: "0.04em" }}>
+                          PRACTICE
+                        </span>
+                      </div>
+
+                      {/* Paid fee buttons */}
                       {tiers.map((fee, i) => (
                         <FeeButton
                           key={fee}
@@ -696,7 +810,7 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                     </div>
                   </div>
 
-                  {/* PLAY NOW button */}
+                  {/* PLAY NOW / PLAY FREE button */}
                   <div className="px-4 pb-5">
                     <motion.button
                       whileTap={{ scale: 0.97 }}
@@ -704,18 +818,28 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                       disabled={!canPlaySelected}
                       className="w-full py-4 rounded-2xl font-black text-lg cursor-pointer relative overflow-hidden"
                       style={{
-                        background: canPlaySelected
+                        background: isFreeMode
+                          ? "linear-gradient(135deg, #065f46, #047857, #059669)"
+                          : canPlaySelected
                           ? "linear-gradient(135deg, #16a34a, #15803d)"
                           : "rgba(255,255,255,0.06)",
                         color: canPlaySelected ? "#fff" : "rgba(255,255,255,0.22)",
-                        boxShadow: canPlaySelected
+                        boxShadow: isFreeMode
+                          ? "0 0 28px rgba(16,185,129,0.6), 0 0 60px rgba(16,185,129,0.25)"
+                          : canPlaySelected
                           ? "0 0 28px rgba(34,197,94,0.5), 0 0 60px rgba(34,197,94,0.2)"
                           : "none",
-                        border: canPlaySelected ? "none" : "1px solid rgba(255,255,255,0.08)",
-                        letterSpacing: "0.08em",
+                        border: isFreeMode
+                          ? "1.5px solid rgba(16,185,129,0.5)"
+                          : canPlaySelected ? "none" : "1px solid rgba(255,255,255,0.08)",
+                        letterSpacing: "0.06em",
                       }}
                       animate={canPlaySelected ? {
-                        boxShadow: [
+                        boxShadow: isFreeMode ? [
+                          "0 0 20px rgba(16,185,129,0.4), 0 0 40px rgba(16,185,129,0.18)",
+                          "0 0 36px rgba(16,185,129,0.75), 0 0 72px rgba(16,185,129,0.32)",
+                          "0 0 20px rgba(16,185,129,0.4), 0 0 40px rgba(16,185,129,0.18)",
+                        ] : [
                           "0 0 20px rgba(34,197,94,0.35), 0 0 40px rgba(34,197,94,0.15)",
                           "0 0 36px rgba(34,197,94,0.65), 0 0 72px rgba(34,197,94,0.28)",
                           "0 0 20px rgba(34,197,94,0.35), 0 0 40px rgba(34,197,94,0.15)",
@@ -730,10 +854,17 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                           animate={{ x: ["-130%", "230%"] }}
                           transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.9 }} />
                       )}
-                      {canPlaySelected
+                      {isFreeMode
+                        ? "🎮  PLAY FREE — Practice Mode"
+                        : canPlaySelected
                         ? `▶  PLAY NOW  —  ₹${selected}`
                         : `Need ₹${Math.ceil(selected - total)} more to play`}
                     </motion.button>
+                    {isFreeMode && (
+                      <p className="text-center mt-2 text-[10px] font-bold" style={{ color: "rgba(16,185,129,0.55)" }}>
+                        No entry fee · No rewards · Unlimited practice
+                      </p>
+                    )}
                   </div>
                 </div>
                 {/* END sticky footer */}
