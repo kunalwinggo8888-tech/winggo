@@ -90,19 +90,6 @@ const GAME_MAP: Record<string, GameCfg> = {
     defaultFees: [1,2,5,10,25,50], bigTitle: "SOLITAIRE",
   },
 
-  /* ── World War ── */
-  worldwar: {
-    accent: "#6366f1", headerGrad: "linear-gradient(135deg,#1e1b4b,#3730a3,#6366f1)",
-    mainGrad: "linear-gradient(180deg,#0a0818 0%,#06040f 100%)",
-    assets: ["⚔️","🛡️","💣","⚔️","🏆","💥","⚔️","🛡️"],
-    defaultFees: [10,20,50,100,500], bigTitle: "WORLD WAR",
-  },
-  "7": {
-    accent: "#6366f1", headerGrad: "linear-gradient(135deg,#1e1b4b,#3730a3,#6366f1)",
-    mainGrad: "linear-gradient(180deg,#0a0818 0%,#06040f 100%)",
-    assets: ["⚔️","🛡️","💣","⚔️","🏆","💥","⚔️","🛡️"],
-    defaultFees: [10,20,50,100,500], bigTitle: "WORLD WAR",
-  },
 
   /* ── Bubble Shooter ── */
   bubble: {

@@ -120,7 +120,7 @@ const GAME_CATALOG = [
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
 const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: string; category: string; icon: string }> = {
   ludo:     { gradient: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)", players: "4.2L playing", prize: "₹1,000",    category: "Board",     icon: "🎲" },
-  worldwar: { gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", players: "8.4L playing", prize: "₹1,00,000", category: "E-Sports",  icon: "⚔️" },
+
   carrom:   { gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)", players: "2.9L playing", prize: "₹3,000",    category: "Board",     icon: "🎯" },
   snakes:   { gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", players: "1.9L playing", prize: "₹8,000",    category: "Board",     icon: "🐍" },
   bubble:   { gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", players: "2.4L playing", prize: "₹5,000",    category: "Casual",    icon: "🫧" },
@@ -226,7 +226,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     const gameId = pendingGame.id;
     setPendingGame(null);
     // Fee is deducted by GameEntrySheet on PLAY NOW — games must NOT deduct internally
-    if (gameId === "worldwar"  || gameId === "7")  { onWorldWar?.(fee); return; }
+
     if (gameId === "snakes"    || gameId === "2")  { onSnakes?.(fee);   return; }
     if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }
     if (gameId === "bubble"    || gameId === "1")  { onBubble?.(fee);   return; }
@@ -841,7 +841,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
             {[
               { id: "ludo",    name: "Ludo",          icon: "🎲", gradient: "linear-gradient(135deg, #a18cd1, #fbc2eb)", minFee: "₹1" },
               { id: "solitaire",name: "Solitaire",      icon: "🃏", gradient: "linear-gradient(135deg, #e91e8c, #6a0050)", minFee: "₹1" },
-              { id: "worldwar",name: "World War",      icon: "⚔️", gradient: "linear-gradient(135deg, #667eea, #764ba2)", minFee: "₹10" },
+
               { id: "snakes",  name: "Snake & Ladder", icon: "🐍", gradient: "linear-gradient(135deg, #11998e, #38ef7d)", minFee: "₹2" },
               { id: "carrom",  name: "Carrom",         icon: "🎯", gradient: "linear-gradient(135deg, #f7971e, #ffd200)", minFee: "₹5" },
               { id: "bubble",  name: "Bubble Shooter", icon: "🫧", gradient: "linear-gradient(135deg, #f093fb, #f5576c)", minFee: "₹5" },
@@ -872,36 +872,19 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
                   className="flex-shrink-0 w-28 rounded-2xl overflow-hidden cursor-pointer"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
                   <div className="relative h-20 flex items-center justify-center"
-                    style={{ background: g.gradient, opacity: g.id === "worldwar" ? 0.75 : 1 }}>
+                    style={{ background: g.gradient }}>
                     <span className="text-4xl">{g.icon}</span>
-                    {g.id === "worldwar" ? (
-                      <div className="absolute inset-0 flex items-center justify-center"
-                        style={{ background: "rgba(0,0,0,0.4)" }}>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-lg"
-                          style={{ background: "rgba(255,215,0,0.2)", border: "1px solid rgba(255,215,0,0.5)", color: "#FFD700" }}>
-                          SOON
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-lg text-black"
-                        style={{ background: "#FFD700" }}>
-                        {g.minFee}+
-                      </span>
-                    )}
+                    <span className="absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-lg text-black"
+                      style={{ background: "#FFD700" }}>
+                      {g.minFee}+
+                    </span>
                   </div>
                   <div className="px-2.5 py-2">
                     <div className="text-white font-bold text-xs leading-tight truncate">{g.name}</div>
-                    {g.id === "worldwar" ? (
-                      <div className="mt-1.5 w-full py-1 rounded-lg text-center text-[10px] font-black"
-                        style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", color: "rgba(255,215,0,0.5)" }}>
-                        Coming Soon
-                      </div>
-                    ) : (
-                      <div className="mt-1.5 w-full py-1 rounded-lg text-center text-[10px] font-black text-black"
-                        style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}>
-                        Play
-                      </div>
-                    )}
+                    <div className="mt-1.5 w-full py-1 rounded-lg text-center text-[10px] font-black text-black"
+                      style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}>
+                      Play
+                    </div>
                   </div>
                 </motion.div>
               );
