@@ -8,7 +8,10 @@ import {
   onSnapshot, serverTimestamp, increment,
   doc, writeBatch, Timestamp, DocumentData, deleteDoc,
 } from "firebase/firestore";
-import { adminDb, FIREBASE_ENABLED } from "./config";
+import { adminDb, adminRtdb, FIREBASE_ENABLED } from "./config";
+import {
+  ref as rtdbRef, onValue, off, DataSnapshot,
+} from "firebase/database";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -552,6 +555,8 @@ export interface PlatformStats {
   depositsTodayCount: number;
   totalWithdrawalsAmount: number;
   totalWithdrawalsCount: number;
+  withdrawalsTodayAmount: number;
+  dailyProfit: number;
   pendingWithdrawals: number;
   pendingWithdrawalsAmount: number;
   pendingKYC: number;
@@ -562,6 +567,7 @@ const EMPTY_PLATFORM_STATS: PlatformStats = {
   totalDepositBalance: 0, totalBonusBalance: 0, totalDepositsAmount: 0,
   totalDepositsCount: 0, depositsTodayAmount: 0, depositsTodayCount: 0,
   totalWithdrawalsAmount: 0, totalWithdrawalsCount: 0,
+  withdrawalsTodayAmount: 0, dailyProfit: 0,
   pendingWithdrawals: 0, pendingWithdrawalsAmount: 0, pendingKYC: 0,
 };
 
@@ -573,7 +579,10 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
   if (!FIREBASE_ENABLED || !adminDb) { cb(EMPTY_PLATFORM_STATS); return () => {}; }
 
   let stats = { ...EMPTY_PLATFORM_STATS };
-  const emit = () => cb({ ...stats });
+  const emit = () => cb({
+    ...stats,
+    dailyProfit: stats.depositsTodayAmount - stats.withdrawalsTodayAmount,
+  });
   const todayStart = Date.now() - 86_400_000;
 
   // 1. Total user count
@@ -642,13 +651,26 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
     () => {}
   );
 
-  // 5. Approved withdrawals total
+  // 5. Approved withdrawals total + today's withdrawals
   const unsubApprovedWD = onSnapshot(
     query(collection(adminDb, "withdrawRequests"), where("status", "==", "approved"), limit(1000)),
     (snap) => {
-      let total = 0;
-      snap.docs.forEach((d) => { total += (d.data().amount as number) || 0; });
-      stats = { ...stats, totalWithdrawalsAmount: total, totalWithdrawalsCount: snap.size };
+      let total = 0, todayWD = 0;
+      snap.docs.forEach((d) => {
+        const amt = (d.data().amount as number) || 0;
+        total += amt;
+        const ts = d.data().processedAt?.seconds
+          ? d.data().processedAt.seconds * 1000
+          : 0;
+        if (ts > todayStart) todayWD += amt;
+      });
+      stats = {
+        ...stats,
+        totalWithdrawalsAmount: total,
+        totalWithdrawalsCount: snap.size,
+        withdrawalsTodayAmount: todayWD,
+        dailyProfit: stats.depositsTodayAmount - todayWD,
+      };
       emit();
     },
     () => {}
@@ -665,6 +687,119 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
     unsubUsers(); unsubWallets(); unsubDeposits();
     unsubPendingWD(); unsubApprovedWD(); unsubKYC();
   };
+}
+
+// ─── ONLINE USERS (RTDB Presence) ─────────────────────────────────────────────
+
+/**
+ * Subscribe to online user count via Firebase RTDB presence node.
+ * Player app writes `presence/{uid} = { online: true, lastSeen: serverTimestamp() }`.
+ * Returns the count of currently-online users (0 if none or RTDB not configured).
+ */
+export function subscribeOnlineUsers(cb: (count: number) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminRtdb) { cb(0); return () => {}; }
+  const presenceRef = rtdbRef(adminRtdb, "presence");
+  const handler = (snap: DataSnapshot) => {
+    if (!snap.exists()) { cb(0); return; }
+    let count = 0;
+    snap.forEach((child) => {
+      const data = child.val() as { online?: boolean } | null;
+      if (data?.online === true) count++;
+    });
+    cb(count);
+  };
+  onValue(presenceRef, handler, () => cb(0));
+  return () => off(presenceRef, "value", handler);
+}
+
+// ─── ACTIVE MATCHES BY GAME (RTDB) ────────────────────────────────────────────
+
+export interface ActiveMatchInfo {
+  totalActive: number;
+  byGame: Record<string, { name: string; emoji: string; count: number }>;
+  mostPlayed: { id: string; name: string; emoji: string; count: number } | null;
+}
+
+const RTDB_GAMES = [
+  { id: "ludo",     name: "Ludo",          emoji: "🎲", path: "ludo",        fees: [1, 5, 10, 50],   activeStatus: ["playing", "in_progress"] },
+  { id: "worldwar", name: "World War",     emoji: "⚔️", path: "worldwar",    fees: [20, 50, 100, 200],activeStatus: ["in_progress"]            },
+  { id: "metro",    name: "Metro Surfer",  emoji: "🏃", path: "metroSurfer", fees: null,              activeStatus: ["playing", "active"]      },
+  { id: "cricket",  name: "Cricket",       emoji: "🏏", path: "cricket",     fees: [5, 10, 25, 50],  activeStatus: ["playing", "active"]      },
+  { id: "snakes",   name: "Snake & Ladder",emoji: "🐍", path: "snakes",      fees: [1, 2, 5, 10],    activeStatus: ["playing", "in_progress"] },
+];
+
+/**
+ * Subscribe to active match counts across all RTDB game rooms.
+ * Returns total count, per-game breakdown, and the most played game.
+ */
+export function subscribeActiveMatches(cb: (info: ActiveMatchInfo) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminRtdb) {
+    cb({ totalActive: 0, byGame: {}, mostPlayed: null });
+    return () => {};
+  }
+
+  const counts = new Map<string, number>();
+  const unsubs: Array<() => void> = [];
+
+  const emit = () => {
+    let totalActive = 0;
+    const byGame: Record<string, { name: string; emoji: string; count: number }> = {};
+
+    RTDB_GAMES.forEach((g) => {
+      const count = counts.get(g.id) ?? 0;
+      totalActive += count;
+      byGame[g.id] = { name: g.name, emoji: g.emoji, count };
+    });
+
+    // Find the most-played game without relying on forEach mutation narrowing
+    const topEntry = RTDB_GAMES
+      .map((g) => ({ id: g.id, name: g.name, emoji: g.emoji, count: counts.get(g.id) ?? 0 }))
+      .filter((g) => g.count > 0)
+      .sort((a, b) => b.count - a.count)[0];
+
+    const mostPlayed: ActiveMatchInfo["mostPlayed"] = topEntry ?? null;
+    cb({ totalActive, byGame, mostPlayed });
+  };
+
+  RTDB_GAMES.forEach((game) => {
+    if (game.fees) {
+      const feeCounts = new Map<number, number>();
+      game.fees.forEach((fee) => {
+        const feeRef = rtdbRef(adminRtdb!, `${game.path}/${fee}`);
+        const handler = (snap: DataSnapshot) => {
+          let count = 0;
+          if (snap.exists()) {
+            snap.forEach((room) => {
+              const data = room.val() as { status?: string } | null;
+              if (data?.status && game.activeStatus.includes(data.status)) count++;
+            });
+          }
+          feeCounts.set(fee, count);
+          counts.set(game.id, Array.from(feeCounts.values()).reduce((a, b) => a + b, 0));
+          emit();
+        };
+        onValue(feeRef, handler, () => {});
+        unsubs.push(() => off(feeRef, "value", handler));
+      });
+    } else {
+      const gameRef = rtdbRef(adminRtdb!, game.path);
+      const handler = (snap: DataSnapshot) => {
+        let count = 0;
+        if (snap.exists()) {
+          snap.forEach((room) => {
+            const data = room.val() as { status?: string } | null;
+            if (data?.status && game.activeStatus.includes(data.status)) count++;
+          });
+        }
+        counts.set(game.id, count);
+        emit();
+      };
+      onValue(gameRef, handler, () => {});
+      unsubs.push(() => off(gameRef, "value", handler));
+    }
+  });
+
+  return () => unsubs.forEach((u) => u());
 }
 
 // ─── DEPOSIT REQUESTS (Screenshot Verification) ──────────────────────────────

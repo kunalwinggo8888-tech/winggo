@@ -1,7 +1,9 @@
 /**
- * PageDashboard — WINGGO Admin (Premium Upgrade)
- * Live Firebase stats + online users, active matches, daily profit, notifications,
- * live activity feed, top winners widget, animated counters.
+ * PageDashboard — WINGGO Admin (Firebase Live Edition)
+ * Online Users   → RTDB presence/{uid}  (written by player app on login)
+ * Active Matches → RTDB game rooms      (ludo/worldwar/metroSurfer/cricket/snakes)
+ * Daily Profit   → Firestore deposits - withdrawals (via subscribePlatformStats)
+ * Most Played    → game with highest active match count from RTDB
  */
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
@@ -11,8 +13,13 @@ import {
 } from "recharts";
 import StatCard from "@/components/StatCard";
 import { REVENUE_DATA, USER_GROWTH_DATA, GAME_STATS_DATA } from "@/data/mockData";
-import { subscribePlatformStats, PlatformStats, subscribeDeposits, DepositRecord } from "@/firebase/admin.service";
-import { FIREBASE_ENABLED } from "@/firebase/config";
+import {
+  subscribePlatformStats, PlatformStats,
+  subscribeDeposits, DepositRecord,
+  subscribeOnlineUsers,
+  subscribeActiveMatches, ActiveMatchInfo,
+} from "@/firebase/admin.service";
+import { FIREBASE_ENABLED, adminRtdb } from "@/firebase/config";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -23,52 +30,88 @@ function fmt(n: number): string {
 }
 function fmtNum(n: number): string { return n.toLocaleString("en-IN"); }
 
-// Animated counter hook
-function useCounter(target: number, duration = 1200) {
+/** Animated count-up hook — re-triggers whenever target changes */
+function useCounter(target: number, duration = 900) {
   const [value, setValue] = useState(0);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (ref.current) clearInterval(ref.current);
-    const steps = 40;
-    const step  = target / steps;
-    let cur     = 0;
+    const steps = 36;
+    const from  = value;
+    let step    = 0;
     ref.current = setInterval(() => {
-      cur = Math.min(cur + step, target);
-      setValue(Math.round(cur));
-      if (cur >= target && ref.current) clearInterval(ref.current);
+      step++;
+      const pct = step / steps;
+      const ease = 1 - Math.pow(1 - pct, 3); // cubic ease-out
+      setValue(Math.round(from + (target - from) * ease));
+      if (step >= steps && ref.current) { clearInterval(ref.current); setValue(target); }
     }, duration / steps);
     return () => { if (ref.current) clearInterval(ref.current); };
-  }, [target, duration]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
   return value;
 }
+
+// ─── SKELETON SHIMMER ─────────────────────────────────────────────────────────
+
+function Shimmer({ w = "60%", h = "h-8" }: { w?: string; h?: string }) {
+  return (
+    <motion.div
+      className={`rounded-lg ${h}`}
+      style={{ width: w, background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%)", backgroundSize: "200% 100%" }}
+      animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
+      transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
+    />
+  );
+}
+
+// ─── FIREBASE STATUS ──────────────────────────────────────────────────────────
+
+/** Whether RTDB is available (databaseURL was provided) */
+const RTDB_ENABLED = FIREBASE_ENABLED && Boolean(adminRtdb);
+
+type FirebaseStatus = "checking" | "live" | "partial" | "demo";
+
+function getFirebaseStatus(): FirebaseStatus {
+  if (!FIREBASE_ENABLED) return "demo";
+  if (RTDB_ENABLED) return "live";
+  return "partial";
+}
+
+const STATUS_CFG = {
+  checking: { dot: "#f59e0b", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)", text: "#f59e0b", label: "⏳ Connecting to Firebase…" },
+  live:     { dot: "#34d399", bg: "rgba(52,211,153,0.06)",  border: "rgba(52,211,153,0.22)",  text: "#34d399", label: "🔥 Firebase Live — Firestore + RTDB connected" },
+  partial:  { dot: "#f59e0b", bg: "rgba(245,158,11,0.06)",  border: "rgba(245,158,11,0.22)",  text: "#f59e0b", label: "⚠️ Partial — Firestore OK, RTDB URL missing (set VITE_FIREBASE_DATABASE_URL)" },
+  demo:     { dot: "#ef4444", bg: "rgba(239,68,68,0.06)",   border: "rgba(239,68,68,0.22)",   text: "#ef4444", label: "🔴 Demo mode — Firebase not configured (set VITE_FIREBASE_* secrets)" },
+};
 
 // ─── MOCK LIVE DATA ────────────────────────────────────────────────────────────
 
 const LIVE_ACTIVITY = [
-  { user: "Arjun M.",   action: "Won ₹250 in Ludo",            time: "2s",   type: "win"    },
-  { user: "Priya P.",   action: "Joined Cricket ₹50 room",      time: "8s",   type: "join"   },
-  { user: "Rahul S.",   action: "Deposited ₹500 via UPI",        time: "14s",  type: "deposit"},
-  { user: "Amit K.",    action: "Won Tournament — ₹1,200",       time: "28s",  type: "win"    },
-  { user: "Vikram S.",  action: "Withdrew ₹800 (Pending)",       time: "42s",  type: "withdraw"},
-  { user: "Meera N.",   action: "KYC Submitted",                  time: "1m",   type: "kyc"    },
-  { user: "Deepika J.", action: "Joined Ludo ₹10 room",          time: "1m 12s",type: "join"  },
-  { user: "Suresh Y.",  action: "Flagged — Multiple accounts",   time: "2m",   type: "alert"  },
+  { user: "Arjun M.",   action: "Won ₹250 in Ludo",          time: "2s",    type: "win"     },
+  { user: "Priya P.",   action: "Joined Cricket ₹50 room",    time: "8s",    type: "join"    },
+  { user: "Rahul S.",   action: "Deposited ₹500 via UPI",     time: "14s",   type: "deposit" },
+  { user: "Amit K.",    action: "Won Tournament — ₹1,200",    time: "28s",   type: "win"     },
+  { user: "Vikram S.",  action: "Withdrew ₹800 (Pending)",    time: "42s",   type: "withdraw"},
+  { user: "Meera N.",   action: "KYC Submitted",               time: "1m",    type: "kyc"     },
+  { user: "Deepika J.", action: "Joined Ludo ₹10 room",       time: "1m 12s",type: "join"    },
+  { user: "Suresh Y.",  action: "Flagged — Multiple accounts",time: "2m",    type: "alert"   },
 ];
 
 const NOTIFICATIONS = [
-  { type: "error",   msg: "User WG-2041 flagged — 3 devices",           time: "2m"  },
-  { type: "warning", msg: "5 withdrawal requests pending approval",       time: "8m"  },
-  { type: "info",    msg: "7 new KYC submissions received",               time: "15m" },
-  { type: "success", msg: "Tournament #12 complete — ₹25,000 paid",      time: "1h"  },
-  { type: "warning", msg: "Carrom bot ratio exceeded 40%",                time: "2h"  },
+  { type: "error",   msg: "User WG-2041 flagged — 3 devices",         time: "2m"  },
+  { type: "warning", msg: "5 withdrawal requests pending approval",     time: "8m"  },
+  { type: "info",    msg: "7 new KYC submissions received",             time: "15m" },
+  { type: "success", msg: "Tournament #12 complete — ₹25,000 paid",   time: "1h"  },
+  { type: "warning", msg: "Carrom bot ratio exceeded 40%",              time: "2h"  },
 ];
 
 const TOP_WINNERS = [
-  { name: "Arjun Menon",   won: 42800, games: 412, avatar: "A", color: "#FFD700" },
-  { name: "Rahul Sharma",  won: 28400, games: 289, avatar: "R", color: "#94a3b8" },
-  { name: "Amit Kumar",    won: 19200, games: 142, avatar: "A", color: "#fb923c" },
-  { name: "Vikram Singh",  won: 12600, games: 98,  avatar: "V", color: "#a78bfa" },
-  { name: "Priya Patel",   won: 8400,  games: 67,  avatar: "P", color: "#60a5fa" },
+  { name: "Arjun Menon",  won: 42800, games: 412, avatar: "A", color: "#FFD700" },
+  { name: "Rahul Sharma", won: 28400, games: 289, avatar: "R", color: "#94a3b8" },
+  { name: "Amit Kumar",   won: 19200, games: 142, avatar: "A", color: "#fb923c" },
+  { name: "Vikram Singh", won: 12600, games: 98,  avatar: "V", color: "#a78bfa" },
+  { name: "Priya Patel",  won: 8400,  games: 67,  avatar: "P", color: "#60a5fa" },
 ];
 
 const NOTIF_CFG = {
@@ -103,138 +146,297 @@ const CustomTooltip = ({ active, payload, label }: {
   );
 };
 
+// ─── LIVE COUNTER CARD ────────────────────────────────────────────────────────
+
+interface LiveCounterCardProps {
+  icon: string;
+  label: string;
+  value: number | null;
+  sub: string;
+  color: string;
+  glow: string;
+  pulse?: boolean;
+  suffix?: string;
+  prefix?: string;
+  badge?: string;
+  delay?: number;
+  isLive: boolean;
+}
+
+function LiveCounterCard({
+  icon, label, value, sub, color, glow, pulse = true,
+  prefix = "", suffix = "", badge, delay = 0, isLive,
+}: LiveCounterCardProps) {
+  const animated = useCounter(value ?? 0);
+  const loading  = value === null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
+      className="rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden"
+      style={{ background: `linear-gradient(135deg, ${glow}, rgba(0,0,0,0))`, border: `1px solid ${color}30` }}
+    >
+      {/* Ambient glow */}
+      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full blur-2xl pointer-events-none"
+        style={{ background: `${color}20` }} />
+
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+        style={{ background: `${color}18` }}>
+        {icon}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <p className="text-[11px] font-black uppercase tracking-wider" style={{ color: `${color}b0` }}>{label}</p>
+          {badge && (
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0"
+              style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}>
+              {badge}
+            </span>
+          )}
+        </div>
+        {loading ? (
+          <Shimmer w="70%" h="h-8" />
+        ) : (
+          <motion.p className="text-3xl font-black tabular-nums" style={{ color }}>
+            {prefix}{animated.toLocaleString("en-IN")}{suffix}
+          </motion.p>
+        )}
+        <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+          {loading ? "Fetching from Firebase…" : sub}
+        </p>
+      </div>
+
+      <div className="flex flex-col items-center gap-2 shrink-0">
+        {pulse && !loading && (
+          <motion.div className="w-2.5 h-2.5 rounded-full"
+            style={{ background: color }}
+            animate={{ scale: [1, 1.7, 1], opacity: [1, 0.4, 1] }}
+            transition={{ duration: 2, repeat: Infinity }} />
+        )}
+        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+          style={{
+            background: isLive ? "rgba(52,211,153,0.10)" : "rgba(245,158,11,0.10)",
+            color: isLive ? "#34d399" : "#f59e0b",
+            border: `1px solid ${isLive ? "rgba(52,211,153,0.25)" : "rgba(245,158,11,0.25)"}`,
+          }}>
+          {isLive ? "LIVE" : "DEMO"}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── MOST PLAYED GAME WIDGET ──────────────────────────────────────────────────
+
+function MostPlayedWidget({ matchInfo }: { matchInfo: ActiveMatchInfo | null }) {
+  if (!RTDB_ENABLED) return null;
+
+  const mp = matchInfo?.mostPlayed;
+  const loading = matchInfo === null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
+      className="rounded-2xl p-4 flex items-center gap-4"
+      style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.06), rgba(124,58,237,0.04))", border: "1px solid rgba(255,215,0,0.18)" }}
+    >
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-[11px] font-black uppercase tracking-wider" style={{ color: "rgba(255,215,0,0.6)" }}>
+          🏆 Most Played
+        </span>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-3 flex-1">
+          <Shimmer w="32px" h="h-8" />
+          <Shimmer w="120px" h="h-5" />
+        </div>
+      ) : mp && mp.count > 0 ? (
+        <div className="flex items-center gap-3 flex-1">
+          <motion.span
+            className="text-3xl"
+            animate={{ scale: [1, 1.12, 1] }}
+            transition={{ duration: 2.5, repeat: Infinity }}
+          >
+            {mp.emoji}
+          </motion.span>
+          <div>
+            <p className="text-base font-black text-white">{mp.name}</p>
+            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{mp.count} active rooms</p>
+          </div>
+          <div className="ml-auto flex gap-1.5 flex-wrap justify-end">
+            {matchInfo && Object.values(matchInfo.byGame)
+              .filter(g => g.count > 0)
+              .sort((a, b) => b.count - a.count)
+              .map((g) => (
+                <span key={g.name} className="text-[10px] font-black px-2 py-1 rounded-lg"
+                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {g.emoji} {g.count}
+                </span>
+              ))
+            }
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+          No active game rooms right now
+        </p>
+      )}
+
+      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0"
+        style={{ background: "rgba(52,211,153,0.10)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" }}>
+        RTDB LIVE
+      </span>
+    </motion.div>
+  );
+}
+
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 
 export default function PageDashboard() {
-  const [stats, setStats]       = useState<PlatformStats | null>(null);
-  const [deposits, setDeposits] = useState<DepositRecord[]>([]);
-  const [actIdx, setActIdx]     = useState(0);
+  const [stats, setStats]               = useState<PlatformStats | null>(null);
+  const [deposits, setDeposits]         = useState<DepositRecord[]>([]);
+  const [actIdx, setActIdx]             = useState(0);
   const [dismissedNotifs, setDismissedNotifs] = useState<Set<number>>(new Set());
+  const [fbStatus, setFbStatus]         = useState<FirebaseStatus>("checking");
 
-  // Simulated live counters
-  const [onlineUsers, setOnlineUsers]     = useState(3841);
-  const [activeMatches, setActiveMatches] = useState(312);
-  const [dailyProfit, setDailyProfit]     = useState(28400);
+  // Real Firebase live counters
+  const [onlineUsers, setOnlineUsers]   = useState<number | null>(FIREBASE_ENABLED ? null : 0);
+  const [matchInfo, setMatchInfo]       = useState<ActiveMatchInfo | null>(FIREBASE_ENABLED ? null : { totalActive: 0, byGame: {}, mostPlayed: null });
 
-  const animatedOnline  = useCounter(onlineUsers);
-  const animatedMatches = useCounter(activeMatches);
-  const animatedProfit  = useCounter(dailyProfit);
+  // Derived: daily profit comes from stats (Firestore)
+  const dailyProfit = stats?.dailyProfit ?? null;
 
-  useEffect(() => { return subscribePlatformStats(setStats); }, []);
-  useEffect(() => { return subscribeDeposits((d) => setDeposits(d.slice(0, 8))); }, []);
-
-  // Cycle through live activity feed
+  // Wire all Firebase subscriptions
   useEffect(() => {
-    const t = setInterval(() => setActIdx(i => (i + 1) % LIVE_ACTIVITY.length), 2500);
-    return () => clearInterval(t);
+    setFbStatus("checking");
+    const timer = setTimeout(() => setFbStatus(getFirebaseStatus()), 1200);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Simulate live counter drift
   useEffect(() => {
-    const t = setInterval(() => {
-      setOnlineUsers(n => n + Math.floor(Math.random() * 6) - 2);
-      setActiveMatches(n => n + Math.floor(Math.random() * 4) - 1);
-      setDailyProfit(n => n + Math.floor(Math.random() * 200));
-    }, 5000);
+    const unsub = subscribePlatformStats((s) => {
+      setStats(s);
+      if (fbStatus === "checking") setFbStatus(getFirebaseStatus());
+    });
+    return unsub;
+  }, [fbStatus]);
+
+  useEffect(() => {
+    return subscribeDeposits((d) => setDeposits(d.slice(0, 8)));
+  }, []);
+
+  // Online users — RTDB presence
+  useEffect(() => {
+    const unsub = subscribeOnlineUsers((count) => setOnlineUsers(count));
+    return unsub;
+  }, []);
+
+  // Active matches + most played game — RTDB game rooms
+  useEffect(() => {
+    const unsub = subscribeActiveMatches((info) => setMatchInfo(info));
+    return unsub;
+  }, []);
+
+  // Cycle live activity feed
+  useEffect(() => {
+    const t = setInterval(() => setActIdx((i) => (i + 1) % LIVE_ACTIVITY.length), 2500);
     return () => clearInterval(t);
   }, []);
 
   const s = stats;
+  const isLive = FIREBASE_ENABLED;
 
   const STAT_CARDS = [
-    { icon: "👥", label: "Total Users",         value: s ? fmtNum(s.totalUsers) : "—",           sub: "Platform accounts",                  color: "#7c3aed", glow: "rgba(124,58,237,0.12)" },
-    { icon: "💰", label: "Total Wallet",         value: s ? fmt(s.totalWalletBalance) : "—",      sub: s ? `Win ${fmt(s.totalWinningBalance)} · Dep ${fmt(s.totalDepositBalance)}` : "Live", color: "#FFD700", glow: "rgba(255,215,0,0.10)" },
-    { icon: "🎁", label: "Total Bonus",          value: s ? fmt(s.totalBonusBalance) : "—",       sub: "Across all wallets",                 color: "#a78bfa", glow: "rgba(167,139,250,0.10)" },
-    { icon: "📥", label: "Total Deposits",       value: s ? fmt(s.totalDepositsAmount) : "—",     sub: s ? `${fmtNum(s.totalDepositsCount)} payments` : "—", color: "#34d399", glow: "rgba(52,211,153,0.10)" },
-    { icon: "📤", label: "Total Withdrawals",    value: s ? fmt(s.totalWithdrawalsAmount) : "—",  sub: s ? `${fmtNum(s.totalWithdrawalsCount)} approved` : "—", color: "#f472b6" },
-    { icon: "⏳", label: "Pending Withdrawals",  value: s ? fmtNum(s.pendingWithdrawals) : "—",   sub: s ? `${fmt(s.pendingWithdrawalsAmount)} awaiting` : "—", color: "#f59e0b" },
-    { icon: "🪪", label: "KYC Pending",          value: s ? fmtNum(s.pendingKYC) : "—",           sub: "Needs review",                       color: "#fb923c" },
-    { icon: "💳", label: "Today Deposits",       value: s ? fmt(s.depositsTodayAmount) : "—",     sub: s ? `${fmtNum(s.depositsTodayCount)} txns` : "—", color: "#60a5fa", glow: "rgba(96,165,250,0.10)" },
+    { icon: "👥", label: "Total Users",       value: s ? fmtNum(s.totalUsers) : "—",          sub: "Platform accounts",                                                                color: "#7c3aed", glow: "rgba(124,58,237,0.12)" },
+    { icon: "💰", label: "Total Wallet",       value: s ? fmt(s.totalWalletBalance) : "—",     sub: s ? `Win ${fmt(s.totalWinningBalance)} · Dep ${fmt(s.totalDepositBalance)}` : "Live",color: "#FFD700", glow: "rgba(255,215,0,0.10)" },
+    { icon: "🎁", label: "Total Bonus",        value: s ? fmt(s.totalBonusBalance) : "—",      sub: "Across all wallets",                                                               color: "#a78bfa", glow: "rgba(167,139,250,0.10)" },
+    { icon: "📥", label: "Total Deposits",     value: s ? fmt(s.totalDepositsAmount) : "—",    sub: s ? `${fmtNum(s.totalDepositsCount)} payments` : "—",                              color: "#34d399", glow: "rgba(52,211,153,0.10)" },
+    { icon: "📤", label: "Total Withdrawals",  value: s ? fmt(s.totalWithdrawalsAmount) : "—", sub: s ? `${fmtNum(s.totalWithdrawalsCount)} approved` : "—",                           color: "#f472b6" },
+    { icon: "⏳", label: "Pending Withdraw",   value: s ? fmtNum(s.pendingWithdrawals) : "—",  sub: s ? `${fmt(s.pendingWithdrawalsAmount)} awaiting` : "—",                           color: "#f59e0b" },
+    { icon: "🪪", label: "KYC Pending",        value: s ? fmtNum(s.pendingKYC) : "—",          sub: "Needs review",                                                                     color: "#fb923c" },
+    { icon: "💳", label: "Today Deposits",     value: s ? fmt(s.depositsTodayAmount) : "—",    sub: s ? `${fmtNum(s.depositsTodayCount)} txns` : "—",                                  color: "#60a5fa", glow: "rgba(96,165,250,0.10)" },
   ];
+
+  const cfg = STATUS_CFG[fbStatus];
 
   return (
     <div className="space-y-5">
-      {/* Firebase status */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs"
-          style={{ background: FIREBASE_ENABLED ? "rgba(52,211,153,0.06)" : "rgba(245,158,11,0.06)", border: `1px solid ${FIREBASE_ENABLED ? "rgba(52,211,153,0.2)" : "rgba(245,158,11,0.2)"}`, color: FIREBASE_ENABLED ? "#34d399" : "#f59e0b" }}>
-          <motion.div className="w-1.5 h-1.5 rounded-full"
-            style={{ background: FIREBASE_ENABLED ? "#34d399" : "#f59e0b" }}
-            animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.4, repeat: Infinity }} />
-          {FIREBASE_ENABLED ? "🔥 Live Firebase — real-time data" : "⚠️ Demo mode — Firebase not configured"}
+
+      {/* ── Firebase connection status banner ───────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-3 px-4 py-3 rounded-2xl flex-wrap"
+        style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
+      >
+        <motion.div
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ background: cfg.dot }}
+          animate={fbStatus === "checking" || fbStatus === "live"
+            ? { opacity: [1, 0.25, 1] }
+            : { opacity: 1 }}
+          transition={{ duration: 1.4, repeat: Infinity }}
+        />
+        <span className="text-xs font-bold" style={{ color: cfg.text }}>{cfg.label}</span>
+
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          {FIREBASE_ENABLED && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+              style={{ background: "rgba(52,211,153,0.10)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>
+              Firestore ✓
+            </span>
+          )}
+          {RTDB_ENABLED && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+              style={{ background: "rgba(96,165,250,0.10)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.2)" }}>
+              RTDB ✓
+            </span>
+          )}
+          {!FIREBASE_ENABLED && (
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Set VITE_FIREBASE_* in Replit Secrets to enable live data
+            </span>
+          )}
         </div>
-        <span className="text-xs ml-auto" style={{ color: "rgba(255,255,255,0.25)" }}>
-          Last updated just now
-        </span>
-      </div>
+      </motion.div>
 
-      {/* Live counters row */}
+      {/* ── Three live counter cards ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Online users */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="rounded-2xl p-5 flex items-center gap-4"
-          style={{ background: "linear-gradient(135deg, rgba(52,211,153,0.07), rgba(52,211,153,0.02))", border: "1px solid rgba(52,211,153,0.2)" }}>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-            style={{ background: "rgba(52,211,153,0.12)" }}>
-            🟢
-          </div>
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(52,211,153,0.7)" }}>Online Now</p>
-            <motion.p className="text-3xl font-black" style={{ color: "#34d399" }}>
-              {animatedOnline.toLocaleString("en-IN")}
-            </motion.p>
-            <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Users active right now</p>
-          </div>
-          <motion.div className="ml-auto w-2 h-2 rounded-full shrink-0" style={{ background: "#34d399" }}
-            animate={{ scale: [1, 1.6, 1], opacity: [1, 0.5, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-        </motion.div>
-
-        {/* Active matches */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="rounded-2xl p-5 flex items-center gap-4"
-          style={{ background: "linear-gradient(135deg, rgba(248,113,113,0.07), rgba(248,113,113,0.02))", border: "1px solid rgba(248,113,113,0.2)" }}>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-            style={{ background: "rgba(248,113,113,0.12)" }}>
-            🎮
-          </div>
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(248,113,113,0.7)" }}>Active Matches</p>
-            <motion.p className="text-3xl font-black" style={{ color: "#f87171" }}>
-              {animatedMatches.toLocaleString("en-IN")}
-            </motion.p>
-            <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Games in progress</p>
-          </div>
-          <motion.div className="ml-auto w-2 h-2 rounded-full shrink-0" style={{ background: "#f87171" }}
-            animate={{ scale: [1, 1.6, 1], opacity: [1, 0.5, 1] }} transition={{ duration: 1.6, repeat: Infinity }} />
-        </motion.div>
-
-        {/* Daily profit */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="rounded-2xl p-5 flex items-center gap-4"
-          style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.07), rgba(255,215,0,0.02))", border: "1px solid rgba(255,215,0,0.2)" }}>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-            style={{ background: "rgba(255,215,0,0.10)" }}>
-            💹
-          </div>
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(255,215,0,0.7)" }}>Daily Profit</p>
-            <motion.p className="text-3xl font-black" style={{ color: "#FFD700" }}>
-              ₹{animatedProfit.toLocaleString("en-IN")}
-            </motion.p>
-            <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Today's net revenue</p>
-          </div>
-          <span className="ml-auto text-xs font-black shrink-0" style={{ color: "#34d399" }}>↑ 12%</span>
-        </motion.div>
+        <LiveCounterCard
+          icon="🟢" label="Online Now"
+          value={onlineUsers}
+          sub={onlineUsers === 0 ? "No users online right now" : "Users active in real-time"}
+          color="#34d399" glow="rgba(52,211,153,0.07)"
+          badge="PRESENCE" delay={0.05} isLive={isLive}
+        />
+        <LiveCounterCard
+          icon="🎮" label="Active Matches"
+          value={matchInfo?.totalActive ?? null}
+          sub={matchInfo?.totalActive === 0 ? "No games in progress" : "Live game rooms across all games"}
+          color="#f87171" glow="rgba(248,113,113,0.07)"
+          badge="RTDB" delay={0.1} isLive={isLive && RTDB_ENABLED}
+        />
+        <LiveCounterCard
+          icon="💹" label="Daily Profit"
+          value={dailyProfit}
+          sub={dailyProfit !== null ? `Deposits today: ${fmt(s?.depositsTodayAmount ?? 0)} − Withdrawals: ${fmt(s?.withdrawalsTodayAmount ?? 0)}` : "Calculating from Firestore…"}
+          color="#FFD700" glow="rgba(255,215,0,0.07)"
+          prefix="₹" badge="LIVE" delay={0.15} isLive={isLive}
+        />
       </div>
 
-      {/* Stat cards grid */}
+      {/* ── Most Played Game (RTDB) ──────────────────────────────────────────── */}
+      <MostPlayedWidget matchInfo={matchInfo} />
+
+      {/* ── Platform stat cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {STAT_CARDS.map((sc, i) => (
           <StatCard key={sc.label} {...sc} delay={i * 0.05} />
         ))}
       </div>
 
-      {/* Notifications panel */}
+      {/* ── Notifications panel ──────────────────────────────────────────────── */}
       <AnimatePresence>
         {NOTIFICATIONS.filter((_, i) => !dismissedNotifs.has(i)).length > 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -252,17 +454,20 @@ export default function PageDashboard() {
             <div className="space-y-2">
               {NOTIFICATIONS.map((n, i) => {
                 if (dismissedNotifs.has(i)) return null;
-                const cfg = NOTIF_CFG[n.type as keyof typeof NOTIF_CFG];
+                const notifCfg = NOTIF_CFG[n.type as keyof typeof NOTIF_CFG];
                 return (
                   <motion.div key={i} layout initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                    style={{ background: cfg.bg, border: `1px solid ${cfg.color}22` }}>
-                    <span className="text-base shrink-0">{cfg.icon}</span>
+                    style={{ background: notifCfg.bg, border: `1px solid ${notifCfg.color}22` }}>
+                    <span className="text-base shrink-0">{notifCfg.icon}</span>
                     <p className="text-xs flex-1 text-white">{n.msg}</p>
                     <span className="text-[10px] shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>{n.time}</span>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => setDismissedNotifs(prev => new Set([...prev, i]))}
+                    <motion.button whileTap={{ scale: 0.9 }}
+                      onClick={() => setDismissedNotifs((prev) => new Set([...prev, i]))}
                       className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer text-[10px] shrink-0"
-                      style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}>✕</motion.button>
+                      style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}>
+                      ✕
+                    </motion.button>
                   </motion.div>
                 );
               })}
@@ -271,9 +476,8 @@ export default function PageDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Revenue chart + Live activity + Recent deposits */}
+      {/* ── Revenue chart + Live activity ────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue chart */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="lg:col-span-2 rounded-2xl p-5"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
@@ -289,11 +493,11 @@ export default function PageDashboard() {
             <AreaChart data={REVENUE_DATA}>
               <defs>
                 <linearGradient id="gDep" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FFD700" stopOpacity={0.3} />
+                  <stop offset="5%"  stopColor="#FFD700" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#FFD700" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gWit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
+                  <stop offset="5%"  stopColor="#7c3aed" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
                 </linearGradient>
               </defs>
@@ -320,18 +524,20 @@ export default function PageDashboard() {
           <div className="flex-1 overflow-hidden space-y-2 relative">
             <AnimatePresence mode="popLayout">
               {LIVE_ACTIVITY.slice(actIdx, actIdx + 5).concat(
-                actIdx + 5 > LIVE_ACTIVITY.length ? LIVE_ACTIVITY.slice(0, (actIdx + 5) % LIVE_ACTIVITY.length) : []
+                actIdx + 5 > LIVE_ACTIVITY.length
+                  ? LIVE_ACTIVITY.slice(0, (actIdx + 5) % LIVE_ACTIVITY.length)
+                  : []
               ).map((a, i) => {
-                const cfg = ACT_CFG[a.type as keyof typeof ACT_CFG];
+                const actCfg = ACT_CFG[a.type as keyof typeof ACT_CFG];
                 return (
                   <motion.div key={`${actIdx}-${i}`}
                     initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.3, delay: i * 0.05 }}
                     className="flex items-start gap-2 px-2.5 py-2 rounded-xl"
-                    style={{ background: `${cfg.color}0e`, border: `1px solid ${cfg.color}18` }}>
-                    <span className="text-base shrink-0 mt-0.5">{cfg.icon}</span>
+                    style={{ background: `${actCfg.color}0e`, border: `1px solid ${actCfg.color}18` }}>
+                    <span className="text-base shrink-0 mt-0.5">{actCfg.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-bold" style={{ color: cfg.color }}>{a.user}</p>
+                      <p className="text-[11px] font-bold" style={{ color: actCfg.color }}>{a.user}</p>
                       <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.5)" }}>{a.action}</p>
                     </div>
                     <span className="text-[9px] shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{a.time}</span>
@@ -343,9 +549,8 @@ export default function PageDashboard() {
         </motion.div>
       </div>
 
-      {/* User growth + Game share + Top Winners */}
+      {/* ── User growth + Game share + Top Winners ───────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* User growth */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="rounded-2xl p-5"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
@@ -363,7 +568,6 @@ export default function PageDashboard() {
           </ResponsiveContainer>
         </motion.div>
 
-        {/* Game share */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
           className="rounded-2xl p-5"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
@@ -388,7 +592,6 @@ export default function PageDashboard() {
           </div>
         </motion.div>
 
-        {/* Top winners */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
           className="rounded-2xl p-5"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
@@ -397,8 +600,7 @@ export default function PageDashboard() {
             {TOP_WINNERS.map((w, i) => (
               <motion.div key={w.name} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 + i * 0.06 }}
                 className="flex items-center gap-2.5">
-                <span className="text-xs font-black w-5 text-center shrink-0"
-                  style={{ color: w.color }}>
+                <span className="text-xs font-black w-5 text-center shrink-0" style={{ color: w.color }}>
                   {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
                 </span>
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0"
@@ -418,9 +620,8 @@ export default function PageDashboard() {
         </motion.div>
       </div>
 
-      {/* Recent deposits + Wallet breakdown */}
+      {/* ── Recent deposits + Wallet breakdown ───────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent deposits */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}
           className="rounded-2xl p-5 flex flex-col"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
@@ -434,7 +635,9 @@ export default function PageDashboard() {
           <div className="flex-1 space-y-2 overflow-y-auto">
             <AnimatePresence>
               {deposits.length === 0 ? (
-                <p className="text-xs text-center py-4" style={{ color: "rgba(255,255,255,0.3)" }}>No deposits yet</p>
+                <p className="text-xs text-center py-4" style={{ color: "rgba(255,255,255,0.3)" }}>
+                  {FIREBASE_ENABLED ? "No deposits yet" : "Demo mode — connect Firebase to see deposits"}
+                </p>
               ) : deposits.map((d, i) => {
                 const ts = typeof d.createdAt === "number"
                   ? new Date(d.createdAt)
@@ -454,7 +657,9 @@ export default function PageDashboard() {
                         {ts.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}
                       </p>
                     </div>
-                    <span className="text-xs font-black shrink-0" style={{ color: "#34d399" }}>+₹{d.amount.toLocaleString("en-IN")}</span>
+                    <span className="text-xs font-black shrink-0" style={{ color: "#34d399" }}>
+                      +₹{d.amount.toLocaleString("en-IN")}
+                    </span>
                   </motion.div>
                 );
               })}
@@ -462,7 +667,6 @@ export default function PageDashboard() {
           </div>
         </motion.div>
 
-        {/* Wallet breakdown */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
           className="rounded-2xl p-5"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
@@ -485,7 +689,8 @@ export default function PageDashboard() {
                   </div>
                   <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
                     <motion.div className="h-full rounded-full" style={{ background: row.color }}
-                      initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.9, ease: "easeOut" }} />
+                      initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.9, ease: "easeOut" }} />
                   </div>
                 </div>
               );
