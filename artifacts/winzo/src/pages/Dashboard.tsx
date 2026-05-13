@@ -62,6 +62,8 @@ const BANNERS = [
 const GAME_CATALOG = [
   // Popular
   { id: "ludo",         name: "Ludo",             icon: "🎲", gradient: "linear-gradient(135deg,#a18cd1,#fbc2eb)", category: "Popular", players: "4.2L playing", minFee: "₹1" },
+  { id: "ludofast",    name: "Ludo Fast",        icon: "⚡", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "3.1L playing", minFee: "₹2" },
+  { id: "saanpsidi",   name: "Saanp Sidi",       icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "2.3L playing", minFee: "₹2" },
   { id: "carrom",       name: "Carrom",            icon: "🎯", gradient: "linear-gradient(135deg,#f7971e,#ffd200)", category: "Popular", players: "2.9L playing", minFee: "₹2" },
   { id: "snakes",       name: "Snake & Ladder",    icon: "🐍", gradient: "linear-gradient(135deg,#11998e,#38ef7d)", category: "Popular", players: "1.9L playing", minFee: "₹2" },
   { id: "bubble",       name: "Bubble Shooter",    icon: "🫧", gradient: "linear-gradient(135deg,#f093fb,#f5576c)", category: "Popular", players: "2.4L playing", minFee: "₹1" },
@@ -120,6 +122,8 @@ const GAME_CATALOG = [
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
 const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: string; category: string; icon: string }> = {
   ludo:     { gradient: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)", players: "4.2L playing", prize: "₹1,000",    category: "Board",     icon: "🎲" },
+  ludofast: { gradient: "linear-gradient(135deg, #ff6e00 0%, #ffe000 100%)", players: "3.1L playing", prize: "₹2,000",    category: "Popular",   icon: "⚡" },
+  saanpsidi:{ gradient: "linear-gradient(135deg, #134e5e 0%, #71b280 100%)", players: "2.3L playing", prize: "₹4,000",    category: "Popular",   icon: "🐍" },
 
   carrom:   { gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)", players: "2.9L playing", prize: "₹3,000",    category: "Board",     icon: "🎯" },
   snakes:   { gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", players: "1.9L playing", prize: "₹8,000",    category: "Board",     icon: "🐍" },
@@ -150,6 +154,8 @@ const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
 interface DashboardProps {
   onSpin?: () => void;
   onLudo?: (fee?: number) => void;
+  onLudoFast?: (fee?: number) => void;
+  onSaanpSidi?: (fee?: number) => void;
   onWorldWar?: (fee?: number) => void;
   onSnakes?: (fee?: number) => void;
   onCarrom?: (fee?: number) => void;
@@ -200,9 +206,9 @@ interface DashboardProps {
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme","streetfight","shadowfighter","golfmaster","archeryking","tilematch3d","pipeconnect","jellyshift","goldminer3d"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","ludofast","saanpsidi","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme","streetfight","shadowfighter","golfmaster","archeryking","tilematch3d","pipeconnect","jellyshift","goldminer3d"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -227,6 +233,8 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     setPendingGame(null);
     // Fee is deducted by GameEntrySheet on PLAY NOW — games must NOT deduct internally
 
+    if (gameId === "ludofast")                        { onLudoFast?.(fee);  return; }
+    if (gameId === "saanpsidi")                       { onSaanpSidi?.(fee); return; }
     if (gameId === "snakes"    || gameId === "2")  { onSnakes?.(fee);   return; }
     if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }
     if (gameId === "bubble"    || gameId === "1")  { onBubble?.(fee);   return; }
