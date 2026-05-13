@@ -87,6 +87,14 @@ const GAME_CATALOG = [
   { id: "liquidsort",   name: "Liquid Sort",       icon: "🧪", gradient: "linear-gradient(135deg,#6a11cb,#2575fc)", category: "Puzzle",  players: "2.1L playing", minFee: "₹5" },
   { id: "bottleshoot",  name: "Bottle Shoot",      icon: "🔫", gradient: "linear-gradient(135deg,#1c1c2e,#a8322d)", category: "Arcade",  players: "1.8L playing", minFee: "₹5" },
   { id: "flyme",        name: "Fly Me",            icon: "🐦", gradient: "linear-gradient(135deg,#0f2027,#203a43,#2c5364)", category: "Arcade",  players: "2.4L playing", minFee: "₹5" },
+  { id: "streetfight",  name: "Street Fight 3D",   icon: "🥊", gradient: "linear-gradient(135deg,#0a0010,#ff3300)", category: "Action",  players: "3.1L playing", minFee: "₹2" },
+  { id: "shadowfighter",name: "Shadow Fighter",    icon: "⚔️", gradient: "linear-gradient(135deg,#050010,#7c3aed)", category: "Action",  players: "2.5L playing", minFee: "₹2" },
+  { id: "golfmaster",   name: "Golf Master 3D",    icon: "⛳", gradient: "linear-gradient(135deg,#0d2b0a,#22c55e)", category: "Sports",  players: "1.6L playing", minFee: "₹5" },
+  { id: "archeryking",  name: "Archery King",      icon: "🏹", gradient: "linear-gradient(135deg,#0a0a1f,#FFD700)", category: "Sports",  players: "2.0L playing", minFee: "₹5" },
+  { id: "tilematch3d",  name: "Tile Match 3D",     icon: "🧩", gradient: "linear-gradient(135deg,#1a0030,#9333ea)", category: "Puzzle",  players: "2.8L playing", minFee: "₹5" },
+  { id: "pipeconnect",  name: "Pipe Connect",      icon: "🔧", gradient: "linear-gradient(135deg,#002208,#22c55e)", category: "Puzzle",  players: "1.9L playing", minFee: "₹5" },
+  { id: "jellyshift",   name: "Jelly Shift 3D",    icon: "🟣", gradient: "linear-gradient(135deg,#0a0520,#a855f7)", category: "Arcade",  players: "3.4L playing", minFee: "₹5" },
+  { id: "goldminer3d",  name: "Gold Miner 3D",     icon: "⛏️", gradient: "linear-gradient(135deg,#0a0a1f,#b8860b)", category: "Arcade",  players: "2.2L playing", minFee: "₹5" },
   // Arcade
   { id: "candy",        name: "Candy Match",       icon: "🍬", gradient: "linear-gradient(135deg,#FF4081,#00E5FF)", category: "Arcade",  players: "1.6L playing", minFee: "₹5" },
   { id: "bricksbreaker",name: "Bricks Breaker 3D", icon: "🧱", gradient: "linear-gradient(135deg,#00e5ff,#0077aa)", category: "Arcade",  players: "1.5L playing", minFee: "₹5" },
@@ -178,15 +186,23 @@ interface DashboardProps {
   onLiquidSort?: (fee?: number) => void;
   onBottleShoot?: (fee?: number) => void;
   onFlyMe?: (fee?: number) => void;
+  onStreetFight?: (fee?: number) => void;
+  onShadowFighter?: (fee?: number) => void;
+  onGolfMaster?: (fee?: number) => void;
+  onArcheryKing?: (fee?: number) => void;
+  onTileMatch3D?: (fee?: number) => void;
+  onPipeConnect?: (fee?: number) => void;
+  onJellyShift?: (fee?: number) => void;
+  onGoldMiner3D?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme","streetfight","shadowfighter","golfmaster","archeryking","tilematch3d","pipeconnect","jellyshift","goldminer3d"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -246,6 +262,14 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (gameId === "liquidsort")                       { onLiquidSort?.(fee);   return; }
     if (gameId === "bottleshoot")                      { onBottleShoot?.(fee);  return; }
     if (gameId === "flyme")                            { onFlyMe?.(fee);        return; }
+    if (gameId === "streetfight")                      { onStreetFight?.(fee);  return; }
+    if (gameId === "shadowfighter")                    { onShadowFighter?.(fee);return; }
+    if (gameId === "golfmaster")                       { onGolfMaster?.(fee);   return; }
+    if (gameId === "archeryking")                      { onArcheryKing?.(fee);  return; }
+    if (gameId === "tilematch3d")                      { onTileMatch3D?.(fee);  return; }
+    if (gameId === "pipeconnect")                      { onPipeConnect?.(fee);  return; }
+    if (gameId === "jellyshift")                       { onJellyShift?.(fee);   return; }
+    if (gameId === "goldminer3d")                      { onGoldMiner3D?.(fee);  return; }
     // ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }

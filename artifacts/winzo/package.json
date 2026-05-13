@@ -44,6 +44,7 @@
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@types/cannon": "^0.1.13",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
@@ -77,6 +78,7 @@
   "dependencies": {
     "@types/matter-js": "^0.20.2",
     "@types/three": "^0.184.1",
+    "cannon-es": "^0.20.0",
     "firebase": "^12.13.0",
     "matter-js": "^0.20.0",
     "three": "^0.184.0"

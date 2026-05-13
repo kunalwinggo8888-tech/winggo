@@ -39,6 +39,14 @@ import HillClimberGame from "@/pages/HillClimberGame";
 import LiquidSortGame from "@/pages/LiquidSortGame";
 import BottleShootGame from "@/pages/BottleShootGame";
 import FlyMeGame from "@/pages/FlyMeGame";
+import StreetFightGame from "@/pages/StreetFightGame";
+import ShadowFighterGame from "@/pages/ShadowFighterGame";
+import GolfMasterGame from "@/pages/GolfMasterGame";
+import ArcheryKingGame from "@/pages/ArcheryKingGame";
+import TileMatch3DGame from "@/pages/TileMatch3DGame";
+import PipeConnectGame from "@/pages/PipeConnectGame";
+import JellyShiftGame from "@/pages/JellyShiftGame";
+import GoldMinerGame from "@/pages/GoldMinerGame";
 import AxeMasterGame from "@/pages/AxeMasterGame";
 import MrRacerGame from "@/pages/MrRacerGame";
 import BricksBreaker3DGame from "@/pages/BricksBreaker3DGame";
@@ -70,6 +78,8 @@ type Screen =
   | "metrosurfer" | "knifeup" | "angrymonsters" | "bearrun" | "archery"
   | "basketball" | "penalty" | "stumpit" | "bikeracing" | "gearup" | "hillclimber"
   | "liquidsort" | "bottleshoot" | "flyme"
+  | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
+  | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -118,6 +128,14 @@ function AppInner() {
   const [liquidsortFee, setLiquidsortFee]     = useState(10);
   const [bottleshootFee, setBottleshootFee]   = useState(10);
   const [flymeFee, setFlymeFee]               = useState(10);
+  const [streetfightFee, setStreetfightFee]   = useState(5);
+  const [shadowfighterFee, setShadowfighterFee] = useState(5);
+  const [golfmasterFee, setGolfmasterFee]     = useState(10);
+  const [archerykingFee, setArcherykingFee]   = useState(10);
+  const [tilematch3dFee, setTilematch3dFee]   = useState(10);
+  const [pipeconnectFee, setPipeconnectFee]   = useState(10);
+  const [jellyshiftFee, setJellyshiftFee]     = useState(10);
+  const [goldminer3dFee, setGoldminer3dFee]   = useState(10);
   const [newUserName, setNewUserName]     = useState("");
 
   // Track whether the pending login was a new user signup
@@ -293,6 +311,14 @@ function AppInner() {
             onLiquidSort={(fee) => { setLiquidsortFee(fee ?? 10); setScreen("liquidsort"); }}
             onBottleShoot={(fee) => { setBottleshootFee(fee ?? 10); setScreen("bottleshoot"); }}
             onFlyMe={(fee) => { setFlymeFee(fee ?? 10); setScreen("flyme"); }}
+            onStreetFight={(fee) => { setStreetfightFee(fee ?? 5); setScreen("streetfight"); }}
+            onShadowFighter={(fee) => { setShadowfighterFee(fee ?? 5); setScreen("shadowfighter"); }}
+            onGolfMaster={(fee) => { setGolfmasterFee(fee ?? 10); setScreen("golfmaster"); }}
+            onArcheryKing={(fee) => { setArcherykingFee(fee ?? 10); setScreen("archeryking"); }}
+            onTileMatch3D={(fee) => { setTilematch3dFee(fee ?? 10); setScreen("tilematch3d"); }}
+            onPipeConnect={(fee) => { setPipeconnectFee(fee ?? 10); setScreen("pipeconnect"); }}
+            onJellyShift={(fee) => { setJellyshiftFee(fee ?? 10); setScreen("jellyshift"); }}
+            onGoldMiner3D={(fee) => { setGoldminer3dFee(fee ?? 10); setScreen("goldminer3d"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -435,6 +461,30 @@ function AppInner() {
         )}
         {screen === "flyme" && (
           <FlyMeGame key="flyme" onBack={() => setScreen("dashboard")} initialFee={flymeFee} />
+        )}
+        {screen === "streetfight" && (
+          <StreetFightGame key="streetfight" onBack={() => setScreen("dashboard")} initialFee={streetfightFee} />
+        )}
+        {screen === "shadowfighter" && (
+          <ShadowFighterGame key="shadowfighter" onBack={() => setScreen("dashboard")} initialFee={shadowfighterFee} />
+        )}
+        {screen === "golfmaster" && (
+          <GolfMasterGame key="golfmaster" onBack={() => setScreen("dashboard")} initialFee={golfmasterFee} />
+        )}
+        {screen === "archeryking" && (
+          <ArcheryKingGame key="archeryking" onBack={() => setScreen("dashboard")} initialFee={archerykingFee} />
+        )}
+        {screen === "tilematch3d" && (
+          <TileMatch3DGame key="tilematch3d" onBack={() => setScreen("dashboard")} initialFee={tilematch3dFee} />
+        )}
+        {screen === "pipeconnect" && (
+          <PipeConnectGame key="pipeconnect" onBack={() => setScreen("dashboard")} initialFee={pipeconnectFee} />
+        )}
+        {screen === "jellyshift" && (
+          <JellyShiftGame key="jellyshift" onBack={() => setScreen("dashboard")} initialFee={jellyshiftFee} />
+        )}
+        {screen === "goldminer3d" && (
+          <GoldMinerGame key="goldminer3d" onBack={() => setScreen("dashboard")} initialFee={goldminer3dFee} />
         )}
 
         {screen === "leaderboard" && (
