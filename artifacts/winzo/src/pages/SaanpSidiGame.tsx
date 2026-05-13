@@ -13,9 +13,8 @@ import { useWallet } from "@/context/useWallet";
 import { useMatchHistory } from "@/context/useMatchHistory";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const MAX_MOVES   = 40;
-const MATCH_SECS  = 240;   // 4 minutes
-const HOME_BONUS  = 50;
+const MAX_MOVES  = 40;
+const HOME_BONUS = 50;
 const BOT_NAMES   = ["PriyaBot","VikramBot","NitaBot","RajBot","DevBot","AnuBot"];
 
 // ── Board data ─────────────────────────────────────────────────────────────────
@@ -90,7 +89,7 @@ function Dice3D({
 }: {
   value: number; rolling: boolean; onClick?: () => void; disabled: boolean;
 }) {
-  const sz   = 72;
+  const sz   = 90;
   const dots = PIPS[value] ?? PIPS[1];
   return (
     <motion.div
@@ -444,7 +443,6 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
   const botName  = useRef(BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]);
   const scored   = useRef(false);
   const floatId  = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [phase,   setPhase]   = useState<"matchmaking" | "playing" | "result">("matchmaking");
   const [pPos,    setPPos]    = useState(0);
@@ -459,7 +457,6 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
   const [logMsg,  setLogMsg]  = useState("🎮 Match started! Good luck!");
   const [evKey,   setEvKey]   = useState(0);
   const [evType,  setEvType]  = useState<EvType>("none");
-  const [timer,   setTimer]   = useState(MATCH_SECS);
   const [floaters, setFloaters] = useState<Floater[]>([]);
 
   // ── Spawn floating text ────────────────────────────────────────────────────
@@ -486,25 +483,12 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
     return () => clearTimeout(t);
   }, [phase]);
 
-  // ── Countdown timer ────────────────────────────────────────────────────────
+  // ── End condition (moves-based only) ──────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing") return;
-    timerRef.current = setInterval(() => {
-      setTimer(t => {
-        if (t <= 1) { clearInterval(timerRef.current!); return 0; }
-        return t - 1;
-      });
-    }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [phase]);
-
-  // ── End condition ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== "playing") return;
-    const done = (pMoves >= MAX_MOVES && bMoves >= MAX_MOVES) || timer === 0;
+    const done = pMoves >= MAX_MOVES && bMoves >= MAX_MOVES;
     if (!done || scored.current) return;
     scored.current = true;
-    if (timerRef.current) clearInterval(timerRef.current);
     setTimeout(() => {
       setPhase("result");
       const won   = pScore >= bScore;
@@ -523,11 +507,11 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
         isGodMode: tier === "god",
       });
     }, 500);
-  }, [pMoves, bMoves, timer, phase, pScore, bScore]);
+  }, [pMoves, bMoves, phase, pScore, bScore]);
 
   // ── Player roll ────────────────────────────────────────────────────────────
   const handleRoll = useCallback(() => {
-    if (rolling || turn !== "player" || pMoves >= MAX_MOVES || timer === 0 || phase !== "playing") return;
+    if (rolling || turn !== "player" || pMoves >= MAX_MOVES || phase !== "playing") return;
     const val = normalDice();
     setDice(val);
     setRolling(true);
@@ -541,12 +525,12 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
       spawnFloats(floats);
       setTurn("bot");
     }, 800);
-  }, [rolling, turn, pMoves, pPos, timer, phase, pushLog, spawnFloats]);
+  }, [rolling, turn, pMoves, pPos, phase, pushLog, spawnFloats]);
 
   // ── Bot turn ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing" || turn !== "bot") return;
-    if (bMoves >= MAX_MOVES || timer === 0) { setTurn("player"); return; }
+    if (bMoves >= MAX_MOVES) { setTurn("player"); return; }
     const delay = 900 + Math.random() * 700;
     const t = setTimeout(() => {
       const val = tier === "god" ? godDice(bPos) : tier === "medium" ? mediumDice(bPos) : normalDice();
@@ -564,13 +548,11 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
       }, 800);
     }, delay);
     return () => clearTimeout(t);
-  }, [turn, phase, bMoves, bPos, tier, timer, pushLog, spawnFloats]);
+  }, [turn, phase, bMoves, bPos, tier, pushLog, spawnFloats]);
 
-  const canRoll  = turn === "player" && !rolling && pMoves < MAX_MOVES && phase === "playing" && timer > 0;
-  const won      = pScore >= bScore;
-  const prize    = won && !isFreeMode ? Math.floor(initialFee * 2 * 0.9) : 0;
-  const fmtTime  = (s: number) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const canRoll   = turn === "player" && !rolling && pMoves < MAX_MOVES && phase === "playing";
+  const won       = pScore >= bScore;
+  const prize     = won && !isFreeMode ? Math.floor(initialFee * 2 * 0.9) : 0;
   const isLeading = pScore >= bScore;
   const evColor  =
     evType === "ladder" ? "#FFD700" : evType === "snake" ? "#ff4444" :
@@ -596,7 +578,7 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mt-2"
             style={{ background: "rgba(17,200,160,.12)", border: "1px solid rgba(17,200,160,.38)" }}>
             <span className="text-sm font-black" style={{ color: "#11c8a0" }}>
-              ⚡ Points Battle · {MAX_MOVES} Moves · {Math.floor(MATCH_SECS / 60)} min
+              ⚡ Points Battle · {MAX_MOVES} Moves Each
             </span>
           </div>
           <p className="text-sm mt-2" style={{ color: "rgba(255,255,255,.38)" }}>
@@ -795,17 +777,8 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
             style={{ borderColor: "rgba(255,255,255,.06)" }}>
             <span className="text-[9px] font-black uppercase tracking-widest"
               style={{ color: "rgba(255,255,255,.28)" }}>LIVE LEADERBOARD</span>
-            {/* Timer */}
-            <motion.span
-              animate={timer <= 30 && timer > 0 ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-              transition={{ duration: .5, repeat: Infinity }}
-              className="text-[11px] font-black tabular-nums"
-              style={{
-                color: timer <= 30 ? "#ff4444" : timer <= 60 ? "#f97316" : "#FFD700",
-                textShadow: timer <= 30 ? "0 0 12px rgba(255,68,68,.8)" : "none",
-              }}>
-              ⏱ {fmtTime(timer)}
-            </motion.span>
+            <span className="text-[9px] font-black uppercase tracking-widest"
+              style={{ color: "rgba(17,200,160,.55)" }}>POINTS BATTLE</span>
             <span className="text-[9px] font-black uppercase tracking-widest"
               style={{ color: "rgba(255,255,255,.28)" }}>{MAX_MOVES} MOVES</span>
           </div>
@@ -940,42 +913,21 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
         </div>
       </div>
 
-      {/* ── Controls ── */}
-      <div className="flex items-center gap-3 px-3 pb-5 pt-0.5 shrink-0">
+      {/* ── Controls — centered large dice only ── */}
+      <div className="flex flex-col items-center gap-1.5 pb-6 pt-1 shrink-0">
         <Dice3D value={dice} rolling={rolling} onClick={handleRoll} disabled={!canRoll} />
-
-        <motion.button
-          whileTap={{ scale: .92 }}
-          onClick={handleRoll}
-          disabled={!canRoll}
-          className="flex-1 py-4 rounded-2xl font-black text-base cursor-pointer"
+        <span className="text-[9px] font-black uppercase tracking-widest"
           style={{
-            background: canRoll
-              ? "linear-gradient(135deg,#11998e,#38ef7d)"
-              : "rgba(255,255,255,.05)",
-            color: canRoll ? "#000" : "rgba(255,255,255,.22)",
-            boxShadow: canRoll
-              ? "0 0 36px rgba(17,153,142,.65),0 0 70px rgba(17,153,142,.22)"
-              : "none",
-            border: canRoll ? "none" : "1px solid rgba(255,255,255,.08)",
-            transition: "all .25s",
-          }}
-          animate={canRoll ? {
-            boxShadow: [
-              "0 0 20px rgba(17,153,142,.38)",
-              "0 0 55px rgba(17,153,142,.72)",
-              "0 0 20px rgba(17,153,142,.38)",
-            ],
-          } : {}}
-          transition={{ duration: 1.4, repeat: Infinity }}>
-          {timer === 0
-            ? "⌛ Time's Up!"
-            : turn === "bot"
+            color: canRoll ? "rgba(17,200,160,.75)" :
+                   turn === "bot" ? "rgba(244,63,94,.6)" :
+                   "rgba(255,255,255,.2)",
+          }}>
+          {turn === "bot"
             ? "⏳ Bot thinking…"
             : pMoves >= MAX_MOVES
-            ? "✅ Moves Done"
-            : "🎲 ROLL DICE"}
-        </motion.button>
+            ? "✅ Your turns done"
+            : "Tap dice to roll"}
+        </span>
       </div>
 
       {/* Floating score popups */}
@@ -986,10 +938,10 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
         {evType === "ladder" && (
           <motion.div key={`lf${evKey}`}
             initial={{ scale: .5, opacity: 0, y: 20 }}
-            animate={{ scale: 2.3, opacity: 1, y: -25 }}
-            exit={{ scale: 2.9, opacity: 0, y: -75 }}
+            animate={{ scale: 2.5, opacity: 1, y: -30 }}
+            exit={{ scale: 3.0, opacity: 0, y: -90 }}
             transition={{ duration: .9 }}
-            className="fixed left-1/2 bottom-40 pointer-events-none text-5xl z-50"
+            className="fixed left-1/2 bottom-28 pointer-events-none text-5xl z-50"
             style={{ transform: "translateX(-50%)" }}>
             🪜
           </motion.div>
@@ -997,10 +949,10 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
         {evType === "snake" && (
           <motion.div key={`sf${evKey}`}
             initial={{ scale: .5, opacity: 0, y: -15 }}
-            animate={{ scale: 2.3, opacity: 1, y: 12 }}
-            exit={{ scale: 2.9, opacity: 0, y: 55 }}
+            animate={{ scale: 2.5, opacity: 1, y: 10 }}
+            exit={{ scale: 3.0, opacity: 0, y: 60 }}
             transition={{ duration: .9 }}
-            className="fixed left-1/2 bottom-40 pointer-events-none text-5xl z-50"
+            className="fixed left-1/2 bottom-28 pointer-events-none text-5xl z-50"
             style={{ transform: "translateX(-50%)" }}>
             🐍
           </motion.div>
@@ -1008,10 +960,10 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
         {evType === "home" && (
           <motion.div key={`hf${evKey}`}
             initial={{ scale: .4, opacity: 0 }}
-            animate={{ scale: 2.6, opacity: 1 }}
-            exit={{ scale: 3.2, opacity: 0 }}
+            animate={{ scale: 2.8, opacity: 1 }}
+            exit={{ scale: 3.4, opacity: 0 }}
             transition={{ duration: 1.0 }}
-            className="fixed left-1/2 bottom-40 pointer-events-none text-5xl z-50"
+            className="fixed left-1/2 bottom-28 pointer-events-none text-5xl z-50"
             style={{ transform: "translateX(-50%)" }}>
             🏠
           </motion.div>
