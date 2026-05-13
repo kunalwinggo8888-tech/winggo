@@ -161,15 +161,26 @@ interface DashboardProps {
   onCricketTD20?: (fee?: number) => void;
   onSheepBattle?: (fee?: number) => void;
   onHexa2048?: (fee?: number) => void;
+  onMetroSurfer?: (fee?: number) => void;
+  onKnifeUp?: (fee?: number) => void;
+  onAngryMonsters?: (fee?: number) => void;
+  onBearRun?: (fee?: number) => void;
+  onArchery?: (fee?: number) => void;
+  onBasketball?: (fee?: number) => void;
+  onPenalty?: (fee?: number) => void;
+  onStumpIt?: (fee?: number) => void;
+  onBikeRacing?: (fee?: number) => void;
+  onGearUp?: (fee?: number) => void;
+  onHillClimber?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -215,6 +226,17 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (gameId === "crickettd20")                     { onCricketTD20?.(fee);  return; }
     if (gameId === "sheepbattle")                     { onSheepBattle?.(fee);  return; }
     if (gameId === "hexa2048")                        { onHexa2048?.(fee);     return; }
+    if (gameId === "metrosurfer")                     { onMetroSurfer?.(fee);  return; }
+    if (gameId === "knifeup")                         { onKnifeUp?.(fee);      return; }
+    if (gameId === "angrymonsters")                   { onAngryMonsters?.(fee);return; }
+    if (gameId === "bearrun")                         { onBearRun?.(fee);      return; }
+    if (gameId === "archery")                         { onArchery?.(fee);      return; }
+    if (gameId === "basketball")                      { onBasketball?.(fee);   return; }
+    if (gameId === "penalty")                         { onPenalty?.(fee);      return; }
+    if (gameId === "stumpit")                         { onStumpIt?.(fee);      return; }
+    if (gameId === "bikeracing")                      { onBikeRacing?.(fee);   return; }
+    if (gameId === "gearup")                          { onGearUp?.(fee);       return; }
+    if (gameId === "hillclimber")                     { onHillClimber?.(fee);  return; }
     // ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }

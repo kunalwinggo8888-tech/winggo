@@ -25,6 +25,17 @@ import CallBreakGame from "@/pages/CallBreakGame";
 import PokerGame from "@/pages/PokerGame";
 import SolitaireGame from "@/pages/SolitaireGame";
 import Twenty1Game from "@/pages/Twenty1Game";
+import MetroSurferGame from "@/pages/MetroSurferGame";
+import KnifeUpGame from "@/pages/KnifeUpGame";
+import AngryMonstersGame from "@/pages/AngryMonstersGame";
+import BearRunGame from "@/pages/BearRunGame";
+import ArcheryGame from "@/pages/ArcheryGame";
+import BasketballGame from "@/pages/BasketballGame";
+import PenaltyShootoutGame from "@/pages/PenaltyShootoutGame";
+import StumpItGame from "@/pages/StumpItGame";
+import BikeRacingGame from "@/pages/BikeRacingGame";
+import GearUpGame from "@/pages/GearUpGame";
+import HillClimberGame from "@/pages/HillClimberGame";
 import AxeMasterGame from "@/pages/AxeMasterGame";
 import MrRacerGame from "@/pages/MrRacerGame";
 import BricksBreaker3DGame from "@/pages/BricksBreaker3DGame";
@@ -53,6 +64,8 @@ type Screen =
   | "chess" | "discfootball" | "rummy" | "callbreak" | "poker" | "solitaire" | "twenty1"
   | "axemaster" | "mrracer" | "bricksbreaker" | "slapfest" | "fruitchop"
   | "alienfusion" | "pool3d" | "crickettd20" | "sheepbattle" | "hexa2048"
+  | "metrosurfer" | "knifeup" | "angrymonsters" | "bearrun" | "archery"
+  | "basketball" | "penalty" | "stumpit" | "bikeracing" | "gearup" | "hillclimber"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -87,6 +100,17 @@ function AppInner() {
   const [crickettd20Fee, setCrickettd20Fee] = useState(10);
   const [sheepbattleFee, setSheepbattleFee] = useState(10);
   const [hexa2048Fee, setHexa2048Fee]       = useState(10);
+  const [metrosurferFee, setMetrosurferFee]   = useState(10);
+  const [knifeupFee, setKnifeupFee]           = useState(10);
+  const [angrymonstersFee, setAngrymonstersFee] = useState(10);
+  const [bearrunFee, setBearrunFee]           = useState(10);
+  const [archeryFee, setArcheryFee]           = useState(10);
+  const [basketballFee, setBasketballFee]     = useState(10);
+  const [penaltyFee, setPenaltyFee]           = useState(10);
+  const [stumpitFee, setStumpitFee]           = useState(10);
+  const [bikeracingFee, setBikeracingFee]     = useState(10);
+  const [gearupFee, setGearupFee]             = useState(10);
+  const [hillclimberFee, setHillclimberFee]   = useState(10);
   const [newUserName, setNewUserName]     = useState("");
 
   // Track whether the pending login was a new user signup
@@ -248,6 +272,17 @@ function AppInner() {
             onCricketTD20={(fee) => { setCrickettd20Fee(fee ?? 10); setScreen("crickettd20"); }}
             onSheepBattle={(fee) => { setSheepbattleFee(fee ?? 10); setScreen("sheepbattle"); }}
             onHexa2048={(fee) => { setHexa2048Fee(fee ?? 10); setScreen("hexa2048"); }}
+            onMetroSurfer={(fee) => { setMetrosurferFee(fee ?? 10); setScreen("metrosurfer"); }}
+            onKnifeUp={(fee) => { setKnifeupFee(fee ?? 10); setScreen("knifeup"); }}
+            onAngryMonsters={(fee) => { setAngrymonstersFee(fee ?? 10); setScreen("angrymonsters"); }}
+            onBearRun={(fee) => { setBearrunFee(fee ?? 10); setScreen("bearrun"); }}
+            onArchery={(fee) => { setArcheryFee(fee ?? 10); setScreen("archery"); }}
+            onBasketball={(fee) => { setBasketballFee(fee ?? 10); setScreen("basketball"); }}
+            onPenalty={(fee) => { setPenaltyFee(fee ?? 10); setScreen("penalty"); }}
+            onStumpIt={(fee) => { setStumpitFee(fee ?? 10); setScreen("stumpit"); }}
+            onBikeRacing={(fee) => { setBikeracingFee(fee ?? 10); setScreen("bikeracing"); }}
+            onGearUp={(fee) => { setGearupFee(fee ?? 10); setScreen("gearup"); }}
+            onHillClimber={(fee) => { setHillclimberFee(fee ?? 10); setScreen("hillclimber"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -347,6 +382,40 @@ function AppInner() {
 
         {screen === "hexa2048" && (
           <Hexa2048Game key="hexa2048" onBack={() => setScreen("dashboard")} initialFee={hexa2048Fee} />
+        )}
+
+        {screen === "metrosurfer" && (
+          <MetroSurferGame key="metrosurfer" onBack={() => setScreen("dashboard")} initialFee={metrosurferFee} />
+        )}
+        {screen === "knifeup" && (
+          <KnifeUpGame key="knifeup" onBack={() => setScreen("dashboard")} initialFee={knifeupFee} />
+        )}
+        {screen === "angrymonsters" && (
+          <AngryMonstersGame key="angrymonsters" onBack={() => setScreen("dashboard")} initialFee={angrymonstersFee} />
+        )}
+        {screen === "bearrun" && (
+          <BearRunGame key="bearrun" onBack={() => setScreen("dashboard")} initialFee={bearrunFee} />
+        )}
+        {screen === "archery" && (
+          <ArcheryGame key="archery" onBack={() => setScreen("dashboard")} initialFee={archeryFee} />
+        )}
+        {screen === "basketball" && (
+          <BasketballGame key="basketball" onBack={() => setScreen("dashboard")} initialFee={basketballFee} />
+        )}
+        {screen === "penalty" && (
+          <PenaltyShootoutGame key="penalty" onBack={() => setScreen("dashboard")} initialFee={penaltyFee} />
+        )}
+        {screen === "stumpit" && (
+          <StumpItGame key="stumpit" onBack={() => setScreen("dashboard")} initialFee={stumpitFee} />
+        )}
+        {screen === "bikeracing" && (
+          <BikeRacingGame key="bikeracing" onBack={() => setScreen("dashboard")} initialFee={bikeracingFee} />
+        )}
+        {screen === "gearup" && (
+          <GearUpGame key="gearup" onBack={() => setScreen("dashboard")} initialFee={gearupFee} />
+        )}
+        {screen === "hillclimber" && (
+          <HillClimberGame key="hillclimber" onBack={() => setScreen("dashboard")} initialFee={hillclimberFee} />
         )}
 
         {screen === "leaderboard" && (
