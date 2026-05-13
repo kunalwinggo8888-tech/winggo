@@ -201,6 +201,7 @@ interface DashboardProps {
   onJellyShift?: (fee?: number) => void;
   onGoldMiner3D?: (fee?: number) => void;
   onWallet?: () => void;
+  onHistory?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
@@ -208,7 +209,7 @@ interface DashboardProps {
 // Games that have a real implementation vs coming soon
 const IMPLEMENTED_GAMES = new Set(["ludo","5","ludofast","saanpsidi","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme","streetfight","shadowfighter","golfmaster","archeryking","tilematch3d","pipeconnect","jellyshift","goldminer3d"]);
 
-export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -348,6 +349,17 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
 
         {/* Right: Bell + Spin + Wallet */}
         <div className="flex items-center gap-2">
+          {/* History */}
+          <motion.button
+            data-testid="button-history"
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onHistory?.()}
+            className="relative w-8 h-8 flex items-center justify-center cursor-pointer rounded-full"
+            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            <span className="text-base">📋</span>
+          </motion.button>
+
           {/* Bell */}
           <motion.button
             data-testid="button-notifications"

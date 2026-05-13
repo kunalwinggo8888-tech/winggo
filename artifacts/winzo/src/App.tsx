@@ -62,6 +62,7 @@ import SheepBattleGame from "@/pages/SheepBattleGame";
 import Hexa2048Game from "@/pages/Hexa2048Game";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
+import HistoryScreen from "@/pages/HistoryScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
 import KYCScreen from "@/pages/KYCScreen";
 import LeaderboardScreen from "@/pages/LeaderboardScreen";
@@ -83,7 +84,7 @@ type Screen =
   | "liquidsort" | "bottleshoot" | "flyme"
   | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
   | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
-  | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
+  | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
@@ -328,6 +329,7 @@ function AppInner() {
             onJellyShift={(fee) => { setJellyshiftFee(fee ?? 10); setScreen("jellyshift"); }}
             onGoldMiner3D={(fee) => { setGoldminer3dFee(fee ?? 10); setScreen("goldminer3d"); }}
             onWallet={() => setScreen("wallet")}
+            onHistory={() => setScreen("history")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
         )}
@@ -516,6 +518,14 @@ function AppInner() {
             key="wallet"
             onBack={() => setScreen("dashboard")}
             onNavigate={(s) => setScreen(s as Screen)}
+          />
+        )}
+
+        {screen === "history" && (
+          <HistoryScreen
+            key="history"
+            onBack={() => setScreen("dashboard")}
+            onWallet={() => setScreen("wallet")}
           />
         )}
 
