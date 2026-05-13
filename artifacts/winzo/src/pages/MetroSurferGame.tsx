@@ -53,7 +53,7 @@ function fmtTime(s: number) {
 }
 
 function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  r = Math.min(r, w / 2, h / 2);
+  r = Math.max(0, Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2));
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);    ctx.arcTo(x + w, y, x + w, y + r, r);
@@ -217,16 +217,19 @@ export default function MetroSurferGame({ onBack, initialFee }: Props) {
   // ── Draw game object ──────────────────────────────────────────────────────
   function drawGO(ctx: CanvasRenderingContext2D, go: GO, frame: number, magnet: boolean) {
     const { lane, z, kind, sub } = go;
-    const x = laneToX(lane, z); const y = zToY(z); const s = zToS(z);
+    // Objects with z <= 0 are behind the horizon — skip to avoid negative scale
+    if (z <= 0) return;
+    const x = laneToX(lane, z); const y = zToY(z);
+    const s = Math.max(0.001, zToS(z)); // always positive
     ctx.save(); ctx.translate(x, y);
 
     if (kind === "coin") {
       const pulse = 1 + Math.sin(frame * 0.18) * 0.08;
       ctx.shadowColor = "#FFD700"; ctx.shadowBlur = magnet ? 26 * s : 10 * s;
       ctx.fillStyle = "#FFD700";
-      ctx.beginPath(); ctx.arc(0, 0, 10 * s * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, Math.max(0.5, 10 * s * pulse), 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#fff8e0";
-      ctx.beginPath(); ctx.arc(-2.5 * s, -2.5 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-2.5 * s, -2.5 * s, Math.max(0.5, 4 * s), 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#92400e"; ctx.font = `bold ${8 * s}px sans-serif`; ctx.textAlign = "center";
       ctx.fillText("₹", 0.5 * s, 3 * s);
 
