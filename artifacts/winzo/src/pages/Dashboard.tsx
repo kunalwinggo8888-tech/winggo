@@ -84,6 +84,9 @@ const GAME_CATALOG = [
   { id: "bikeracing",   name: "Bike Racing",       icon: "🏍️", gradient: "linear-gradient(135deg,#1a1a2e,#ff6600)", category: "Racing",  players: "1.4L playing", minFee: "₹5" },
   { id: "gearup",       name: "Gear Up",           icon: "⚙️", gradient: "linear-gradient(135deg,#434343,#000000)", category: "Racing",  players: "1.0L playing", minFee: "₹5" },
   { id: "hillclimber",  name: "Hill Climber",      icon: "🚙", gradient: "linear-gradient(135deg,#56ab2f,#a8e063)", category: "Racing",  players: "1.2L playing", minFee: "₹5" },
+  { id: "liquidsort",   name: "Liquid Sort",       icon: "🧪", gradient: "linear-gradient(135deg,#6a11cb,#2575fc)", category: "Puzzle",  players: "2.1L playing", minFee: "₹5" },
+  { id: "bottleshoot",  name: "Bottle Shoot",      icon: "🔫", gradient: "linear-gradient(135deg,#1c1c2e,#a8322d)", category: "Arcade",  players: "1.8L playing", minFee: "₹5" },
+  { id: "flyme",        name: "Fly Me",            icon: "🐦", gradient: "linear-gradient(135deg,#0f2027,#203a43,#2c5364)", category: "Arcade",  players: "2.4L playing", minFee: "₹5" },
   // Arcade
   { id: "candy",        name: "Candy Match",       icon: "🍬", gradient: "linear-gradient(135deg,#FF4081,#00E5FF)", category: "Arcade",  players: "1.6L playing", minFee: "₹5" },
   { id: "bricksbreaker",name: "Bricks Breaker 3D", icon: "🧱", gradient: "linear-gradient(135deg,#00e5ff,#0077aa)", category: "Arcade",  players: "1.5L playing", minFee: "₹5" },
@@ -172,15 +175,18 @@ interface DashboardProps {
   onBikeRacing?: (fee?: number) => void;
   onGearUp?: (fee?: number) => void;
   onHillClimber?: (fee?: number) => void;
+  onLiquidSort?: (fee?: number) => void;
+  onBottleShoot?: (fee?: number) => void;
+  onFlyMe?: (fee?: number) => void;
   onWallet?: () => void;
   onLeaderboard?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber"]);
+const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme"]);
 
-export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onWallet, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -237,6 +243,9 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     if (gameId === "bikeracing")                      { onBikeRacing?.(fee);   return; }
     if (gameId === "gearup")                          { onGearUp?.(fee);       return; }
     if (gameId === "hillclimber")                     { onHillClimber?.(fee);  return; }
+    if (gameId === "liquidsort")                       { onLiquidSort?.(fee);   return; }
+    if (gameId === "bottleshoot")                      { onBottleShoot?.(fee);  return; }
+    if (gameId === "flyme")                            { onFlyMe?.(fee);        return; }
     // ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }

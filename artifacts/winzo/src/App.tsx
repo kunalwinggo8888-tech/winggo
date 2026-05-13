@@ -36,6 +36,9 @@ import StumpItGame from "@/pages/StumpItGame";
 import BikeRacingGame from "@/pages/BikeRacingGame";
 import GearUpGame from "@/pages/GearUpGame";
 import HillClimberGame from "@/pages/HillClimberGame";
+import LiquidSortGame from "@/pages/LiquidSortGame";
+import BottleShootGame from "@/pages/BottleShootGame";
+import FlyMeGame from "@/pages/FlyMeGame";
 import AxeMasterGame from "@/pages/AxeMasterGame";
 import MrRacerGame from "@/pages/MrRacerGame";
 import BricksBreaker3DGame from "@/pages/BricksBreaker3DGame";
@@ -66,6 +69,7 @@ type Screen =
   | "alienfusion" | "pool3d" | "crickettd20" | "sheepbattle" | "hexa2048"
   | "metrosurfer" | "knifeup" | "angrymonsters" | "bearrun" | "archery"
   | "basketball" | "penalty" | "stumpit" | "bikeracing" | "gearup" | "hillclimber"
+  | "liquidsort" | "bottleshoot" | "flyme"
   | "refer" | "wallet" | "profile" | "kyc" | "leaderboard";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -111,6 +115,9 @@ function AppInner() {
   const [bikeracingFee, setBikeracingFee]     = useState(10);
   const [gearupFee, setGearupFee]             = useState(10);
   const [hillclimberFee, setHillclimberFee]   = useState(10);
+  const [liquidsortFee, setLiquidsortFee]     = useState(10);
+  const [bottleshootFee, setBottleshootFee]   = useState(10);
+  const [flymeFee, setFlymeFee]               = useState(10);
   const [newUserName, setNewUserName]     = useState("");
 
   // Track whether the pending login was a new user signup
@@ -283,6 +290,9 @@ function AppInner() {
             onBikeRacing={(fee) => { setBikeracingFee(fee ?? 10); setScreen("bikeracing"); }}
             onGearUp={(fee) => { setGearupFee(fee ?? 10); setScreen("gearup"); }}
             onHillClimber={(fee) => { setHillclimberFee(fee ?? 10); setScreen("hillclimber"); }}
+            onLiquidSort={(fee) => { setLiquidsortFee(fee ?? 10); setScreen("liquidsort"); }}
+            onBottleShoot={(fee) => { setBottleshootFee(fee ?? 10); setScreen("bottleshoot"); }}
+            onFlyMe={(fee) => { setFlymeFee(fee ?? 10); setScreen("flyme"); }}
             onWallet={() => setScreen("wallet")}
             onLeaderboard={() => setScreen("leaderboard")}
           />
@@ -416,6 +426,15 @@ function AppInner() {
         )}
         {screen === "hillclimber" && (
           <HillClimberGame key="hillclimber" onBack={() => setScreen("dashboard")} initialFee={hillclimberFee} />
+        )}
+        {screen === "liquidsort" && (
+          <LiquidSortGame key="liquidsort" onBack={() => setScreen("dashboard")} initialFee={liquidsortFee} />
+        )}
+        {screen === "bottleshoot" && (
+          <BottleShootGame key="bottleshoot" onBack={() => setScreen("dashboard")} initialFee={bottleshootFee} />
+        )}
+        {screen === "flyme" && (
+          <FlyMeGame key="flyme" onBack={() => setScreen("dashboard")} initialFee={flymeFee} />
         )}
 
         {screen === "leaderboard" && (
