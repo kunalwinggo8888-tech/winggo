@@ -169,6 +169,58 @@ export async function updateUserProfile(uid: string, data: Partial<UserProfile>)
   }
 }
 
+/**
+ * Called on every successful login (new AND returning users).
+ *
+ * - If `users/{uid}` doc is MISSING → creates it with setDoc (safety net for
+ *   cases where the signup fire-and-forget failed) and initialises the wallet.
+ * - If doc EXISTS → updates `lastLoginAt` so the admin panel's
+ *   "Online Right Now" counter reflects real user activity.
+ *
+ * This call is always fire-and-forget — it never blocks the dashboard.
+ */
+export async function ensureUserProfile(
+  uid: string,
+  email: string,
+  displayName: string,
+  photoURL: string,
+): Promise<void> {
+  if (!FIREBASE_ENABLED || !db) return;
+  try {
+    const userRef = doc(db, "users", uid);
+    const snap    = await getDoc(userRef);
+
+    if (!snap.exists()) {
+      // Profile missing — recreate it (signup fire-and-forget may have failed)
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const referralCode = Array.from(
+        { length: 8 },
+        () => chars[Math.floor(Math.random() * chars.length)],
+      ).join("");
+
+      await setDoc(userRef, {
+        email,
+        displayName,
+        photoURL,
+        createdAt:           Date.now(),
+        lastLoginAt:         Date.now(),
+        kycStatus:           "pending",
+        referralCode,
+        referredBy:          null,
+        signupBonusClaimed:  false,
+      });
+
+      // Give the user a wallet so they can start playing immediately
+      await initWallet(uid);
+    } else {
+      // Existing user — bump lastLoginAt (drives admin "Online Right Now")
+      await updateDoc(userRef, { lastLoginAt: Date.now() });
+    }
+  } catch {
+    // Non-fatal — login proceeds regardless of Firestore availability
+  }
+}
+
 export async function updateFCMToken(uid: string, token: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   try {

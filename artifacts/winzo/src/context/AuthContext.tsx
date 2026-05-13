@@ -21,7 +21,7 @@ import { auth, FIREBASE_ENABLED } from "@/firebase/config";
 import { onAuthChange, logoutUser, isDemoMode } from "@/firebase/auth.service";
 import {
   getUserProfile, subscribeUserProfile,
-  UserProfile, updateUserProfile,
+  UserProfile, updateUserProfile, ensureUserProfile,
 } from "@/firebase/firestore.service";
 import { goOnline } from "@/firebase/rtdb.service";
 import { requestNotificationPermission } from "@/firebase/messaging.service";
@@ -119,6 +119,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // it arrives (displayName, referralCode, kycStatus, etc).
       setUser(firebaseUserToAuthUser(firebaseUser));
       setLoading(false);
+
+      // ── FIRE-AND-FORGET: Ensure Firestore profile exists + update lastLoginAt ─
+      // For new users: creates users/{uid} doc if createUserProfile fire-and-forget
+      //   failed during signup.
+      // For returning users: bumps lastLoginAt so admin "Online Right Now" works.
+      ensureUserProfile(
+        firebaseUser.uid,
+        firebaseUser.email        ?? "",
+        firebaseUser.displayName  ?? `Player${firebaseUser.uid.slice(-4).toUpperCase()}`,
+        firebaseUser.photoURL     ?? "",
+      ).catch(() => {});
 
       // ── BACKGROUND: Subscribe to Firestore profile (hydrates silently) ───────
       // Also do one getDoc so we get the latest data immediately on first load
