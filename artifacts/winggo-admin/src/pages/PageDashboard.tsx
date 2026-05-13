@@ -283,6 +283,7 @@ function MostPlayedWidget({ matchInfo }: { matchInfo: ActiveMatchInfo }) {
 
 export default function PageDashboard() {
   const [stats, setStats]               = useState<PlatformStats | null>(null);
+  const [statsUpdatedAt, setStatsUpdatedAt] = useState<number>(0);
   const [deposits, setDeposits]         = useState<DepositRecord[]>([]);
   const [actIdx, setActIdx]             = useState(0);
   const [dismissedNotifs, setDismissedNotifs] = useState<Set<number>>(new Set());
@@ -305,6 +306,7 @@ export default function PageDashboard() {
   useEffect(() => {
     const unsub = subscribePlatformStats((s) => {
       setStats(s);
+      setStatsUpdatedAt(Date.now());
       if (fbStatus === "checking") setFbStatus(getFirebaseStatus());
     });
     return unsub;
@@ -334,16 +336,57 @@ export default function PageDashboard() {
 
   const s = stats;
   const isLive = FIREBASE_ENABLED;
+  const lu = statsUpdatedAt || undefined;
 
   const STAT_CARDS = [
-    { icon: "👥", label: "Total Users",       value: s ? fmtNum(s.totalUsers) : "—",          sub: "Platform accounts",                                                                color: "#7c3aed", glow: "rgba(124,58,237,0.12)" },
-    { icon: "💰", label: "Total Wallet",       value: s ? fmt(s.totalWalletBalance) : "—",     sub: s ? `Win ${fmt(s.totalWinningBalance)} · Dep ${fmt(s.totalDepositBalance)}` : "Live",color: "#FFD700", glow: "rgba(255,215,0,0.10)" },
-    { icon: "🎁", label: "Total Bonus",        value: s ? fmt(s.totalBonusBalance) : "—",      sub: "Across all wallets",                                                               color: "#a78bfa", glow: "rgba(167,139,250,0.10)" },
-    { icon: "📥", label: "Total Deposits",     value: s ? fmt(s.totalDepositsAmount) : "—",    sub: s ? `${fmtNum(s.totalDepositsCount)} payments` : "—",                              color: "#34d399", glow: "rgba(52,211,153,0.10)" },
-    { icon: "📤", label: "Total Withdrawals",  value: s ? fmt(s.totalWithdrawalsAmount) : "—", sub: s ? `${fmtNum(s.totalWithdrawalsCount)} approved` : "—",                           color: "#f472b6" },
-    { icon: "⏳", label: "Pending Withdraw",   value: s ? fmtNum(s.pendingWithdrawals) : "—",  sub: s ? `${fmt(s.pendingWithdrawalsAmount)} awaiting` : "—",                           color: "#f59e0b" },
-    { icon: "🪪", label: "KYC Pending",        value: s ? fmtNum(s.pendingKYC) : "—",          sub: "Needs review",                                                                     color: "#fb923c" },
-    { icon: "💳", label: "Today Deposits",     value: s ? fmt(s.depositsTodayAmount) : "—",    sub: s ? `${fmtNum(s.depositsTodayCount)} txns` : "—",                                  color: "#60a5fa", glow: "rgba(96,165,250,0.10)" },
+    {
+      icon: "👥", label: "Total Users",
+      value: fmtNum(s?.totalUsers ?? 0),
+      sub: `${fmtNum(s?.totalUsers ?? 0)} registered accounts`,
+      color: "#7c3aed", glow: "rgba(124,58,237,0.12)",
+    },
+    {
+      icon: "💰", label: "Total Wallet",
+      value: fmt(s?.totalWalletBalance ?? 0),
+      sub: `Win ${fmt(s?.totalWinningBalance ?? 0)} · Dep ${fmt(s?.totalDepositBalance ?? 0)}`,
+      color: "#FFD700", glow: "rgba(255,215,0,0.10)",
+    },
+    {
+      icon: "🎁", label: "Total Bonus",
+      value: fmt(s?.totalBonusBalance ?? 0),
+      sub: "Across all wallets",
+      color: "#a78bfa", glow: "rgba(167,139,250,0.10)",
+    },
+    {
+      icon: "📥", label: "Total Deposits",
+      value: fmt(s?.totalDepositsAmount ?? 0),
+      sub: `${fmtNum(s?.totalDepositsCount ?? 0)} successful payments`,
+      color: "#34d399", glow: "rgba(52,211,153,0.10)",
+    },
+    {
+      icon: "📤", label: "Total Withdrawals",
+      value: fmt(s?.totalWithdrawalsAmount ?? 0),
+      sub: `${fmtNum(s?.totalWithdrawalsCount ?? 0)} approved`,
+      color: "#f472b6",
+    },
+    {
+      icon: "⏳", label: "Pending Withdraw",
+      value: fmtNum(s?.pendingWithdrawals ?? 0),
+      sub: `${fmt(s?.pendingWithdrawalsAmount ?? 0)} awaiting approval`,
+      color: "#f59e0b",
+    },
+    {
+      icon: "🪪", label: "KYC Pending",
+      value: fmtNum(s?.pendingKYC ?? 0),
+      sub: "Documents need review",
+      color: "#fb923c",
+    },
+    {
+      icon: "💳", label: "Today Deposits",
+      value: fmt(s?.depositsTodayAmount ?? 0),
+      sub: `${fmtNum(s?.depositsTodayCount ?? 0)} transactions today`,
+      color: "#60a5fa", glow: "rgba(96,165,250,0.10)",
+    },
   ];
 
   const cfg = STATUS_CFG[fbStatus];
@@ -399,8 +442,8 @@ export default function PageDashboard() {
         />
         <LiveCounterCard
           icon="🎮" label="Active Matches"
-          value={matchInfo?.totalActive ?? null}
-          sub={matchInfo?.totalActive === 0 ? "No games in progress" : "Live game rooms across all games"}
+          value={matchInfo.totalActive}
+          sub={matchInfo.totalActive === 0 ? "No games in progress" : "Live game rooms across all games"}
           color="#f87171" glow="rgba(248,113,113,0.07)"
           badge="RTDB" delay={0.1} isLive={isLive && RTDB_ENABLED}
         />
@@ -419,7 +462,13 @@ export default function PageDashboard() {
       {/* ── Platform stat cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {STAT_CARDS.map((sc, i) => (
-          <StatCard key={sc.label} {...sc} delay={i * 0.05} />
+          <StatCard
+            key={sc.label}
+            {...sc}
+            delay={i * 0.05}
+            isLive={isLive}
+            lastUpdated={lu}
+          />
         ))}
       </div>
 
