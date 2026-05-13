@@ -1,0 +1,222 @@
+Replace the current Ludo and Snake & Ladder games completely with NEW PREMIUM versions based on the reference screenshots provided.
+
+━━━━━━━━━━━━━━━
+❌ REMOVE OLD GAMES
+━━━━━━━━━━━━━━━
+
+Delete:
+✔ Old Ludo board
+✔ Old Snake & Ladder board
+✔ Old dice UI
+✔ Old movement system
+✔ Old bot logic
+✔ Old scoring UI
+
+Use ONLY the new premium designs.
+
+━━━━━━━━━━━━━━━
+🎲 NEW FAST LUDO MODE
+━━━━━━━━━━━━━━━
+
+Create a NEW premium Ludo game exactly inspired by the first screenshot.
+
+━━━━━━━━━━━━━━━
+🎨 LUDO DESIGN
+━━━━━━━━━━━━━━━
+
+Board Style:
+✔ Dark neon theme
+✔ Premium glowing board
+✔ Smooth grid lines
+✔ Modern WinZO-style layout
+
+Dice:
+✔ Large glowing 3D dice
+✔ Smooth roll animation
+✔ Dice glow effect
+
+UI:
+✔ “Your Turn” text on top
+✔ Auto-roll timer
+✔ Player vs Bot section
+✔ Entry fee badge on top-right
+
+Bottom Controls:
+✔ Emoji reaction buttons
+✔ Dice roll button
+✔ Live token counter
+
+━━━━━━━━━━━━━━━
+🎮 LUDO GAME RULES
+━━━━━━━━━━━━━━━
+
+IMPORTANT:
+Game should NOT be unlimited.
+
+Use:
+✔ ONLY 20 MOVES TOTAL
+
+Meaning:
+✔ Player can move token only 20 times
+✔ Bot also gets only 20 turns
+✔ After 20 moves:
+Highest score wins
+
+━━━━━━━━━━━━━━━
+📊 LUDO SCORE SYSTEM
+━━━━━━━━━━━━━━━
+
+Scoring:
+✔ 1 box move = 1 point
+✔ Cutting enemy token = bonus points
+✔ Reaching home = extra points
+
+Show live:
+✔ Red player score
+✔ Green player score
+
+━━━━━━━━━━━━━━━
+🤖 LUDO BOT SYSTEM
+━━━━━━━━━━━━━━━
+
+If no real player joins:
+✔ Spawn bot automatically
+
+₹2 Entry:
+✔ Easy bot
+
+₹5 Entry:
+✔ Medium bot
+
+₹20 Entry:
+✔ GOD MODE BOT
+
+God Mode Features:
+✔ Rolls perfect numbers
+✔ Cuts user tokens
+✔ Protects own tokens
+✔ Calculates best path
+✔ Wins by score advantage
+
+━━━━━━━━━━━━━━━
+🐍 NEW SNAKE & LADDER MODE
+━━━━━━━━━━━━━━━
+
+Replace current Saanp Sidi with NEW premium version inspired by second screenshot.
+
+━━━━━━━━━━━━━━━
+🎨 SAANP SIDI DESIGN
+━━━━━━━━━━━━━━━
+
+Board:
+✔ Dark neon colorful board
+✔ Glowing snakes
+✔ Animated ladders
+✔ Premium modern theme
+✔ Glassmorphism UI
+
+Top Section:
+✔ You vs Bot cards
+✔ Prize amount
+✔ Current cell position
+
+Bottom Section:
+✔ Large glowing ROLL DICE button
+✔ Turn status
+✔ Match log section
+
+━━━━━━━━━━━━━━━
+🎮 SAANP SIDI RULES
+━━━━━━━━━━━━━━━
+
+IMPORTANT:
+✔ Match lasts ONLY 20 MOVES
+
+Meaning:
+✔ User gets 20 dice rolls only
+✔ Bot gets 20 dice rolls only
+
+After 20 moves:
+✔ Highest score wins
+
+━━━━━━━━━━━━━━━
+📊 SAANP SIDI SCORE SYSTEM
+━━━━━━━━━━━━━━━
+
+Scoring:
+✔ Cell number = score
+✔ Ladder = bonus score
+✔ Snake = score reduction
+
+Show:
+✔ Your score
+✔ Bot score
+✔ Moves left
+
+━━━━━━━━━━━━━━━
+🤖 GOD MODE BOT (₹20)
+━━━━━━━━━━━━━━━
+
+₹20 Mode Bot Features:
+✔ Avoid snakes
+✔ Always land on ladders
+✔ Weighted dice system
+✔ Keeps higher score than user
+
+━━━━━━━━━━━━━━━
+⚡ REALTIME WALLET SYSTEM
+━━━━━━━━━━━━━━━
+
+Before match:
+✔ Deduct entry fee instantly
+
+After match:
+✔ Winner gets reward automatically
+✔ Wallet updates realtime
+✔ Save game result in history
+
+━━━━━━━━━━━━━━━
+🔥 ANIMATIONS
+━━━━━━━━━━━━━━━
+
+Add:
+✔ Dice roll animation
+✔ Smooth token movement
+✔ Snake slide animation
+✔ Ladder climb animation
+✔ Win popup
+✔ Defeat popup
+✔ Glow effects
+
+━━━━━━━━━━━━━━━
+📱 MOBILE OPTIMIZATION
+━━━━━━━━━━━━━━━
+
+✔ Android optimized
+✔ Smooth gameplay
+✔ Responsive layout
+✔ Fast loading
+✔ Touch-friendly controls
+
+━━━━━━━━━━━━━━━
+⚡ FIREBASE INTEGRATION
+━━━━━━━━━━━━━━━
+
+Use Firebase for:
+✔ Match data
+✔ Wallet sync
+✔ Live scores
+✔ Game history
+✔ Bot tracking
+
+━━━━━━━━━━━━━━━
+✅ FINAL RESULT
+━━━━━━━━━━━━━━━
+
+✔ Old Ludo deleted
+✔ Old Snake & Ladder deleted
+✔ New premium Ludo added
+✔ New premium Saanp Sidi added
+✔ 20-move system works
+✔ God-mode bot works
+✔ WinZO-style modern gameplay completed
