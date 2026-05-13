@@ -697,7 +697,9 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
  * Returns the count of currently-online users (0 if none or RTDB not configured).
  */
 export function subscribeOnlineUsers(cb: (count: number) => void): () => void {
-  if (!FIREBASE_ENABLED || !adminRtdb) { cb(0); return () => {}; }
+  // Emit 0 immediately so the UI never stays in loading state
+  cb(0);
+  if (!FIREBASE_ENABLED || !adminRtdb) return () => {};
   const presenceRef = rtdbRef(adminRtdb, "presence");
   const handler = (snap: DataSnapshot) => {
     if (!snap.exists()) { cb(0); return; }
@@ -733,10 +735,9 @@ const RTDB_GAMES = [
  * Returns total count, per-game breakdown, and the most played game.
  */
 export function subscribeActiveMatches(cb: (info: ActiveMatchInfo) => void): () => void {
-  if (!FIREBASE_ENABLED || !adminRtdb) {
-    cb({ totalActive: 0, byGame: {}, mostPlayed: null });
-    return () => {};
-  }
+  // Emit zeros immediately so the UI never stays in loading state
+  cb({ totalActive: 0, byGame: {}, mostPlayed: null });
+  if (!FIREBASE_ENABLED || !adminRtdb) return () => {};
 
   const counts = new Map<string, number>();
   const unsubs: Array<() => void> = [];

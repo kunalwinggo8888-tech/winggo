@@ -151,7 +151,7 @@ const CustomTooltip = ({ active, payload, label }: {
 interface LiveCounterCardProps {
   icon: string;
   label: string;
-  value: number | null;
+  value: number;
   sub: string;
   color: string;
   glow: string;
@@ -167,8 +167,7 @@ function LiveCounterCard({
   icon, label, value, sub, color, glow, pulse = true,
   prefix = "", suffix = "", badge, delay = 0, isLive,
 }: LiveCounterCardProps) {
-  const animated = useCounter(value ?? 0);
-  const loading  = value === null;
+  const animated = useCounter(value);
 
   return (
     <motion.div
@@ -195,20 +194,14 @@ function LiveCounterCard({
             </span>
           )}
         </div>
-        {loading ? (
-          <Shimmer w="70%" h="h-8" />
-        ) : (
-          <motion.p className="text-3xl font-black tabular-nums" style={{ color }}>
-            {prefix}{animated.toLocaleString("en-IN")}{suffix}
-          </motion.p>
-        )}
-        <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>
-          {loading ? "Fetching from Firebase…" : sub}
-        </p>
+        <motion.p className="text-3xl font-black tabular-nums" style={{ color }}>
+          {prefix}{animated.toLocaleString("en-IN")}{suffix}
+        </motion.p>
+        <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>{sub}</p>
       </div>
 
       <div className="flex flex-col items-center gap-2 shrink-0">
-        {pulse && !loading && (
+        {pulse && (
           <motion.div className="w-2.5 h-2.5 rounded-full"
             style={{ background: color }}
             animate={{ scale: [1, 1.7, 1], opacity: [1, 0.4, 1] }}
@@ -229,11 +222,10 @@ function LiveCounterCard({
 
 // ─── MOST PLAYED GAME WIDGET ──────────────────────────────────────────────────
 
-function MostPlayedWidget({ matchInfo }: { matchInfo: ActiveMatchInfo | null }) {
+function MostPlayedWidget({ matchInfo }: { matchInfo: ActiveMatchInfo }) {
   if (!RTDB_ENABLED) return null;
 
-  const mp = matchInfo?.mostPlayed;
-  const loading = matchInfo === null;
+  const mp = matchInfo.mostPlayed;
 
   return (
     <motion.div
@@ -247,12 +239,7 @@ function MostPlayedWidget({ matchInfo }: { matchInfo: ActiveMatchInfo | null }) 
         </span>
       </div>
 
-      {loading ? (
-        <div className="flex items-center gap-3 flex-1">
-          <Shimmer w="32px" h="h-8" />
-          <Shimmer w="120px" h="h-5" />
-        </div>
-      ) : mp && mp.count > 0 ? (
+      {mp && mp.count > 0 ? (
         <div className="flex items-center gap-3 flex-1">
           <motion.span
             className="text-3xl"
@@ -301,12 +288,12 @@ export default function PageDashboard() {
   const [dismissedNotifs, setDismissedNotifs] = useState<Set<number>>(new Set());
   const [fbStatus, setFbStatus]         = useState<FirebaseStatus>("checking");
 
-  // Real Firebase live counters
-  const [onlineUsers, setOnlineUsers]   = useState<number | null>(FIREBASE_ENABLED ? null : 0);
-  const [matchInfo, setMatchInfo]       = useState<ActiveMatchInfo | null>(FIREBASE_ENABLED ? null : { totalActive: 0, byGame: {}, mostPlayed: null });
+  // Real Firebase live counters — always start at 0, animate up when Firebase responds
+  const [onlineUsers, setOnlineUsers]   = useState(0);
+  const [matchInfo, setMatchInfo]       = useState<ActiveMatchInfo>({ totalActive: 0, byGame: {}, mostPlayed: null });
 
-  // Derived: daily profit comes from stats (Firestore)
-  const dailyProfit = stats?.dailyProfit ?? null;
+  // Derived: daily profit comes from stats (Firestore) — 0 until first Firestore emit
+  const dailyProfit = stats?.dailyProfit ?? 0;
 
   // Wire all Firebase subscriptions
   useEffect(() => {
@@ -420,7 +407,7 @@ export default function PageDashboard() {
         <LiveCounterCard
           icon="💹" label="Daily Profit"
           value={dailyProfit}
-          sub={dailyProfit !== null ? `Deposits today: ${fmt(s?.depositsTodayAmount ?? 0)} − Withdrawals: ${fmt(s?.withdrawalsTodayAmount ?? 0)}` : "Calculating from Firestore…"}
+          sub={`Deposits: ${fmt(s?.depositsTodayAmount ?? 0)} − Withdrawals: ${fmt(s?.withdrawalsTodayAmount ?? 0)}`}
           color="#FFD700" glow="rgba(255,215,0,0.07)"
           prefix="₹" badge="LIVE" delay={0.15} isLive={isLive}
         />
