@@ -22,10 +22,15 @@ export interface UserProfile {
   photoURL: string;
   createdAt: number;
   lastLoginAt?: number;
+  /** Firestore presence field written by the winzo app ("online" | "offline") */
+  status?: string;
   kycStatus: "pending" | "submitted" | "approved" | "rejected";
   referralCode: string;
   referredBy: string | null;
+  /** True when admin has banned this user */
   banned?: boolean;
+  /** Alias used by some Firestore paths — treated as banned */
+  isBanned?: boolean;
   fcmToken?: string;
   gamesPlayed?: number;
   totalDeposits?: number;

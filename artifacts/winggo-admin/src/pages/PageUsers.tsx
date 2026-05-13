@@ -27,12 +27,19 @@ function fmtDate(ts: number | undefined): string {
   return new Date(ts).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+/** True if user's Firestore status is "online" OR they were active within 10 min */
 function isOnline(u: EnrichedUser): boolean {
+  if (u.status === "online") return true;
   return !!u.lastLoginAt && Date.now() - u.lastLoginAt < ONLINE_THRESHOLD;
 }
 
 function isNewToday(u: EnrichedUser): boolean {
   return u.createdAt > TODAY_START;
+}
+
+/** True if user is banned — checks both `banned` and `isBanned` Firestore fields */
+function isBanned(u: EnrichedUser): boolean {
+  return !!(u.banned || u.isBanned);
 }
 
 const KYC_BADGE = {
@@ -166,11 +173,11 @@ export default function PageUsers() {
   }, []);
 
   // ── Derived counts ──
-  const totalUsers  = users.length;
-  const onlineUsers = users.filter(isOnline).length;
+  const totalUsers   = users.length;
+  const onlineUsers  = users.filter(isOnline).length;
   const offlineUsers = totalUsers - onlineUsers;
-  const newToday    = users.filter(isNewToday).length;
-  const bannedUsers = users.filter((u) => u.banned).length;
+  const newToday     = users.filter(isNewToday).length;
+  const bannedUsers  = users.filter(isBanned).length;
 
   // ── Filtered list ──
   const filtered = useMemo(() => {
@@ -178,7 +185,7 @@ export default function PageUsers() {
     if (activeTab === "online")  list = list.filter(isOnline);
     if (activeTab === "offline") list = list.filter((u) => !isOnline(u));
     if (activeTab === "new")     list = list.filter(isNewToday);
-    if (activeTab === "banned")  list = list.filter((u) => u.banned);
+    if (activeTab === "banned")  list = list.filter(isBanned);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((u) =>
@@ -193,12 +200,12 @@ export default function PageUsers() {
   async function toggleBan(u: EnrichedUser) {
     if (!u.uid) return;
     setActionId(u.uid);
-    const newBanned = !u.banned;
+    const newBanned = !isBanned(u);
     if (FIREBASE_ENABLED) {
       await banUser(u.uid, newBanned);
     } else {
-      setUsers((prev) => prev.map((x) => x.uid === u.uid ? { ...x, banned: newBanned } : x));
-      if (selected?.uid === u.uid) setSelected({ ...u, banned: newBanned });
+      setUsers((prev) => prev.map((x) => x.uid === u.uid ? { ...x, banned: newBanned, isBanned: newBanned } : x));
+      if (selected?.uid === u.uid) setSelected({ ...u, banned: newBanned, isBanned: newBanned });
     }
     setActionId(null);
   }
@@ -223,25 +230,25 @@ export default function PageUsers() {
         <StatPill
           icon="👥" label="Total Registered" value={totalUsers}
           color="#FFD700" glow="rgba(255,215,0,0.12)"
-          sub={FIREBASE_ENABLED ? "From Firebase" : "Demo mode"}
+          sub={FIREBASE_ENABLED ? "From Firestore" : "Demo mode"}
           delay={0} pulse={FIREBASE_ENABLED}
         />
         <StatPill
           icon="🟢" label="Online Right Now" value={onlineUsers}
           color="#34d399" glow="rgba(52,211,153,0.12)"
-          sub="Active ≤ 10 min ago"
-          delay={0.06} pulse
-        />
-        <StatPill
-          icon="⚫" label="Offline Users" value={offlineUsers}
-          color="#94a3b8" glow="rgba(148,163,184,0.08)"
-          sub="Not recently active"
-          delay={0.12}
+          sub={`${offlineUsers} offline · status field`}
+          delay={0.06} pulse={FIREBASE_ENABLED}
         />
         <StatPill
           icon="✨" label="New Today" value={newToday}
           color="#a78bfa" glow="rgba(167,139,250,0.12)"
           sub="Joined since midnight"
+          delay={0.12} pulse={FIREBASE_ENABLED && newToday > 0}
+        />
+        <StatPill
+          icon="🚫" label="Banned Users" value={bannedUsers}
+          color="#f87171" glow="rgba(248,113,113,0.12)"
+          sub={bannedUsers === 0 ? "No active bans" : "isBanned = true"}
           delay={0.18}
         />
       </div>
@@ -374,12 +381,12 @@ export default function PageUsers() {
                   <div className="relative w-8 h-8 shrink-0">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black"
                       style={{
-                        background: u.banned
+                        background: isBanned(u)
                           ? "rgba(248,113,113,0.15)"
                           : online
                           ? "rgba(52,211,153,0.15)"
                           : "rgba(255,215,0,0.12)",
-                        color: u.banned ? "#f87171" : online ? "#34d399" : "#FFD700",
+                        color: isBanned(u) ? "#f87171" : online ? "#34d399" : "#FFD700",
                       }}>
                       {initial}
                     </div>
@@ -395,7 +402,7 @@ export default function PageUsers() {
                   <div className="min-w-0 pr-2">
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs font-bold text-white truncate">{u.displayName}</p>
-                      {u.banned && (
+                      {isBanned(u) && (
                         <span className="text-[8px] font-black px-1 py-px rounded shrink-0"
                           style={{ background: "rgba(248,113,113,0.15)", color: "#f87171" }}>BAN</span>
                       )}
@@ -426,10 +433,10 @@ export default function PageUsers() {
                   <motion.button whileTap={{ scale: 0.88 }} disabled={busy}
                     onClick={(e) => { e.stopPropagation(); toggleBan(u); }}
                     className="py-1.5 px-2 rounded-xl font-black text-[10px] cursor-pointer disabled:opacity-40 w-full"
-                    style={u.banned
+                    style={isBanned(u)
                       ? { background: "rgba(52,211,153,0.10)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }
                       : { background: "rgba(248,113,113,0.08)", color: "#f87171", border: "1px solid rgba(248,113,113,0.18)" }}>
-                    {busy ? "…" : u.banned ? "Unban" : "Ban"}
+                    {busy ? "…" : isBanned(u) ? "Unban" : "Ban"}
                   </motion.button>
                 </div>
 
@@ -511,7 +518,7 @@ export default function PageUsers() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-black text-white text-lg">{selected.displayName}</h3>
-                      {selected.banned && (
+                      {isBanned(selected) && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
                           style={{ background: "rgba(248,113,113,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.25)" }}>BANNED</span>
                       )}
@@ -589,10 +596,10 @@ export default function PageUsers() {
                 <motion.button whileTap={{ scale: 0.97 }} disabled={actionId === selected.uid}
                   onClick={() => toggleBan(selected)}
                   className="w-full py-3.5 rounded-2xl font-black text-sm cursor-pointer"
-                  style={selected.banned
+                  style={isBanned(selected)
                     ? { background: "rgba(52,211,153,0.10)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" }
                     : { background: "rgba(248,113,113,0.10)", color: "#f87171", border: "1px solid rgba(248,113,113,0.25)" }}>
-                  {actionId === selected.uid ? "⚙️ Processing…" : selected.banned ? "✅ Unban User" : "🚫 Ban User"}
+                  {actionId === selected.uid ? "⚙️ Processing…" : isBanned(selected) ? "✅ Unban User" : "🚫 Ban User"}
                 </motion.button>
               </div>
             </motion.div>
