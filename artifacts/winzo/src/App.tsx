@@ -13,11 +13,9 @@ import SplashScreen from "@/pages/SplashScreen";
 import LoginScreen from "@/pages/LoginScreen";
 import Dashboard from "@/pages/Dashboard";
 import SpinWheel from "@/pages/SpinWheel";
-import LudoGame from "@/pages/LudoGame";
-import WorldWarGame from "@/pages/WorldWarGame";
-import SnakesGame from "@/pages/SnakesGame";
 import LudoFastGame from "@/pages/LudoFastGame";
 import SaanpSidiGame from "@/pages/SaanpSidiGame";
+import WorldWarGame from "@/pages/WorldWarGame";
 import CarromGame from "@/pages/CarromGame";
 import BubbleGame from "@/pages/BubbleGame";
 import CandyGame from "@/pages/CandyGame";
@@ -75,7 +73,7 @@ const queryClient = new QueryClient();
 
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
-  | "spinwheel" | "ludo" | "ludofast" | "saanpsidi" | "worldwar" | "snakes" | "carrom" | "bubble" | "candy"
+  | "spinwheel" | "ludo" | "saanpsidi" | "worldwar" | "carrom" | "bubble" | "candy"
   | "chess" | "discfootball" | "rummy" | "callbreak" | "poker" | "solitaire" | "twenty1"
   | "axemaster" | "mrracer" | "bricksbreaker" | "slapfest" | "fruitchop"
   | "alienfusion" | "pool3d" | "crickettd20" | "sheepbattle" | "hexa2048"
@@ -95,11 +93,9 @@ function AppInner() {
   const [appConfig, setAppConfig]     = useState<AppConfig>(DEFAULT_APP_CONFIG);
   const [showSetup, setShowSetup]     = useState(!FIREBASE_ENABLED);
   const [showWelcome, setShowWelcome] = useState(false);
-  const [ludoFee, setLudoFee]         = useState(50);
-  const [ludoFastFee, setLudoFastFee] = useState(10);
-  const [saanpSidiFee, setSaanpSidiFee] = useState(10);
-  const [worldWarFee, setWorldWarFee] = useState<number | undefined>(undefined);
-  const [snakesFee, setSnakesFee]     = useState(10);
+  const [ludoFee, setLudoFee]           = useState(2);
+  const [saanpSidiFee, setSaanpSidiFee] = useState(2);
+  const [worldWarFee, setWorldWarFee]   = useState<number | undefined>(undefined);
   const [carromFee, setCarromFee]     = useState(10);
   const [bubbleFee, setBubbleFee]         = useState(10);
   const [candyFee, setCandyFee]           = useState(10);
@@ -281,11 +277,11 @@ function AppInner() {
             key="dashboard"
             appConfig={appConfig}
             onSpin={() => setScreen("spinwheel")}
-            onLudo={(fee) => { setLudoFee(fee ?? 50); setScreen("ludo"); }}
-            onLudoFast={(fee) => { setLudoFastFee(fee ?? 10); setScreen("ludofast"); }}
-            onSaanpSidi={(fee) => { setSaanpSidiFee(fee ?? 10); setScreen("saanpsidi"); }}
+            onLudo={(fee) => { setLudoFee(fee ?? 2); setScreen("ludo"); }}
+            onLudoFast={(fee) => { setLudoFee(fee ?? 2); setScreen("ludo"); }}
+            onSaanpSidi={(fee) => { setSaanpSidiFee(fee ?? 2); setScreen("saanpsidi"); }}
             onWorldWar={(fee) => { setWorldWarFee(fee); setScreen("worldwar"); }}
-            onSnakes={(fee) => { setSnakesFee(fee ?? 10); setScreen("snakes"); }}
+            onSnakes={(fee) => { setSaanpSidiFee(fee ?? 2); setScreen("saanpsidi"); }}
             onCarrom={(fee) => { setCarromFee(fee ?? 10); setScreen("carrom"); }}
             onBubble={(fee) => { setBubbleFee(fee ?? 10); setScreen("bubble"); }}
             onCandy={(fee) => { setCandyFee(fee ?? 10); setScreen("candy"); }}
@@ -339,11 +335,7 @@ function AppInner() {
         )}
 
         {screen === "ludo" && (
-          <LudoGame key="ludo" onBack={() => setScreen("dashboard")} initialFee={ludoFee} />
-        )}
-
-        {screen === "ludofast" && (
-          <LudoFastGame key="ludofast" onBack={() => setScreen("dashboard")} initialFee={ludoFastFee} />
+          <LudoFastGame key="ludo" onBack={() => setScreen("dashboard")} initialFee={ludoFee} />
         )}
 
         {screen === "saanpsidi" && (
@@ -352,10 +344,6 @@ function AppInner() {
 
         {screen === "worldwar" && (
           <WorldWarGame key="worldwar" onBack={() => setScreen("dashboard")} initialFee={worldWarFee} />
-        )}
-
-        {screen === "snakes" && (
-          <SnakesGame key="snakes" onBack={() => setScreen("dashboard")} initialFee={snakesFee} />
         )}
 
         {screen === "carrom" && (
