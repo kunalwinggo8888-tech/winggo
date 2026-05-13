@@ -8,10 +8,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
 import { useAuth } from "@/context/useAuth";
 import type { BankDetails } from "@/context/WalletContext";
+import { useMatchHistory } from "@/context/useMatchHistory";
+import type { MatchRecord } from "@/context/MatchHistoryContext";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type Tab = "add" | "bonus" | "withdraw" | "history";
+type Tab = "add" | "bonus" | "withdraw" | "history" | "matches";
 type WithdrawMethod = "upi" | "bank";
 type HistoryFilter = "all" | "deposit" | "win" | "withdraw" | "bonus" | "fee";
 
@@ -1076,6 +1078,239 @@ function HistoryTab({
   );
 }
 
+// ─── MATCH HISTORY TAB ────────────────────────────────────────────────────────
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
+}
+
+function MatchRow({ match, onGoWallet }: { match: MatchRecord; onGoWallet: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const isWin = match.result === "win";
+  const net   = isWin ? match.prize - match.entryFee : -match.entryFee;
+
+  return (
+    <motion.div
+      layout
+      className="rounded-2xl overflow-hidden cursor-pointer"
+      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${isWin ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.12)"}` }}
+      onClick={() => setExpanded((p) => !p)}
+    >
+      {/* Row summary */}
+      <div className="flex items-center gap-3 p-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+          style={{ background: isWin ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${isWin ? "rgba(74,222,128,0.25)" : "rgba(248,113,113,0.2)"}` }}>
+          {match.gameIcon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-white truncate">{match.gameName}</span>
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0"
+              style={{ background: isWin ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.12)", color: isWin ? "#4ade80" : "#f87171", border: `1px solid ${isWin ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.25)"}` }}>
+              {isWin ? "WIN" : "LOSS"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{fmtDate(match.date)}</span>
+            <span className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Entry ₹{match.entryFee}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="font-black text-sm" style={{ color: isWin ? "#4ade80" : "#f87171" }}>
+            {isWin ? `+₹${net}` : `-₹${Math.abs(net)}`}
+          </span>
+          <motion.span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}
+            animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+            ▼
+          </motion.span>
+        </div>
+      </div>
+
+      {/* Expandable details */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3 space-y-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+
+              {/* Score comparison */}
+              {(match.userScore !== undefined && match.opponentScore !== undefined) && (
+                <div className="pt-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Score</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 text-center">
+                      <div className="text-2xl font-black" style={{ color: isWin ? "#4ade80" : "#f87171" }}>{match.userScore}</div>
+                      <div className="text-[9px] font-bold mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>YOU</div>
+                    </div>
+                    <div className="text-lg font-black" style={{ color: "rgba(255,255,255,0.2)" }}>VS</div>
+                    <div className="flex-1 text-center">
+                      <div className="text-2xl font-black" style={{ color: isWin ? "#f87171" : "#4ade80" }}>{match.opponentScore}</div>
+                      <div className="text-[9px] font-bold mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        {match.opponentName ?? "OPPONENT"}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Score bar */}
+                  {match.userScore + match.opponentScore > 0 && (() => {
+                    const total = match.userScore + match.opponentScore;
+                    const pct   = Math.round((match.userScore / total) * 100);
+                    return (
+                      <div className="mt-2 flex h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isWin ? "#4ade80" : "#f87171" }} />
+                        <div className="h-full flex-1" style={{ background: isWin ? "#f87171" : "#4ade80" }} />
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Team stats */}
+              {match.teamStats && match.teamStats.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Team Stats</p>
+                  <div className="space-y-2">
+                    {match.teamStats.map((t) => (
+                      <div key={t.teamName} className="flex items-center gap-2.5 p-2 rounded-xl"
+                        style={{ background: `${t.color}0d`, border: `1px solid ${t.color}25` }}>
+                        <span className="text-base">{t.icon}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black" style={{ color: t.color }}>{t.teamName}</span>
+                            {t.isPlayer && (
+                              <span className="text-[8px] font-black px-1 py-0.5 rounded"
+                                style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.3)" }}>
+                                YOU
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-black text-sm" style={{ color: t.color }}>{t.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Prize / Fee breakdown */}
+              <div className="flex gap-2">
+                <div className="flex-1 p-2 rounded-xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Entry</div>
+                  <div className="text-sm font-black" style={{ color: "#f87171" }}>₹{match.entryFee}</div>
+                </div>
+                <div className="flex-1 p-2 rounded-xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Prize</div>
+                  <div className="text-sm font-black" style={{ color: isWin ? "#4ade80" : "rgba(255,255,255,0.25)" }}>
+                    {isWin ? `₹${match.prize}` : "—"}
+                  </div>
+                </div>
+                <div className="flex-1 p-2 rounded-xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Net</div>
+                  <div className="text-sm font-black" style={{ color: isWin ? "#4ade80" : "#f87171" }}>
+                    {isWin ? `+₹${net}` : `-₹${Math.abs(net)}`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin-only God Mode bot marker */}
+              {match.isGodMode && (
+                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
+                  style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                  <span className="text-xs">⚡</span>
+                  <span className="text-[10px] font-black" style={{ color: "rgba(239,68,68,0.55)" }}>
+                    GOD MODE BOT · ₹{match.entryFee} tier · admin tag
+                  </span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function MatchesTab({ onGoWallet }: { onGoWallet: () => void }) {
+  const { matches, totalEarnings, totalMatches, wins } = useMatchHistory();
+  const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
+  const totalFees = matches.reduce((s, m) => s + m.entryFee, 0);
+  const netProfit = totalEarnings - totalFees;
+
+  return (
+    <div className="px-4 space-y-4">
+
+      {/* Top earnings + wallet shortcut card */}
+      <div className="rounded-2xl p-4 relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg,#0d1a0d 0%,#0a0a0f 60%,#120818 100%)", border: "1px solid rgba(74,222,128,0.2)", boxShadow: "0 0 28px rgba(74,222,128,0.07)" }}>
+        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle,rgba(74,222,128,0.12) 0%,transparent 70%)" }} />
+        <div className="flex items-start justify-between mb-4 relative z-10">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-0.5" style={{ color: "rgba(74,222,128,0.5)" }}>
+              Total Match Earnings
+            </p>
+            <div className="font-black text-3xl leading-none" style={{ color: "#4ade80" }}>
+              ₹{totalEarnings.toFixed(0)}
+            </div>
+            <p className="text-[10px] mt-0.5 font-bold" style={{ color: netProfit >= 0 ? "rgba(74,222,128,0.6)" : "rgba(248,113,113,0.6)" }}>
+              Net P/L: {netProfit >= 0 ? "+" : ""}₹{netProfit.toFixed(0)}
+            </p>
+          </div>
+          <button onClick={onGoWallet}
+            className="px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5"
+            style={{ background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700" }}>
+            💰 Wallet
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-2 relative z-10">
+          {[
+            { label: "Matches",  val: `${totalMatches}`,  color: "#a78bfa" },
+            { label: "Wins",     val: `${wins}`,           color: "#4ade80" },
+            { label: "Win Rate", val: `${winRate}%`,       color: "#FFD700" },
+          ].map(({ label, val, color }) => (
+            <div key={label} className="rounded-xl p-2.5 text-center"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="font-black text-lg leading-none" style={{ color }}>{val}</div>
+              <div className="text-[9px] font-bold mt-0.5 uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Match list */}
+      {matches.length === 0 ? (
+        <div className="rounded-2xl py-14 flex flex-col items-center gap-3"
+          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <span className="text-4xl">🎮</span>
+          <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.35)" }}>No matches yet</p>
+          <p className="text-xs text-center px-8" style={{ color: "rgba(255,255,255,0.2)" }}>
+            Play any game to see your match history here
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Match History ({totalMatches})
+            </p>
+          </div>
+          <div className="space-y-2 pb-6">
+            {matches.map((m) => (
+              <MatchRow key={m.id} match={m} onGoWallet={onGoWallet} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 
 interface Props {
@@ -1113,10 +1348,11 @@ export default function WalletScreen({ onNavigate, onBack }: Props) {
   }
 
   const TABS: [Tab, string, string][] = [
-    ["add",      "Add Money", "➕"],
-    ["bonus",    "Bonus",     "🎁"],
-    ["withdraw", "Withdraw",  "🏦"],
-    ["history",  "History",   "📋"],
+    ["add",      "Add",      "➕"],
+    ["bonus",    "Bonus",    "🎁"],
+    ["withdraw", "Withdraw", "🏦"],
+    ["history",  "History",  "📋"],
+    ["matches",  "Matches",  "🎮"],
   ];
 
   return (
@@ -1198,6 +1434,7 @@ export default function WalletScreen({ onNavigate, onBack }: Props) {
               />
             )}
             {tab === "history" && <HistoryTab transactions={transactions} />}
+            {tab === "matches" && <MatchesTab onGoWallet={() => setTab("add")} />}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/context/useAuth";
 import { WalletProvider } from "@/context/WalletContext";
+import { MatchHistoryProvider } from "@/context/MatchHistoryContext";
 import WelcomeBonusModal from "@/components/WelcomeBonusModal";
 import LoginTransitionScreen from "@/components/LoginTransitionScreen";
 import SplashScreen from "@/pages/SplashScreen";
@@ -209,6 +210,7 @@ function AppInner() {
 
   return (
     <WalletProvider>
+    <MatchHistoryProvider>
       {/* ── Maintenance Mode Overlay ── */}
       <AnimatePresence>
         {appConfig.maintenanceMode && (
@@ -534,6 +536,7 @@ function AppInner() {
       />
 
       <Toaster />
+    </MatchHistoryProvider>
     </WalletProvider>
   );
 }

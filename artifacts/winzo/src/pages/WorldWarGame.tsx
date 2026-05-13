@@ -13,6 +13,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
 import { useWallet } from "@/context/useWallet";
+import { useMatchHistory } from "@/context/useMatchHistory";
 
 // ─── TYPES ────────────────────────────────────────────────────
 type Phase   = "lobby" | "card-pick" | "matchmaking" | "battle" | "result";
@@ -79,11 +80,32 @@ export default function WorldWarGame({ onBack, initialFee }: { onBack?: () => vo
   const [team,  setTeam]  = useState<Team>("karna");
   const [room,  setRoom]  = useState<Room>(startRoom);
   const { deductFee, addWinning } = useWallet();
+  const { addMatch } = useMatchHistory();
 
   const handleJoin       = (r: Room) => { setRoom(r); setPhase("card-pick"); };
   const handleCardPick   = (t: Team) => { setTeam(t); deductFee(room.entryFee, `World War Entry ₹${room.entryFee}`); setPhase("matchmaking"); };
-  const handleBattleOver = (won: boolean) => {
-    if (won) addWinning(Math.round(room.entryFee * 1.8), `World War Win`, room.id);
+  const handleBattleOver = (won: boolean, myScore: number, oppScore: number) => {
+    const prize = won ? Math.round(room.entryFee * 1.8) : 0;
+    if (won) addWinning(prize, `World War Win`, room.id);
+    const isGodMode = room.entryFee >= 20;
+    const oppTeam   = team === "karna" ? "arjun" : "karna";
+    addMatch({
+      gameId:        "worldwar",
+      gameName:      "World War",
+      gameIcon:      "⚔️",
+      result:        won ? "win" : "loss",
+      entryFee:      room.entryFee,
+      prize,
+      userScore:     myScore,
+      opponentScore: oppScore,
+      isGodMode,
+      roomId:        room.id,
+      opponentName:  isGodMode ? "⚡ God Bot" : `${oppTeam === "karna" ? "🔥" : "⚡"} ${oppTeam.charAt(0).toUpperCase() + oppTeam.slice(1)} Team`,
+      teamStats: [
+        { teamName: "KARNA", icon: "🔥", color: "#f87171", score: team === "karna" ? myScore : oppScore,  isPlayer: team === "karna" },
+        { teamName: "ARJUN", icon: "⚡", color: "#60a5fa", score: team === "arjun" ? myScore : oppScore, isPlayer: team === "arjun" },
+      ],
+    });
     setPhase("result");
   };
 
@@ -768,7 +790,7 @@ function MatchmakingPhase({ team, onReady }: { team: Team; onReady: () => void }
 }
 
 // ─── BATTLE ───────────────────────────────────────────────────
-function BattlePhase({ team, room, onResult }: { team: Team; room: Room; onResult: (won: boolean) => void }) {
+function BattlePhase({ team, room, onResult }: { team: Team; room: Room; onResult: (won: boolean, myScore: number, oppScore: number) => void }) {
   const tc         = TEAM[team];
   const isGodMode  = room.entryFee >= 20;
   const enemyBoost = isGodMode ? 1.28 : 1.0;
@@ -794,8 +816,10 @@ function BattlePhase({ team, room, onResult }: { team: Team; room: Room; onResul
     if (timer<=0) {
       overRef.current = true;
       setBattleOver(true);
-      const won = team==="karna" ? kRef.current>=aRef.current : aRef.current>=kRef.current;
-      setTimeout(() => onResult(won), 1800);
+      const won     = team==="karna" ? kRef.current>=aRef.current : aRef.current>=kRef.current;
+      const myScore  = team==="karna" ? kRef.current : aRef.current;
+      const oppScore = team==="karna" ? aRef.current : kRef.current;
+      setTimeout(() => onResult(won, myScore, oppScore), 1800);
       return;
     }
     const t = setTimeout(() => setTimer(s=>s-1), 1000);
