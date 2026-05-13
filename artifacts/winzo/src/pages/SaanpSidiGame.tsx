@@ -1,49 +1,39 @@
 /**
- * SaanpSidiGame — WINGGO Saanp Sidi · PREMIUM EDITION
- * Dark neon board · Glassmorphism UI · 20 moves each · God Mode bot at ₹20+
+ * SaanpSidiGame — WINGGO · Fast Saanp Sidi · Points Battle
+ *
+ * WinZO-style score system:
+ *  +1 pt  per step moved
+ *  +climbed pts  on ladder (bonus)
+ *  –fallen pts   on snake  (penalty, min 0)
+ *  +50 pts  reaching square 100 (game continues)
+ *  +10 / –10  landing on opponent square (no reset)
+ *  Highest score after 24 moves OR 2.5-min timer wins
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
 import { useMatchHistory } from "@/context/useMatchHistory";
 
-// ── Board config ──────────────────────────────────────────────────────────────
-const SNAKES: Record<number, number> = {
-  99: 21, 92: 37, 87: 24, 74: 53, 62: 18, 48: 26, 36: 6,
-};
-const LADDERS: Record<number, number> = {
-  4: 25, 13: 46, 28: 76, 33: 68, 51: 67, 63: 81, 71: 91,
-};
+// ── Constants ──────────────────────────────────────────────────────────────────
+const MAX_MOVES   = 24;
+const MATCH_SECS  = 150;   // 2.5 minutes
+const HOME_BONUS  = 50;
+const HIT_BONUS   = 10;
+const HIT_PENALTY = 10;
+const BOT_NAMES   = ["PriyaBot","VikramBot","NitaBot","RajBot","DevBot","AnuBot"];
 
-const MAX_MOVES = 20;
-const BOT_NAMES = ["PriyaBot", "VikramBot", "NitaBot", "RajBot", "DevBot"];
+// ── Board data ─────────────────────────────────────────────────────────────────
+const SNAKES:  Record<number, number> = { 99:21, 92:37, 87:24, 74:53, 62:18, 48:26, 36:6  };
+const LADDERS: Record<number, number> = { 4:25,  13:46, 28:76, 33:68, 51:67, 63:81, 71:91 };
 
-// ── Dice helpers ──────────────────────────────────────────────────────────────
-function normalDice(): number { return Math.ceil(Math.random() * 6); }
+// ── Row neon colors ────────────────────────────────────────────────────────────
+const ROW_COLORS = [
+  "rgba(168,0,128,.28)","rgba(90,0,220,.28)","rgba(0,60,230,.28)","rgba(0,160,210,.28)",
+  "rgba(0,190,100,.28)","rgba(220,160,0,.28)","rgba(230,80,0,.28)","rgba(220,20,20,.28)",
+  "rgba(170,0,130,.28)","rgba(100,0,200,.28)",
+];
 
-function godModeDice(pos: number): number {
-  const scored = Array.from({ length: 6 }, (_, i) => {
-    const roll = i + 1;
-    const next = pos + roll;
-    if (next > 100) return { roll, score: -50 };
-    let score = roll;
-    if (LADDERS[next]) score += 25;
-    if (SNAKES[next])  score -= 40;
-    return { roll, score };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  const pick = Math.random() < 0.88 ? scored[0] : (scored[1] ?? scored[0]);
-  return pick.roll;
-}
-
-// ── Bot tier ──────────────────────────────────────────────────────────────────
-function botTier(fee: number): { label: string; color: string } {
-  if (fee >= 20) return { label: "⚡ GOD MODE", color: "#ff3b5c" };
-  if (fee >= 5)  return { label: "🔶 MEDIUM",   color: "#f97316" };
-  return              { label: "🟢 EASY",        color: "#4ade80" };
-}
-
-// ── Cell position helper ──────────────────────────────────────────────────────
+// ── Cell position helper ───────────────────────────────────────────────────────
 function cellPct(cell: number): { x: number; y: number } {
   const idx  = cell - 1;
   const bRow = Math.floor(idx / 10);
@@ -54,68 +44,127 @@ function cellPct(cell: number): { x: number; y: number } {
   return { x: (dCol + 0.5) * 10, y: (dRow + 0.5) * 10 };
 }
 
-// ── Row colors — vivid neon palette ──────────────────────────────────────────
-const ROW_COLORS = [
-  "rgba(168,0,128,0.35)",
-  "rgba(90,0,220,0.35)",
-  "rgba(0,60,230,0.35)",
-  "rgba(0,160,210,0.35)",
-  "rgba(0,190,100,0.35)",
-  "rgba(220,160,0,0.35)",
-  "rgba(230,80,0,0.35)",
-  "rgba(220,20,20,0.35)",
-  "rgba(170,0,130,0.35)",
-  "rgba(100,0,200,0.35)",
-];
+// ── Dice helpers ───────────────────────────────────────────────────────────────
+function normalDice(): number { return Math.ceil(Math.random() * 6); }
 
-// ── Premium 3D Dice ───────────────────────────────────────────────────────────
+function mediumDice(pos: number): number {
+  const rolls = Array.from({ length: 6 }, (_, i) => {
+    const r = i + 1; const n = pos + r;
+    if (n > 100) return { r, sc: -10 };
+    let sc = r;
+    if (LADDERS[n]) sc += 15;
+    if (SNAKES[n])  sc -= 20;
+    return { r, sc };
+  });
+  rolls.sort((a, b) => b.sc - a.sc);
+  return Math.random() < 0.65 ? rolls[0].r : rolls[Math.floor(Math.random() * rolls.length)].r;
+}
+
+function godDice(pos: number): number {
+  const rolls = Array.from({ length: 6 }, (_, i) => {
+    const r = i + 1; const n = pos + r;
+    if (n > 100) return { r, sc: -30 };
+    let sc = r * 1.2;
+    if (LADDERS[n]) sc += (LADDERS[n] - n) + 30;
+    if (SNAKES[n])  sc -= (pos - SNAKES[n]) + 40;
+    if (n === 100)  sc += HOME_BONUS;
+    return { r, sc };
+  });
+  rolls.sort((a, b) => b.sc - a.sc);
+  return Math.random() < 0.9 ? rolls[0].r : (rolls[1] ?? rolls[0]).r;
+}
+
+// ── White 3D Dice ──────────────────────────────────────────────────────────────
 const PIPS: Record<number, [number, number][]> = {
   1: [[50, 50]],
-  2: [[27, 27], [73, 73]],
-  3: [[27, 27], [50, 50], [73, 73]],
-  4: [[27, 27], [73, 27], [27, 73], [73, 73]],
-  5: [[27, 27], [73, 27], [50, 50], [27, 73], [73, 73]],
-  6: [[27, 25], [73, 25], [27, 50], [73, 50], [27, 75], [73, 75]],
+  2: [[28, 28], [72, 72]],
+  3: [[28, 28], [50, 50], [72, 72]],
+  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+  6: [[28, 24], [72, 24], [28, 50], [72, 50], [28, 76], [72, 76]],
 };
 
-function Dice3D({ value, rolling, size = 66 }: { value: number; rolling: boolean; size?: number }) {
+function Dice3D({
+  value, rolling, onClick, disabled,
+}: {
+  value: number; rolling: boolean; onClick?: () => void; disabled: boolean;
+}) {
+  const sz   = 68;
   const dots = PIPS[value] ?? PIPS[1];
-  const pip  = size * 0.13;
   return (
     <motion.div
+      onClick={!disabled ? onClick : undefined}
+      whileTap={!disabled ? { scale: 0.88 } : {}}
+      style={{ cursor: disabled ? "not-allowed" : "pointer", userSelect: "none", flexShrink: 0 }}
       animate={rolling
-        ? { rotate: [0, -32, 32, -20, 20, -10, 10, 0], scale: [1, 1.26, 0.83, 1.17, 0.91, 1.08, 1], y: [0, -16, 6, -10, 3, -4, 0] }
+        ? { rotate: [0,-44,44,-28,28,-15,15,0], scale: [1,1.38,0.76,1.24,0.87,1.13,1], y: [0,-28,11,-16,5,-8,0] }
         : { rotate: 0, scale: 1, y: 0 }}
       transition={{ duration: 0.72 }}
-      style={{
-        width: size, height: size,
-        borderRadius: size * 0.2,
-        background: "linear-gradient(145deg, #ffffff, #e8e8f0)",
-        boxShadow: rolling
-          ? `5px 5px 16px rgba(0,0,0,0.7), inset -3px -3px 7px rgba(0,0,0,0.1), inset 3px 3px 7px rgba(255,255,255,0.9), 0 0 40px rgba(17,200,160,0.9), 0 0 80px rgba(17,200,160,0.4)`
-          : `4px 4px 14px rgba(0,0,0,0.6), inset -2px -2px 6px rgba(0,0,0,0.1), inset 2px 2px 6px rgba(255,255,255,0.9), 0 0 22px rgba(17,200,160,0.5)`,
-        flexShrink: 0, overflow: "hidden",
-        transition: "box-shadow 0.3s",
-      }}
     >
-      <svg width={size} height={size} viewBox="0 0 100 100">
-        <defs>
-          <radialGradient id="ss-pip" cx="35%" cy="35%">
-            <stop offset="0%" stopColor="#002e22" />
-            <stop offset="100%" stopColor="#000f0a" />
-          </radialGradient>
-        </defs>
-        {dots.map(([cx, cy], i) => (
-          <circle key={i} cx={cx} cy={cy} r={pip * 50} fill="url(#ss-pip)" />
-        ))}
-      </svg>
+      <div style={{
+        width: sz, height: sz, borderRadius: 15,
+        background: "#ffffff",
+        border: "2.5px solid #111111",
+        boxShadow: rolling
+          ? "4px 6px 18px rgba(0,0,0,.8),-2px -2px 6px rgba(255,255,255,.9),inset 0 2px 4px rgba(255,255,255,.8),0 0 50px rgba(255,215,0,1),0 0 100px rgba(255,215,0,.55)"
+          : disabled
+          ? "2px 3px 8px rgba(0,0,0,.4)"
+          : "4px 6px 14px rgba(0,0,0,.6),-2px -2px 5px rgba(255,255,255,.7),inset 0 2px 3px rgba(255,255,255,.6),0 0 22px rgba(17,200,160,.45)",
+        opacity: disabled && !rolling ? 0.48 : 1,
+        transition: "box-shadow .22s,opacity .22s",
+      }}>
+        <svg width={sz} height={sz} viewBox="0 0 100 100" style={{ display: "block" }}>
+          <rect x={3} y={3} width={93} height={93} rx={13}
+            fill="none" stroke="rgba(255,255,255,.7)" strokeWidth={2.5} />
+          <rect x={5} y={5} width={91} height={91} rx={11}
+            fill="none" stroke="rgba(0,0,0,.08)" strokeWidth={1.5} />
+          {dots.map(([cx, cy], i) => (
+            <g key={i}>
+              <circle cx={cx + 1} cy={cy + 1.5} r={8.5} fill="rgba(0,0,0,.22)" />
+              <circle cx={cx} cy={cy} r={8.5} fill="#111111" />
+              <circle cx={cx - 2.5} cy={cy - 2.5} r={2.8} fill="rgba(255,255,255,.18)" />
+            </g>
+          ))}
+        </svg>
+      </div>
     </motion.div>
   );
 }
 
-// ── Premium Board SVG ─────────────────────────────────────────────────────────
+// ── Floating Score Text ────────────────────────────────────────────────────────
+interface Floater { id: number; text: string; color: string; x: number; y: number }
+
+function FloatText({ floaters }: { floaters: Floater[] }) {
+  return (
+    <div className="pointer-events-none"
+      style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 999 }}>
+      <AnimatePresence>
+        {floaters.map(f => (
+          <motion.div key={f.id}
+            initial={{ opacity: 1, y: 0, scale: 0.9 }}
+            animate={{ opacity: 0, y: -80, scale: 1.5 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            style={{
+              position: "absolute", left: f.x, top: f.y,
+              transform: "translate(-50%,-50%)",
+              fontSize: 20, fontWeight: 900, color: f.color,
+              textShadow: `0 0 14px ${f.color}, 0 0 30px ${f.color}40`,
+              letterSpacing: 1, whiteSpace: "nowrap",
+            }}>
+            {f.text}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Premium Board SVG ──────────────────────────────────────────────────────────
 function Board({ pPos, bPos }: { pPos: number; bPos: number }) {
-  const cells = [] as React.ReactElement[];
+  const cells: React.ReactElement[] = [];
+  const snakeTails  = new Set(Object.values(SNAKES));
+  const ladderTops  = new Set(Object.values(LADDERS));
 
   for (let dRow = 0; dRow < 10; dRow++) {
     for (let dCol = 0; dCol < 10; dCol++) {
@@ -124,60 +173,50 @@ function Board({ pPos, bPos }: { pPos: number; bPos: number }) {
       const bCol = rtl ? 9 - dCol : dCol;
       const cell = bRow * 10 + bCol + 1;
       const { x, y } = cellPct(cell);
-      const isSnake     = cell in SNAKES;
-      const isLadder    = cell in LADDERS;
-      const isSnakeTail = Object.values(SNAKES).includes(cell);
-      const isLadderTop = Object.values(LADDERS).includes(cell);
-      const pHere = pPos === cell;
-      const bHere = bPos === cell;
+      const isSnake  = cell in SNAKES;
+      const isLadder = cell in LADDERS;
 
       cells.push(
         <g key={cell}>
-          {/* Cell background */}
           <rect
-            x={`${x - 4.8}%`} y={`${y - 4.8}%`} width="9.6%" height="9.6%" rx="1.2"
-            fill={isSnake ? "rgba(255,30,30,0.18)" : isLadder ? "rgba(255,210,0,0.18)" : ROW_COLORS[dRow]}
-            stroke={isSnake ? "#ff5555" : isLadder ? "#FFD700" : "rgba(255,255,255,0.08)"}
-            strokeWidth={isSnake || isLadder ? "0.55%" : "0.2%"}
+            x={`${x - 4.85}%`} y={`${y - 4.85}%`} width="9.7%" height="9.7%" rx="0.8"
+            fill={isSnake ? "rgba(255,40,40,.22)" : isLadder ? "rgba(255,215,0,.22)" : ROW_COLORS[dRow]}
+            stroke={isSnake ? "rgba(255,80,80,.65)" : isLadder ? "rgba(255,215,0,.65)" : "rgba(255,255,255,.06)"}
+            strokeWidth={isSnake || isLadder ? "0.5%" : "0.12%"}
           />
-          {/* Cell number */}
-          <text x={`${x}%`} y={`${y - 1.8}%`} textAnchor="middle" fontSize="2%"
-            fill="rgba(255,255,255,0.6)" fontWeight="700">{cell}</text>
-
-          {/* Emoji markers */}
-          {isSnake    && <text x={`${x}%`} y={`${y + 3}%`} textAnchor="middle" fontSize="3.4%">🐍</text>}
-          {isLadder   && <text x={`${x}%`} y={`${y + 3}%`} textAnchor="middle" fontSize="3.4%">🪜</text>}
-          {isSnakeTail && !isSnake  && <text x={`${x}%`} y={`${y + 3}%`} textAnchor="middle" fontSize="2.6%">☠️</text>}
-          {isLadderTop && !isLadder && <text x={`${x}%`} y={`${y + 3}%`} textAnchor="middle" fontSize="2.6%">⭐</text>}
+          <text x={`${x}%`} y={`${y - 2}%`} textAnchor="middle" fontSize="1.85%"
+            fill="rgba(255,255,255,.5)" fontWeight="600">{cell}</text>
+          {isSnake  && <text x={`${x}%`} y={`${y + 2.6}%`} textAnchor="middle" fontSize="3%">🐍</text>}
+          {isLadder && <text x={`${x}%`} y={`${y + 2.6}%`} textAnchor="middle" fontSize="3%">🪜</text>}
+          {!isSnake  && snakeTails.has(cell)  && <text x={`${x}%`} y={`${y + 2.6}%`} textAnchor="middle" fontSize="2.2%">☠️</text>}
+          {!isLadder && ladderTops.has(cell)  && <text x={`${x}%`} y={`${y + 2.6}%`} textAnchor="middle" fontSize="2.2%">⭐</text>}
         </g>
       );
     }
   }
 
-  // Snake lines — vivid red dashed
   const snakeLines = Object.entries(SNAKES).map(([from, to]) => {
-    const f = cellPct(Number(from));
-    const t = cellPct(Number(to));
+    const f = cellPct(Number(from)); const t = cellPct(Number(to));
     return (
       <g key={`sl${from}`}>
         <line x1={`${f.x}%`} y1={`${f.y}%`} x2={`${t.x}%`} y2={`${t.y}%`}
-          stroke="#ff2222" strokeWidth="0.9%" strokeDasharray="1.5%,0.8%" opacity={0.55} />
+          stroke="#ff3333" strokeWidth="1.1%" strokeDasharray="1.8%,0.7%" opacity={0.65} />
         <line x1={`${f.x}%`} y1={`${f.y}%`} x2={`${t.x}%`} y2={`${t.y}%`}
-          stroke="#ff0000" strokeWidth="0.25%" opacity={0.4} />
+          stroke="rgba(255,140,140,.4)" strokeWidth="0.35%" />
       </g>
     );
   });
 
-  // Ladder lines — glowing gold
   const ladderLines = Object.entries(LADDERS).map(([from, to]) => {
-    const f = cellPct(Number(from));
-    const t = cellPct(Number(to));
+    const f = cellPct(Number(from)); const t = cellPct(Number(to));
     return (
       <g key={`ll${from}`}>
+        <line x1={`${f.x - 0.9}%`} y1={`${f.y}%`} x2={`${t.x - 0.9}%`} y2={`${t.y}%`}
+          stroke="#c8a000" strokeWidth="0.9%" opacity={0.65} />
+        <line x1={`${f.x + 0.9}%`} y1={`${f.y}%`} x2={`${t.x + 0.9}%`} y2={`${t.y}%`}
+          stroke="#c8a000" strokeWidth="0.9%" opacity={0.65} />
         <line x1={`${f.x}%`} y1={`${f.y}%`} x2={`${t.x}%`} y2={`${t.y}%`}
-          stroke="#FFD700" strokeWidth="0.9%" opacity={0.5} />
-        <line x1={`${f.x}%`} y1={`${f.y}%`} x2={`${t.x}%`} y2={`${t.y}%`}
-          stroke="#fff9c0" strokeWidth="0.25%" opacity={0.35} />
+          stroke="#FFD700" strokeWidth="0.45%" opacity={0.55} />
       </g>
     );
   });
@@ -188,24 +227,24 @@ function Board({ pPos, bPos }: { pPos: number; bPos: number }) {
 
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%"
-      style={{ display: "block", borderRadius: 14, overflow: "hidden" }}>
+      style={{ display: "block", borderRadius: 12, overflow: "hidden",
+        boxShadow: "0 0 50px rgba(0,0,0,.95), 0 0 3px rgba(17,200,160,.25)" }}>
       <defs>
-        <filter id="ss-glow-p" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.5" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-        <filter id="ss-glow-b" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.5" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-        <radialGradient id="bg-grad" cx="50%" cy="50%" r="70%">
-          <stop offset="0%" stopColor="#0a0a1e" />
-          <stop offset="100%" stopColor="#04040f" />
+        <radialGradient id="ss2-bg" cx="50%" cy="50%" r="70%">
+          <stop offset="0%" stopColor="#080820" />
+          <stop offset="100%" stopColor="#030310" />
         </radialGradient>
+        <filter id="ss2-glow-p" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.5" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <filter id="ss2-glow-b" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.5" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
       </defs>
 
-      {/* Dark background */}
-      <rect width="100" height="100" fill="url(#bg-grad)" />
+      <rect width="100" height="100" fill="url(#ss2-bg)" />
       {cells}
       {snakeLines}
       {ladderLines}
@@ -213,483 +252,702 @@ function Board({ pPos, bPos }: { pPos: number; bPos: number }) {
       {/* Start zone tokens (pos=0) */}
       {pPos === 0 && (
         <g>
-          <circle cx="5%" cy="96%" r="3.8%" fill="#22c55e" stroke="rgba(255,255,255,0.8)"
-            strokeWidth="0.7%" filter="url(#ss-glow-p)" />
-          <text x="5%" y="97.5%" textAnchor="middle" fontSize="2.8%" fill="#000" fontWeight="bold">Y</text>
+          <circle cx="5%" cy="96%" r="3.6%"
+            fill="#22c55e" stroke="rgba(255,255,255,.88)" strokeWidth=".7%" filter="url(#ss2-glow-p)" />
+          <text x="5%" y="97.5%" textAnchor="middle" fontSize="2.5%" fill="#000" fontWeight="bold">Y</text>
         </g>
       )}
       {bPos === 0 && (
         <g>
-          <circle cx={pPos === 0 ? "13%" : "5%"} cy="96%" r="3.8%"
-            fill="#f43f5e" stroke="rgba(255,255,255,0.8)" strokeWidth="0.7%" filter="url(#ss-glow-b)" />
-          <text x={pPos === 0 ? "13%" : "5%"} y="97.5%" textAnchor="middle"
-            fontSize="2.8%" fill="#fff" fontWeight="bold">B</text>
+          <circle cx={pPos === 0 ? "13%" : "5%"} cy="96%" r="3.6%"
+            fill="#f43f5e" stroke="rgba(255,255,255,.88)" strokeWidth=".7%" filter="url(#ss2-glow-b)" />
+          <text x={pPos === 0 ? "13%" : "5%"} y="97.5%"
+            textAnchor="middle" fontSize="2.5%" fill="#fff" fontWeight="bold">B</text>
         </g>
       )}
 
-      {/* Player token (green, Y) */}
+      {/* Player token (green Y) */}
       {pp && (
         <g>
-          {/* Pulse ring */}
-          <circle cx={`${sameCell ? pp.x - 2.5 : pp.x}%`} cy={`${pp.y}%`} r="5.5%"
-            fill="none" stroke="rgba(34,197,94,0.4)" strokeWidth="0.6%">
-            <animate attributeName="r" values="4.5%;6.5%;4.5%" dur="1.2s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.6;0;0.6" dur="1.2s" repeatCount="indefinite" />
+          <circle cx={`${sameCell ? pp.x - 2.8 : pp.x}%`} cy={`${pp.y}%`} r="5.5%"
+            fill="none" stroke="rgba(34,197,94,.35)" strokeWidth=".6%">
+            <animate attributeName="r" values="4%;6%;4%" dur="1.1s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values=".6;0;.6" dur="1.1s" repeatCount="indefinite" />
           </circle>
-          <circle cx={`${sameCell ? pp.x - 2.5 : pp.x}%`} cy={`${pp.y}%`} r="3.8%"
-            fill="#22c55e" stroke="rgba(255,255,255,0.9)" strokeWidth="0.7%" filter="url(#ss-glow-p)" />
-          <text x={`${sameCell ? pp.x - 2.5 : pp.x}%`} y={`${pp.y + 1.3}%`}
-            textAnchor="middle" fontSize="2.8%" fill="#000" fontWeight="bold">Y</text>
+          <circle cx={`${sameCell ? pp.x - 2.8 : pp.x}%`} cy={`${pp.y}%`} r="3.8%"
+            fill="#22c55e" stroke="rgba(255,255,255,.9)" strokeWidth=".7%" filter="url(#ss2-glow-p)" />
+          <circle cx={`${sameCell ? pp.x - 2.8 - 1.1 : pp.x - 1.1}%`} cy={`${pp.y - 1.1}%`}
+            r="1.1%" fill="rgba(255,255,255,.35)" />
+          <text x={`${sameCell ? pp.x - 2.8 : pp.x}%`} y={`${pp.y + 1.3}%`}
+            textAnchor="middle" fontSize="2.5%" fill="#000" fontWeight="bold">Y</text>
         </g>
       )}
 
-      {/* Bot token (red, B) */}
+      {/* Bot token (red B) */}
       {bp && (
         <g>
-          <circle cx={`${sameCell ? bp.x + 2.5 : bp.x}%`} cy={`${bp.y}%`} r="3.8%"
-            fill="#f43f5e" stroke="rgba(255,255,255,0.9)" strokeWidth="0.7%" filter="url(#ss-glow-b)" />
-          <text x={`${sameCell ? bp.x + 2.5 : bp.x}%`} y={`${bp.y + 1.3}%`}
-            textAnchor="middle" fontSize="2.8%" fill="#fff" fontWeight="bold">B</text>
+          <circle cx={`${sameCell ? bp.x + 2.8 : bp.x}%`} cy={`${bp.y}%`} r="3.8%"
+            fill="#f43f5e" stroke="rgba(255,255,255,.9)" strokeWidth=".7%" filter="url(#ss2-glow-b)" />
+          <circle cx={`${sameCell ? bp.x + 2.8 - 1.1 : bp.x - 1.1}%`} cy={`${bp.y - 1.1}%`}
+            r="1.1%" fill="rgba(255,255,255,.3)" />
+          <text x={`${sameCell ? bp.x + 2.8 : bp.x}%`} y={`${bp.y + 1.3}%`}
+            textAnchor="middle" fontSize="2.5%" fill="#fff" fontWeight="bold">B</text>
         </g>
       )}
     </svg>
   );
 }
 
-// ── Event badge ───────────────────────────────────────────────────────────────
-type EventType = "ladder" | "snake" | "normal" | "over" | "none";
-function getEventType(msg: string): EventType {
-  if (msg.includes("🪜")) return "ladder";
-  if (msg.includes("🐍")) return "snake";
-  if (msg.includes("over 100")) return "over";
-  return "normal";
+// ── Event types ────────────────────────────────────────────────────────────────
+type EvType = "ladder" | "snake" | "hit" | "home" | "none";
+
+// ── applyMove — pure, returns result + floater info ───────────────────────────
+function applyMove(pos: number, roll: number, oppPos: number): {
+  newPos: number; scoreDelta: number; oppDelta: number;
+  msg: string; evt: EvType;
+  floats: { text: string; color: string }[];
+} {
+  const floats: { text: string; color: string }[] = [];
+
+  const target = pos + roll;
+  if (target > 100) {
+    return { newPos: pos, scoreDelta: 0, oppDelta: 0, msg: `Rolled ${roll} — over 100, can't move`, evt: "none", floats };
+  }
+
+  let newPos      = target;
+  let scoreDelta  = roll;
+  let oppDelta    = 0;
+  let msg         = `Rolled ${roll} → sq.${target}`;
+  let evt: EvType = "none";
+
+  if (LADDERS[newPos]) {
+    const top   = LADDERS[newPos];
+    const climb = top - newPos;
+    scoreDelta += climb;
+    newPos      = top;
+    msg        += ` 🪜 Ladder! +${climb} bonus pts`;
+    evt         = "ladder";
+    floats.push({ text: `+${climb} LADDER BONUS!`, color: "#FFD700" });
+  } else if (SNAKES[newPos]) {
+    const tail = SNAKES[newPos];
+    const fall = newPos - tail;
+    scoreDelta -= fall;
+    newPos      = tail;
+    msg        += ` 🐍 Snake! –${fall} pts`;
+    evt         = "snake";
+    floats.push({ text: `–${fall} SNAKE BITE!`, color: "#ff4444" });
+  }
+
+  if (newPos === 100) {
+    scoreDelta += HOME_BONUS;
+    if (evt === "none") evt = "home";
+    msg += ` 🏠 HOME BONUS +${HOME_BONUS}!`;
+    floats.push({ text: `+${HOME_BONUS} HOME BONUS!`, color: "#4ade80" });
+  }
+
+  if (newPos === oppPos && oppPos > 0) {
+    scoreDelta += HIT_BONUS;
+    oppDelta   -= HIT_PENALTY;
+    if (evt === "none") evt = "hit";
+    msg += ` ⚔️ HIT! +${HIT_BONUS}pts`;
+    floats.push({ text: `⚔️ HIT! +${HIT_BONUS}`, color: "#FFD700" });
+  }
+
+  return { newPos, scoreDelta, oppDelta, msg, evt, floats };
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────────────
 interface Props { onBack: () => void; initialFee?: number }
 
 export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
   const { addWinning } = useWallet();
   const { addMatch }   = useMatchHistory();
+
   const isFreeMode = initialFee === 0;
-  const isGodMode  = !isFreeMode && initialFee >= 20;
-  const botName    = useRef(BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]);
-  const scored     = useRef(false);
-  const tier       = isFreeMode ? { label: "🟢 EASY", color: "#4ade80" } : botTier(initialFee);
+  const tier: "easy" | "medium" | "god" =
+    isFreeMode || initialFee < 5 ? "easy" : initialFee < 20 ? "medium" : "god";
+  const tierLabel = tier === "god" ? "⚡ GOD MODE" : tier === "medium" ? "🔶 MEDIUM" : "🟢 EASY";
+  const tierColor = tier === "god" ? "#ff3b5c" : tier === "medium" ? "#f97316" : "#4ade80";
 
-  const [phase,     setPhase]     = useState<"matchmaking" | "playing" | "result">("matchmaking");
-  const [pPos,      setPPos]      = useState(0);
-  const [bPos,      setBPos]      = useState(0);
-  const [pScore,    setPScore]    = useState(0);
-  const [bScore,    setBScore]    = useState(0);
-  const [pMoves,    setPMoves]    = useState(0);
-  const [bMoves,    setBMoves]    = useState(0);
-  const [dice,      setDice]      = useState(1);
-  const [rolling,   setRolling]   = useState(false);
-  const [turn,      setTurn]      = useState<"player" | "bot">("player");
-  const [logMsgs,   setLogMsgs]   = useState<string[]>(["🎮 Match started!"]);
-  const [eventType, setEventType] = useState<EventType>("none");
-  const [eventKey,  setEventKey]  = useState(0);
+  const botName  = useRef(BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]);
+  const scored   = useRef(false);
+  const floatId  = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  function pushLog(msg: string) {
-    setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
-    setEventType(getEventType(msg));
-    setEventKey(k => k + 1);
-  }
+  const [phase,    setPhase]    = useState<"matchmaking" | "playing" | "result">("matchmaking");
+  const [pPos,     setPPos]     = useState(0);
+  const [bPos,     setBPos]     = useState(0);
+  const [pScore,   setPScore]   = useState(0);
+  const [bScore,   setBScore]   = useState(0);
+  const [pMoves,   setPMoves]   = useState(0);
+  const [bMoves,   setBMoves]   = useState(0);
+  const [dice,     setDice]     = useState(1);
+  const [rolling,  setRolling]  = useState(false);
+  const [turn,     setTurn]     = useState<"player" | "bot">("player");
+  const [logMsg,   setLogMsg]   = useState("🎮 Match started! Good luck!");
+  const [evKey,    setEvKey]    = useState(0);
+  const [evType,   setEvType]   = useState<EvType>("none");
+  const [timer,    setTimer]    = useState(MATCH_SECS);
+  const [floaters, setFloaters] = useState<Floater[]>([]);
 
-  // Matchmaking
+  // ── Spawn floating text ─────────────────────────────────────────────────────
+  const spawnFloats = useCallback((list: { text: string; color: string }[]) => {
+    list.forEach(({ text, color }) => {
+      const id = ++floatId.current;
+      const x  = 80 + Math.random() * 280;
+      const y  = 200 + Math.random() * 160;
+      setFloaters(f => [...f, { id, text, color, x, y }]);
+      setTimeout(() => setFloaters(f => f.filter(e => e.id !== id)), 1400);
+    });
+  }, []);
+
+  const pushLog = useCallback((msg: string, type: EvType) => {
+    setLogMsg(msg);
+    setEvType(type);
+    setEvKey(k => k + 1);
+  }, []);
+
+  // ── Matchmaking → playing ───────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "matchmaking") return;
-    const t = setTimeout(() => setPhase("playing"), 2800);
+    const t = setTimeout(() => setPhase("playing"), 2900);
     return () => clearTimeout(t);
   }, [phase]);
 
-  // End condition
+  // ── Match countdown timer ───────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing") return;
-    if (pMoves >= MAX_MOVES && bMoves >= MAX_MOVES && !scored.current) {
-      scored.current = true;
+    timerRef.current = setInterval(() => {
+      setTimer(t => {
+        if (t <= 1) { clearInterval(timerRef.current!); return 0; }
+        return t - 1;
+      });
+    }, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [phase]);
+
+  // ── End condition ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const done = (pMoves >= MAX_MOVES && bMoves >= MAX_MOVES) || timer === 0;
+    if (!done || scored.current) return;
+    scored.current = true;
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimeout(() => {
       setPhase("result");
       const won   = pScore >= bScore;
       const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
       if (!isFreeMode && won) addWinning(prize);
       addMatch({
-        gameId: "saanpsidi", gameName: isFreeMode ? "Saanp Sidi (Practice)" : "Saanp Sidi", gameIcon: "🐍",
-        result: won ? "win" : "loss", entryFee: initialFee,
-        prize, userScore: pScore, opponentScore: bScore,
-        opponentName: botName.current, isGodMode,
+        gameId: "saanpsidi",
+        gameName: isFreeMode ? "Saanp Sidi (Practice)" : "Saanp Sidi",
+        gameIcon: "🐍",
+        result: won ? "win" : "loss",
+        entryFee: initialFee,
+        prize,
+        userScore: pScore,
+        opponentScore: bScore,
+        opponentName: botName.current,
+        isGodMode: tier === "god",
       });
-    }
-  }, [pMoves, bMoves, phase, pScore, bScore]);
+    }, 500);
+  }, [pMoves, bMoves, timer, phase, pScore, bScore]);
 
-  function applyMove(pos: number, roll: number): { newPos: number; msg: string } {
-    const target = pos + roll;
-    if (target > 100) return { newPos: pos, msg: `Rolled ${roll} — over 100, no move!` };
-    let newPos = target;
-    let msg    = `Rolled ${roll} → sq.${target}`;
-    if (LADDERS[newPos]) {
-      const top = LADDERS[newPos];
-      msg      += ` 🪜 Ladder! Up to ${top}`;
-      newPos    = top;
-    } else if (SNAKES[newPos]) {
-      const tail = SNAKES[newPos];
-      msg       += ` 🐍 Snake! Down to ${tail}`;
-      newPos     = tail;
-    }
-    return { newPos, msg };
-  }
-
+  // ── Player roll ─────────────────────────────────────────────────────────────
   const handleRoll = useCallback(() => {
-    if (rolling || turn !== "player" || pMoves >= MAX_MOVES) return;
+    if (rolling || turn !== "player" || pMoves >= MAX_MOVES || timer === 0 || phase !== "playing") return;
     const val = normalDice();
-    setRolling(true);
     setDice(val);
+    setRolling(true);
     setTimeout(() => {
       setRolling(false);
-      const { newPos, msg } = applyMove(pPos, val);
+      const { newPos, scoreDelta, oppDelta, msg, evt, floats } = applyMove(pPos, val, bPos);
       setPPos(newPos);
-      setPScore(newPos);
+      setPScore(s => Math.max(0, s + scoreDelta));
+      if (oppDelta !== 0) setBScore(s => Math.max(0, s + oppDelta));
       setPMoves(m => m + 1);
-      pushLog("🟢 You: " + msg);
+      pushLog("🟢 You: " + msg, evt);
+      spawnFloats(floats);
       setTurn("bot");
     }, 740);
-  }, [rolling, turn, pMoves, pPos]);
+  }, [rolling, turn, pMoves, pPos, bPos, timer, phase, pushLog, spawnFloats]);
 
-  // Bot turn
+  // ── Bot turn ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing" || turn !== "bot") return;
-    if (bMoves >= MAX_MOVES) { setTurn("player"); return; }
-    const delay = 900 + Math.random() * 550;
+    if (bMoves >= MAX_MOVES || timer === 0) { setTurn("player"); return; }
+    const delay = 850 + Math.random() * 600;
     const t = setTimeout(() => {
-      const val = isGodMode ? godModeDice(bPos) : normalDice();
+      const val = tier === "god" ? godDice(bPos) : tier === "medium" ? mediumDice(bPos) : normalDice();
       setDice(val);
       setRolling(true);
       setTimeout(() => {
         setRolling(false);
-        const { newPos, msg } = applyMove(bPos, val);
+        const { newPos, scoreDelta, oppDelta, msg, evt, floats } = applyMove(bPos, val, pPos);
         setBPos(newPos);
-        setBScore(newPos);
+        setBScore(s => Math.max(0, s + scoreDelta));
+        if (oppDelta !== 0) setPScore(s => Math.max(0, s + oppDelta));
         setBMoves(m => m + 1);
-        pushLog(`🔴 ${botName.current}: ` + msg);
+        pushLog(`🔴 ${botName.current}: ` + msg, evt);
+        spawnFloats(floats);
         setTurn("player");
       }, 740);
     }, delay);
     return () => clearTimeout(t);
-  }, [turn, phase, bMoves, bPos, isGodMode]);
+  }, [turn, phase, bMoves, bPos, pPos, tier, timer, pushLog, spawnFloats]);
 
-  const wonGame    = pScore >= bScore;
-  const prize      = wonGame ? Math.floor(initialFee * 2 * 0.9) : 0;
-  const pMovesLeft = MAX_MOVES - pMoves;
-  const bMovesLeft = MAX_MOVES - bMoves;
-  const canRoll    = turn === "player" && !rolling && pMoves < MAX_MOVES;
+  const canRoll  = turn === "player" && !rolling && pMoves < MAX_MOVES && phase === "playing" && timer > 0;
+  const won      = pScore >= bScore;
+  const prize    = won && !isFreeMode ? Math.floor(initialFee * 2 * 0.9) : 0;
+  const fmtTime  = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const evColor  =
+    evType === "ladder" ? "#FFD700" : evType === "snake" ? "#ff4444" :
+    evType === "hit"    ? "#ff8c00" : evType === "home"  ? "#4ade80" : "rgba(255,255,255,.5)";
 
-  // ── Matchmaking screen ──────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MATCHMAKING SCREEN
+  // ═══════════════════════════════════════════════════════════════════════════
   if (phase === "matchmaking") {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center gap-5 px-6"
-        style={{ background: "linear-gradient(180deg, #001a12 0%, #002218 60%, #001a12 100%)", maxWidth: 480, margin: "0 auto" }}>
+        style={{ background: "linear-gradient(180deg,#001a14,#000e09,#001a14)", maxWidth: 480, margin: "0 auto" }}>
 
-        <motion.div
-          initial={{ scale: 0, y: 20 }} animate={{ scale: 1, y: 0 }}
+        <motion.div initial={{ scale: 0, y: 20 }} animate={{ scale: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 180 }}
           className="text-8xl"
-          style={{ filter: "drop-shadow(0 0 28px rgba(17,200,160,0.8))" }}>
+          style={{ filter: "drop-shadow(0 0 28px rgba(17,200,160,.8))" }}>
           🐍
         </motion.div>
 
         <div className="text-center">
           <h2 className="text-4xl font-black text-white tracking-tight">SAANP SIDI</h2>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mt-2"
-            style={{ background: "rgba(17,200,160,0.12)", border: "1px solid rgba(17,200,160,0.35)" }}>
-            <span className="text-sm font-black" style={{ color: "#11c8a0" }}>20 Moves · Score-Based</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mt-2"
+            style={{ background: "rgba(17,200,160,.12)", border: "1px solid rgba(17,200,160,.35)" }}>
+            <span className="text-sm font-black" style={{ color: "#11c8a0" }}>
+              ⚡ Points Battle · {MAX_MOVES} Moves
+            </span>
           </div>
-          <p className="text-sm mt-2" style={{ color: "rgba(255,255,255,0.38)" }}>
-            Ladders boost · Snakes reduce · Highest wins
+          <p className="text-sm mt-2" style={{ color: "rgba(255,255,255,.38)" }}>
+            Ladders boost · Snakes penalize · Highest score wins
           </p>
         </div>
 
-        {/* Bot tier */}
-        <div className="px-5 py-2.5 rounded-2xl flex items-center gap-2"
-          style={{ background: `${tier.color}15`, border: `1px solid ${tier.color}40` }}>
-          <span className="text-sm font-black" style={{ color: tier.color }}>{tier.label}</span>
-          <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.3)" }}>· ₹{initialFee}</span>
-        </div>
-
-        <div className="flex flex-col items-center gap-2">
-          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-10 h-10 rounded-full border-[3px]"
-            style={{ borderColor: "#11c8a0", borderTopColor: "transparent" }} />
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>Finding opponent…</p>
+        {/* Scoring rules */}
+        <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.08)" }}>
+          {([
+            ["📦", "Every step moved",       "+1 pt"],
+            ["🪜", "Ladder climb",           "+climbed pts bonus"],
+            ["🐍", "Snake bite",             "–fallen pts penalty"],
+            ["🏠", "Reach square 100",       `+${HOME_BONUS} pts bonus`],
+            ["⚔️", "Land on opponent",       `+${HIT_BONUS} / –${HIT_PENALTY}`],
+          ] as [string, string, string][]).map(([icon, label, val]) => (
+            <div key={label} className="flex items-center gap-3 px-4 py-2.5"
+              style={{ borderBottom: "1px solid rgba(255,255,255,.05)", background: "rgba(255,255,255,.02)" }}>
+              <span className="text-sm">{icon}</span>
+              <span className="flex-1 text-xs font-bold" style={{ color: "rgba(255,255,255,.5)" }}>{label}</span>
+              <span className="text-xs font-black" style={{ color: "#FFD700" }}>{val}</span>
+            </div>
+          ))}
         </div>
 
         {/* Player slots */}
-        <div className="flex gap-3 w-full max-w-xs">
+        <div className="flex gap-3 w-full">
           <div className="flex-1 p-3 rounded-2xl flex items-center gap-2"
-            style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
+            style={{ background: "rgba(34,197,94,.1)", border: "1px solid rgba(34,197,94,.3)" }}>
             <div className="w-3 h-3 rounded-full" style={{ background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />
             <span className="text-xs font-black text-white">You</span>
+            <span className="ml-auto text-[9px] font-bold" style={{ color: "rgba(255,255,255,.35)" }}>
+              {isFreeMode ? "FREE" : `₹${initialFee}`}
+            </span>
           </div>
           <div className="flex-1 p-3 rounded-2xl flex items-center gap-2"
-            style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)" }}>
-            <motion.div className="w-3 h-3 rounded-full" style={{ background: "#f43f5e" }}
-              animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.9, repeat: Infinity }} />
-            <span className="text-xs font-black" style={{ color: "rgba(255,255,255,0.6)" }}>Finding…</span>
+            style={{ background: `${tierColor}12`, border: `1px solid ${tierColor}35` }}>
+            <motion.div className="w-3 h-3 rounded-full" style={{ background: tierColor }}
+              animate={{ opacity: [1, .3, 1] }} transition={{ duration: .9, repeat: Infinity }} />
+            <span className="text-xs font-black" style={{ color: "rgba(255,255,255,.55)" }}>
+              {botName.current}
+            </span>
+            <span className="ml-auto text-[9px] font-bold" style={{ color: tierColor }}>{tierLabel}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-8 h-8 rounded-full border-[3px]"
+            style={{ borderColor: "#11c8a0", borderTopColor: "transparent" }} />
+          <p className="text-sm" style={{ color: "rgba(255,255,255,.4)" }}>Setting up the board…</p>
+        </div>
+
+        <div className="w-full">
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
+            <motion.div className="h-full rounded-full"
+              style={{ background: "linear-gradient(90deg,#11c8a0,#FFD700,#f43f5e)" }}
+              initial={{ width: "0%" }} animate={{ width: "100%" }}
+              transition={{ duration: 2.7, ease: "linear" }} />
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Result screen ───────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RESULT SCREEN
+  // ═══════════════════════════════════════════════════════════════════════════
   if (phase === "result") {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center px-6 gap-6"
-        style={{ background: wonGame
-          ? "linear-gradient(180deg, #001a08 0%, #002210 60%, #001a08 100%)"
-          : "linear-gradient(180deg, #1a0008 0%, #220010 60%, #1a0008 100%)",
-          maxWidth: 480, margin: "0 auto" }}>
+      <div className="flex flex-col min-h-screen items-center justify-center px-6 gap-5"
+        style={{
+          background: won
+            ? "linear-gradient(180deg,#001a08,#002210,#001a08)"
+            : "linear-gradient(180deg,#1a0008,#220010,#1a0008)",
+          maxWidth: 480, margin: "0 auto",
+        }}>
 
-        <motion.div
-          initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
+        <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 220, damping: 14 }}
           className="text-8xl"
-          style={{ filter: wonGame ? "drop-shadow(0 0 28px rgba(34,197,94,0.9))" : "drop-shadow(0 0 24px rgba(255,59,92,0.8))" }}>
-          {wonGame ? "🏆" : "🐍"}
+          style={{ filter: won
+            ? "drop-shadow(0 0 30px rgba(74,222,128,.9))"
+            : "drop-shadow(0 0 24px rgba(244,63,94,.8))" }}>
+          {won ? "🏆" : "🐍"}
         </motion.div>
 
-        <motion.h2 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+        <motion.h2 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .18 }}
           className="text-5xl font-black"
-          style={{ color: wonGame ? "#4ade80" : "#f43f5e", textShadow: wonGame ? "0 0 40px rgba(74,222,128,0.7)" : "0 0 30px rgba(244,63,94,0.7)" }}>
-          {wonGame ? "YOU WIN!" : "YOU LOSE!"}
+          style={{
+            color: won ? "#4ade80" : "#f43f5e",
+            textShadow: won ? "0 0 40px rgba(74,222,128,.7)" : "0 0 30px rgba(244,63,94,.7)",
+          }}>
+          {won ? "YOU WIN!" : "YOU LOSE!"}
         </motion.h2>
 
-        {/* Prize display */}
-        {wonGame && (
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.25 }}
+        {won && !isFreeMode && prize > 0 && (
+          <motion.div initial={{ scale: .8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: .28 }}
             className="px-8 py-3 rounded-2xl text-center"
-            style={{ background: "rgba(255,215,0,0.1)", border: "1.5px solid rgba(255,215,0,0.4)", boxShadow: "0 0 30px rgba(255,215,0,0.2)" }}>
-            <div className="text-xs font-bold mb-0.5" style={{ color: "rgba(255,215,0,0.6)" }}>PRIZE WON</div>
+            style={{ background: "rgba(255,215,0,.1)", border: "1.5px solid rgba(255,215,0,.4)",
+              boxShadow: "0 0 30px rgba(255,215,0,.2)" }}>
+            <div className="text-xs font-bold mb-0.5" style={{ color: "rgba(255,215,0,.6)" }}>PRIZE WON</div>
             <div className="text-3xl font-black" style={{ color: "#FFD700" }}>+₹{prize}</div>
           </motion.div>
         )}
+        {isFreeMode && (
+          <div className="px-6 py-2 rounded-2xl"
+            style={{ background: "rgba(16,185,129,.1)", border: "1px solid rgba(16,185,129,.3)" }}>
+            <span className="text-sm font-bold" style={{ color: "#10b981" }}>Practice Match</span>
+          </div>
+        )}
 
-        {/* Score comparison */}
-        <div className="flex gap-3 w-full max-w-sm">
-          <div className="flex-1 text-center p-4 rounded-2xl"
-            style={{ background: "rgba(34,197,94,0.08)", border: `2px solid ${wonGame ? "rgba(34,197,94,0.5)" : "rgba(34,197,94,0.15)"}` }}>
-            <div className="text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: "#22c55e" }}>YOU</div>
-            <div className="text-2xl font-black text-white mb-0.5">Sq.{pScore}</div>
-            <div className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Final position</div>
+        {/* Score breakdown */}
+        <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.1)" }}>
+          <div className="flex">
+            <div className="flex-1 p-4 text-center"
+              style={{ background: "rgba(34,197,94,.1)", borderRight: "1px solid rgba(255,255,255,.06)" }}>
+              <div className="text-[10px] font-black uppercase tracking-wider mb-1"
+                style={{ color: "rgba(34,197,94,.7)" }}>YOU</div>
+              <div className="text-4xl font-black" style={{ color: "#22c55e" }}>{pScore}</div>
+              <div className="text-[9px] font-bold mt-1" style={{ color: "rgba(255,255,255,.3)" }}>total points</div>
+            </div>
+            <div className="flex-1 p-4 text-center" style={{ background: "rgba(244,63,94,.1)" }}>
+              <div className="text-[10px] font-black uppercase tracking-wider mb-1"
+                style={{ color: "rgba(244,63,94,.7)" }}>{botName.current.slice(0, 8)}</div>
+              <div className="text-4xl font-black" style={{ color: "#f43f5e" }}>{bScore}</div>
+              <div className="text-[9px] font-bold mt-1" style={{ color: "rgba(255,255,255,.3)" }}>total points</div>
+            </div>
           </div>
-          <div className="flex self-center text-xl font-black" style={{ color: "rgba(255,255,255,0.18)" }}>VS</div>
-          <div className="flex-1 text-center p-4 rounded-2xl"
-            style={{ background: "rgba(244,63,94,0.08)", border: `2px solid ${!wonGame ? "rgba(244,63,94,0.5)" : "rgba(244,63,94,0.15)"}` }}>
-            <div className="text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: "#f43f5e" }}>{botName.current}</div>
-            <div className="text-2xl font-black text-white mb-0.5">Sq.{bScore}</div>
-            <div className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Final position</div>
+          <div className="px-4 py-2.5 flex justify-between items-center"
+            style={{ background: "rgba(255,255,255,.03)", borderTop: "1px solid rgba(255,255,255,.05)" }}>
+            <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,.4)" }}>Entry Fee</span>
+            <span className="text-sm font-black" style={{ color: isFreeMode ? "#10b981" : "#FFD700" }}>
+              {isFreeMode ? "FREE" : `₹${initialFee}`}
+            </span>
           </div>
+          {!isFreeMode && (
+            <div className="px-4 py-2.5 flex justify-between items-center"
+              style={{ background: "rgba(255,255,255,.02)", borderTop: "1px solid rgba(255,255,255,.05)" }}>
+              <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,.4)" }}>
+                {won ? "You Won" : "You Lost"}
+              </span>
+              <span className="text-sm font-black" style={{ color: won ? "#4ade80" : "#f43f5e" }}>
+                {won ? `+₹${prize}` : `-₹${initialFee}`}
+              </span>
+            </div>
+          )}
         </div>
 
-        <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.3)" }}>
-          {wonGame ? "You reached the higher square!" : isGodMode ? "The God Mode bot landed on every ladder!" : "Better luck next time!"}
-        </p>
-
-        <motion.button whileTap={{ scale: 0.95 }} onClick={onBack}
-          className="w-full max-w-sm py-4 rounded-2xl font-black text-lg cursor-pointer"
-          style={{ background: "linear-gradient(135deg,#11998e,#38ef7d)", color: "#000", boxShadow: "0 0 30px rgba(17,153,142,0.45)" }}>
+        <motion.button whileTap={{ scale: .95 }} onClick={onBack}
+          className="w-full py-4 rounded-2xl font-black text-base cursor-pointer"
+          style={{ background: "linear-gradient(135deg,#11998e,#38ef7d)", color: "#000",
+            boxShadow: "0 0 30px rgba(17,153,142,.45)" }}>
           Back to Lobby
         </motion.button>
       </div>
     );
   }
 
-  // ── Playing screen ──────────────────────────────────────────────────────────
-  const eventColor =
-    eventType === "ladder" ? "#FFD700" :
-    eventType === "snake"  ? "#f43f5e" :
-    eventType === "over"   ? "#94a3b8" : "rgba(255,255,255,0.5)";
-
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLAYING SCREEN
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full"
-      style={{ background: "linear-gradient(180deg, #001a12 0%, #000e0a 100%)", maxWidth: 480, margin: "0 auto" }}>
+    <div className="flex flex-col min-h-screen"
+      style={{ background: "linear-gradient(180deg,#001a12,#000e0a 55%,#001810 100%)",
+        maxWidth: 480, margin: "0 auto" }}>
 
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-3 pt-3 pb-1 shrink-0">
-        <motion.button whileTap={{ scale: 0.88 }} onClick={onBack}
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between px-3 pt-3 pb-1 shrink-0">
+        <motion.button whileTap={{ scale: .88 }} onClick={onBack}
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
-          style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 4l-4 4 4 4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)",
+            color: "rgba(255,255,255,.7)", fontSize: 18 }}>
+          ←
         </motion.button>
-
-        <div className="flex-1 flex items-center gap-2 min-w-0">
-          <span className="font-black text-base text-white">🐍 SAANP SIDI</span>
-          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0"
-            style={{ background: `${tier.color}18`, color: tier.color, border: `1px solid ${tier.color}40` }}>
-            {tier.label}
-          </span>
+        <div className="text-center">
+          <div className="font-black text-white text-sm tracking-widest">SAANP SIDI</div>
+          <div className="text-[9px] font-bold" style={{ color: "rgba(17,200,160,.7)" }}>
+            {isFreeMode ? "PRACTICE" : `₹${initialFee} · Win ₹${Math.floor(initialFee * 2 * 0.9)}`}
+          </div>
         </div>
-
-        <div className="px-2.5 py-1 rounded-xl shrink-0"
-          style={{ background: "rgba(17,200,160,0.1)", border: "1px solid rgba(17,200,160,0.3)" }}>
-          <span className="text-xs font-black" style={{ color: "#11c8a0" }}>₹{initialFee}</span>
-        </div>
+        <span className="text-[9px] font-black px-2 py-1 rounded-full"
+          style={{ background: `${tierColor}18`, color: tierColor, border: `1px solid ${tierColor}35` }}>
+          {tierLabel}
+        </span>
       </div>
 
-      {/* ── Prize + Score cards ── */}
-      <div className="px-3 mb-1 shrink-0">
-        {/* Prize banner */}
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl mb-1.5"
-          style={{ background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.15)" }}>
-          <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: "rgba(255,215,0,0.6)" }}>
-            Prize Pool
-          </span>
-          <span className="text-sm font-black" style={{ color: "#FFD700" }}>₹{Math.floor(initialFee * 2 * 0.9)}</span>
-        </div>
+      {/* ── Live Scoreboard ── */}
+      <div className="px-3 mb-1.5 shrink-0">
+        <div className="rounded-2xl px-3 py-2 flex items-center gap-2"
+          style={{ background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.08)",
+            backdropFilter: "blur(12px)" }}>
 
-        {/* You vs Bot score cards */}
-        <div className="flex gap-2">
           {/* YOU */}
-          <div className="flex-1 p-2.5 rounded-xl"
+          <motion.div className="flex-1 rounded-xl px-2 py-1.5 text-center"
+            animate={{ boxShadow: turn === "player" ? "0 0 18px rgba(34,197,94,.55)" : "none" }}
             style={{
-              background: "rgba(34,197,94,0.07)",
-              border: `1.5px solid ${turn === "player" ? "#22c55e" : "rgba(34,197,94,0.18)"}`,
-              boxShadow: turn === "player" ? "0 0 16px rgba(34,197,94,0.3)" : "none",
-              transition: "all 0.3s",
+              background: turn === "player" ? "rgba(34,197,94,.15)" : "rgba(255,255,255,.03)",
+              border: `1.5px solid ${turn === "player" ? "#22c55e" : "rgba(34,197,94,.2)"}`,
+              transition: "all .3s",
             }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <motion.div className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: "#22c55e" }}
-                animate={turn === "player" ? { opacity: [1, 0.3, 1], scale: [1, 1.5, 1] } : { opacity: 0.4 }}
-                transition={{ duration: 0.7, repeat: Infinity }} />
-              <span className="text-[9px] font-black uppercase tracking-wider" style={{ color: "rgba(34,197,94,0.7)" }}>YOU</span>
-              {turn === "player" && <span className="text-[9px] font-bold" style={{ color: "rgba(34,197,94,0.6)" }}>← TURN</span>}
+            <div className="flex items-center justify-center gap-1 mb-0.5">
+              <motion.div className="w-2 h-2 rounded-full"
+                style={{ background: "#22c55e", boxShadow: turn === "player" ? "0 0 6px #22c55e" : "none" }}
+                animate={turn === "player" ? { scale: [1, 1.4, 1] } : { scale: 1 }}
+                transition={{ duration: .7, repeat: Infinity }} />
+              <span className="text-[9px] font-black tracking-wider"
+                style={{ color: "rgba(34,197,94,.85)" }}>YOU</span>
             </div>
-            <div className="text-2xl font-black leading-none text-white">Sq.{pScore}</div>
-            <div className="text-[9px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{pMovesLeft} moves left</div>
-          </div>
+            <motion.div className="text-xl font-black leading-none"
+              key={`p${pScore}`}
+              initial={{ scale: 1.45, color: "#FFD700" }}
+              animate={{ scale: 1, color: "#22c55e" }}
+              transition={{ duration: .3 }}
+              style={{ color: "#22c55e", textShadow: "0 0 10px rgba(34,197,94,.6)" }}>
+              {pScore}
+            </motion.div>
+            <div className="text-[8px] mt-0.5" style={{ color: "rgba(255,255,255,.3)" }}>
+              {MAX_MOVES - pMoves} moves left
+            </div>
+          </motion.div>
 
-          {/* VS divider */}
-          <div className="flex items-center px-1 shrink-0">
-            <span className="text-xs font-black" style={{ color: "rgba(255,255,255,0.15)" }}>VS</span>
+          {/* Center — Timer */}
+          <div className="flex flex-col items-center gap-0.5 px-1 shrink-0">
+            <div className="text-[8px] font-black tracking-wider" style={{ color: "rgba(255,255,255,.25)" }}>TIME</div>
+            <motion.div
+              className="text-lg font-black tabular-nums"
+              animate={timer <= 30 && timer > 0
+                ? { scale: [1, 1.08, 1] }
+                : { scale: 1 }}
+              transition={{ duration: .5, repeat: Infinity }}
+              style={{
+                color: timer <= 30 ? "#ff4444" : timer <= 60 ? "#f97316" : "#FFD700",
+                textShadow: timer <= 30 ? "0 0 14px rgba(255,68,68,.8)" : "none",
+              }}>
+              {fmtTime(timer)}
+            </motion.div>
+            <div className="text-[7px] font-black tracking-widest"
+              style={{ color: "rgba(255,255,255,.18)" }}>VS</div>
           </div>
 
           {/* BOT */}
-          <div className="flex-1 p-2.5 rounded-xl"
+          <motion.div className="flex-1 rounded-xl px-2 py-1.5 text-center"
+            animate={{ boxShadow: turn === "bot" ? "0 0 18px rgba(244,63,94,.55)" : "none" }}
             style={{
-              background: "rgba(244,63,94,0.07)",
-              border: `1.5px solid ${turn === "bot" ? "#f43f5e" : "rgba(244,63,94,0.18)"}`,
-              boxShadow: turn === "bot" ? "0 0 16px rgba(244,63,94,0.3)" : "none",
-              transition: "all 0.3s",
+              background: turn === "bot" ? "rgba(244,63,94,.15)" : "rgba(255,255,255,.03)",
+              border: `1.5px solid ${turn === "bot" ? "#f43f5e" : "rgba(244,63,94,.2)"}`,
+              transition: "all .3s",
             }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <motion.div className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: "#f43f5e" }}
-                animate={turn === "bot" ? { opacity: [1, 0.3, 1], scale: [1, 1.5, 1] } : { opacity: 0.4 }}
-                transition={{ duration: 0.7, repeat: Infinity }} />
-              <span className="text-[9px] font-black uppercase tracking-wider" style={{ color: "rgba(244,63,94,0.7)" }}>BOT</span>
-              {turn === "bot" && <span className="text-[9px] font-bold" style={{ color: "rgba(244,63,94,0.6)" }}>← TURN</span>}
+            <div className="flex items-center justify-center gap-1 mb-0.5">
+              <motion.div className="w-2 h-2 rounded-full"
+                style={{ background: "#f43f5e", boxShadow: turn === "bot" ? "0 0 6px #f43f5e" : "none" }}
+                animate={turn === "bot" ? { scale: [1, 1.4, 1] } : { scale: 1 }}
+                transition={{ duration: .7, repeat: Infinity }} />
+              <span className="text-[9px] font-black tracking-wider"
+                style={{ color: "rgba(244,63,94,.85)" }}>BOT</span>
             </div>
-            <div className="text-2xl font-black leading-none text-white">Sq.{bScore}</div>
-            <div className="text-[9px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{bMovesLeft} moves left</div>
-          </div>
+            <motion.div className="text-xl font-black leading-none"
+              key={`b${bScore}`}
+              initial={{ scale: 1.45, color: "#FFD700" }}
+              animate={{ scale: 1, color: "#f43f5e" }}
+              transition={{ duration: .3 }}
+              style={{ color: "#f43f5e", textShadow: "0 0 10px rgba(244,63,94,.6)" }}>
+              {bScore}
+            </motion.div>
+            <div className="text-[8px] mt-0.5" style={{ color: "rgba(255,255,255,.3)" }}>
+              {MAX_MOVES - bMoves} moves left
+            </div>
+          </motion.div>
         </div>
       </div>
 
       {/* ── Board ── */}
-      <div className="flex-1 px-2 py-0.5 min-h-0">
-        <div style={{ width: "100%", height: "100%", maxHeight: "calc(100vw - 16px)" }}>
-          <Board pPos={pPos} bPos={bPos} />
+      <div className="flex-1 px-2 min-h-0">
+        <div style={{ width: "100%", paddingBottom: "100%", position: "relative" }}>
+          <div style={{ position: "absolute", inset: 0 }}>
+            <Board pPos={pPos} bPos={bPos} />
+          </div>
         </div>
       </div>
 
       {/* ── Event log ── */}
-      <div className="mx-3 mb-1.5 shrink-0 min-h-[32px] flex items-center justify-center">
+      <div className="mx-3 mb-1 shrink-0 min-h-[30px] flex items-center">
         <AnimatePresence mode="wait">
-          {logMsgs[0] && (
-            <motion.div key={eventKey}
-              initial={{ opacity: 0, y: -6, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.25 }}
-              className="px-4 py-1.5 rounded-xl text-center"
-              style={{
-                background: eventType === "ladder" ? "rgba(255,215,0,0.1)" :
-                             eventType === "snake"  ? "rgba(244,63,94,0.1)" :
-                             "rgba(255,255,255,0.04)",
-                border: `1px solid ${eventColor}30`,
-                maxWidth: "100%",
-              }}>
-              <p className="text-xs font-bold truncate" style={{ color: eventColor }}>
-                {logMsgs[0]}
-              </p>
-            </motion.div>
-          )}
+          <motion.div key={evKey}
+            initial={{ opacity: 0, y: -5, scale: .95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: .9 }}
+            transition={{ duration: .2 }}
+            className="w-full px-3 py-1.5 rounded-xl text-center"
+            style={{
+              background:
+                evType === "ladder" ? "rgba(255,215,0,.1)" :
+                evType === "snake"  ? "rgba(255,68,68,.1)" :
+                evType === "hit"    ? "rgba(255,140,0,.1)" :
+                evType === "home"   ? "rgba(74,222,128,.1)" :
+                "rgba(255,255,255,.04)",
+              border: `1px solid ${evColor}30`,
+            }}>
+            <p className="text-[10px] font-bold truncate" style={{ color: evColor }}>{logMsg}</p>
+          </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* ── Controls ── */}
-      <div className="flex items-center justify-center gap-4 px-4 pb-5 pt-0.5 shrink-0">
-        {/* Dice */}
-        <Dice3D value={dice} rolling={rolling} size={64} />
+      {/* ── Move progress bars ── */}
+      <div className="flex gap-3 px-3 mb-1.5 shrink-0">
+        <div className="flex-1">
+          <div className="flex justify-between mb-0.5">
+            <span className="text-[8px] font-bold" style={{ color: "rgba(34,197,94,.7)" }}>YOU</span>
+            <span className="text-[8px] font-bold" style={{ color: "rgba(34,197,94,.7)" }}>
+              {pMoves}/{MAX_MOVES}
+            </span>
+          </div>
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
+            <motion.div className="h-full rounded-full"
+              animate={{ width: `${(pMoves / MAX_MOVES) * 100}%` }}
+              style={{ background: "linear-gradient(90deg,#22c55e,#4ade80)" }}
+              transition={{ duration: .3 }} />
+          </div>
+        </div>
+        <div className="flex-1">
+          <div className="flex justify-between mb-0.5">
+            <span className="text-[8px] font-bold" style={{ color: "rgba(244,63,94,.7)" }}>BOT</span>
+            <span className="text-[8px] font-bold" style={{ color: "rgba(244,63,94,.7)" }}>
+              {bMoves}/{MAX_MOVES}
+            </span>
+          </div>
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
+            <motion.div className="h-full rounded-full"
+              animate={{ width: `${(bMoves / MAX_MOVES) * 100}%` }}
+              style={{ background: "linear-gradient(90deg,#f43f5e,#fb7185)" }}
+              transition={{ duration: .3 }} />
+          </div>
+        </div>
+      </div>
 
-        {/* Roll button — large glowing */}
+      {/* ── Controls: Dice + Roll button ── */}
+      <div className="flex items-center gap-3 px-3 pb-5 pt-0.5 shrink-0">
+        <Dice3D value={dice} rolling={rolling} onClick={handleRoll} disabled={!canRoll} />
+
         <motion.button
-          whileTap={{ scale: 0.92 }}
+          whileTap={{ scale: .92 }}
           onClick={handleRoll}
           disabled={!canRoll}
           className="flex-1 py-4 rounded-2xl font-black text-base cursor-pointer"
           style={{
             background: canRoll
               ? "linear-gradient(135deg,#11998e,#38ef7d)"
-              : "rgba(255,255,255,0.05)",
-            color: canRoll ? "#000" : "rgba(255,255,255,0.2)",
+              : "rgba(255,255,255,.05)",
+            color: canRoll ? "#000" : "rgba(255,255,255,.22)",
             boxShadow: canRoll
-              ? "0 0 32px rgba(17,153,142,0.6), 0 0 64px rgba(17,153,142,0.2)"
+              ? "0 0 32px rgba(17,153,142,.6),0 0 64px rgba(17,153,142,.2)"
               : "none",
-            border: canRoll ? "none" : "1px solid rgba(255,255,255,0.08)",
-            transition: "all 0.25s",
+            border: canRoll ? "none" : "1px solid rgba(255,255,255,.08)",
+            transition: "all .25s",
           }}
           animate={canRoll ? {
             boxShadow: [
-              "0 0 20px rgba(17,153,142,0.4)",
-              "0 0 50px rgba(17,153,142,0.7)",
-              "0 0 20px rgba(17,153,142,0.4)",
+              "0 0 18px rgba(17,153,142,.35)",
+              "0 0 50px rgba(17,153,142,.7)",
+              "0 0 18px rgba(17,153,142,.35)",
             ],
           } : {}}
-          transition={{ duration: 1.4, repeat: Infinity }}
-        >
-          {turn === "bot"
+          transition={{ duration: 1.4, repeat: Infinity }}>
+          {timer === 0
+            ? "⌛ Time's Up!"
+            : turn === "bot"
             ? "⏳ Bot rolling…"
             : pMoves >= MAX_MOVES
-              ? "✓ Done"
-              : "🎲 ROLL DICE"}
+            ? "✅ Moves Done"
+            : "🎲 ROLL DICE"}
         </motion.button>
       </div>
 
-      {/* ── Snake/Ladder event flash ── */}
+      {/* ── Floating score popups ── */}
+      <FloatText floaters={floaters} />
+
+      {/* ── Big event emoji flash ── */}
       <AnimatePresence>
-        {eventType === "ladder" && (
-          <motion.div
-            key={`ladder-${eventKey}`}
-            initial={{ scale: 0.5, opacity: 0, y: 20 }}
-            animate={{ scale: 2, opacity: 1, y: -20 }}
-            exit={{ scale: 2.5, opacity: 0, y: -60 }}
-            transition={{ duration: 0.8 }}
-            className="fixed left-1/2 bottom-32 -translate-x-1/2 pointer-events-none text-4xl z-50">
+        {evType === "ladder" && (
+          <motion.div key={`lf${evKey}`}
+            initial={{ scale: .5, opacity: 0, y: 20 }}
+            animate={{ scale: 2.2, opacity: 1, y: -20 }}
+            exit={{ scale: 2.8, opacity: 0, y: -70 }}
+            transition={{ duration: .85 }}
+            className="fixed left-1/2 bottom-36 pointer-events-none text-4xl z-50"
+            style={{ transform: "translateX(-50%)" }}>
             🪜
           </motion.div>
         )}
-        {eventType === "snake" && (
-          <motion.div
-            key={`snake-${eventKey}`}
-            initial={{ scale: 0.5, opacity: 0, y: -10 }}
-            animate={{ scale: 2, opacity: 1, y: 10 }}
-            exit={{ scale: 2.5, opacity: 0, y: 40 }}
-            transition={{ duration: 0.8 }}
-            className="fixed left-1/2 bottom-32 -translate-x-1/2 pointer-events-none text-4xl z-50">
+        {evType === "snake" && (
+          <motion.div key={`sf${evKey}`}
+            initial={{ scale: .5, opacity: 0, y: -15 }}
+            animate={{ scale: 2.2, opacity: 1, y: 10 }}
+            exit={{ scale: 2.8, opacity: 0, y: 50 }}
+            transition={{ duration: .85 }}
+            className="fixed left-1/2 bottom-36 pointer-events-none text-4xl z-50"
+            style={{ transform: "translateX(-50%)" }}>
             🐍
+          </motion.div>
+        )}
+        {evType === "home" && (
+          <motion.div key={`hf${evKey}`}
+            initial={{ scale: .4, opacity: 0 }}
+            animate={{ scale: 2.5, opacity: 1 }}
+            exit={{ scale: 3, opacity: 0 }}
+            transition={{ duration: 1.0 }}
+            className="fixed left-1/2 bottom-36 pointer-events-none text-4xl z-50"
+            style={{ transform: "translateX(-50%)" }}>
+            🏠
+          </motion.div>
+        )}
+        {evType === "hit" && (
+          <motion.div key={`htf${evKey}`}
+            initial={{ scale: .5, opacity: 0 }}
+            animate={{ scale: 2.2, opacity: 1 }}
+            exit={{ scale: 2.8, opacity: 0 }}
+            transition={{ duration: .75 }}
+            className="fixed left-1/2 bottom-36 pointer-events-none text-4xl z-50"
+            style={{ transform: "translateX(-50%)" }}>
+            ⚔️
           </motion.div>
         )}
       </AnimatePresence>
