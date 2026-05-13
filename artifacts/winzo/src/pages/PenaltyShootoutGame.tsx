@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { getBotDifficulty, botSucceeds } from "@/lib/botDifficulty";
 
 const PLATFORM_PCT = 0.10;
 const W = 390, H = 520;
@@ -12,6 +13,7 @@ type ZoneKey = "tl" | "tc" | "tr" | "bl" | "bc" | "br";
 
 export default function PenaltyShootoutGame({ onBack, initialFee = 10 }: { onBack: () => void; initialFee?: number }) {
   const { addWinning } = useWallet();
+  const difficulty = getBotDifficulty(initialFee);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
 
@@ -77,7 +79,7 @@ export default function PenaltyShootoutGame({ onBack, initialFee = 10 }: { onBac
         } else {
           s.result = "saved"; setMsg(blocked ? "🧤 SAVED!" : "❌ WIDE!");
         }
-        const botGot = Math.random() < 0.55 ? 1 : 0;
+        const botGot = botSucceeds(difficulty) ? 1 : 0;
         s.botScored += botGot;
         s.shotsLeft--;
         s.flying = false;
@@ -175,6 +177,7 @@ export default function PenaltyShootoutGame({ onBack, initialFee = 10 }: { onBac
         <button onClick={onBack} className="text-white text-xl">←</button>
         <span className="text-white font-black text-lg">⚽ Penalty Shootout</span>
         <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee}</span>
+        <span className="text-xs font-bold px-2 py-1 rounded-full ml-1" style={{ background: `${difficulty.color}22`, color: difficulty.color, border: `1px solid ${difficulty.color}40` }}>{difficulty.emoji} {difficulty.level}</span>
       </div>
 
       <div className="relative w-full" style={{ maxWidth: W }}>
@@ -194,6 +197,9 @@ export default function PenaltyShootoutGame({ onBack, initialFee = 10 }: { onBac
               <div className="text-7xl">⚽</div>
               <div className="text-white font-black text-3xl">Penalty Shootout</div>
               <div className="text-zinc-400 text-sm text-center px-8">Choose a zone to shoot. Dodge the goalkeeper! {TOTAL_SHOTS} shots each.</div>
+              <div className="px-4 py-2 rounded-xl text-sm" style={{ background: `${difficulty.color}18`, border: `1px solid ${difficulty.color}44`, color: difficulty.color }}>
+                {difficulty.emoji} vs <b className="text-white">{difficulty.botName}</b> · {difficulty.level}
+              </div>
               <motion.button whileTap={{ scale: 0.95 }} onClick={startGame}
                 className="px-10 py-4 rounded-2xl font-black text-black text-lg"
                 style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)" }}>

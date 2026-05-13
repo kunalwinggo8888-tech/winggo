@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { getBotDifficulty } from "@/lib/botDifficulty";
 
 const PLATFORM_PCT = 0.10;
 const W = 390, H = 560;
@@ -12,6 +13,8 @@ interface Car { x: number; lane: number; speed: number; emoji: string }
 
 export default function BikeRacingGame({ onBack, initialFee = 10 }: { onBack: () => void; initialFee?: number }) {
   const { addWinning } = useWallet();
+  const difficulty = getBotDifficulty(initialFee);
+  const BOT_SPEED_MULT = difficulty.level === "Beginner" ? 0.30 : difficulty.level === "Pro" ? 0.46 : 0.62;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const stateRef = useRef({
@@ -77,7 +80,7 @@ export default function BikeRacingGame({ onBack, initialFee = 10 }: { onBack: ()
     s.roadOffset = (s.roadOffset + s.speed) % 60;
     s.bgOffset = (s.bgOffset + s.speed * 0.4) % W;
     s.distance += s.speed * 0.5;
-    s.botDistance += (s.maxSpeed * 0.48) * 0.5;
+    s.botDistance += (s.maxSpeed * BOT_SPEED_MULT) * 0.5;
     if (s.frame % 4 === 0) setDistance(Math.round(s.distance));
 
     // Spawn traffic
@@ -223,6 +226,7 @@ export default function BikeRacingGame({ onBack, initialFee = 10 }: { onBack: ()
         <button onClick={onBack} className="text-white text-xl">←</button>
         <span className="text-white font-black text-lg">🏍️ Bike Racing</span>
         <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee}</span>
+        <span className="text-xs font-bold px-2 py-1 rounded-full ml-1" style={{ background: `${difficulty.color}22`, color: difficulty.color, border: `1px solid ${difficulty.color}40` }}>{difficulty.emoji} {difficulty.level}</span>
       </div>
       <div className="relative w-full" style={{ maxWidth: W }}>
         <canvas ref={canvasRef} width={W} height={H} className="w-full" style={{ display: "block" }} />
@@ -234,6 +238,9 @@ export default function BikeRacingGame({ onBack, initialFee = 10 }: { onBack: ()
               <div className="text-7xl">🏍️</div>
               <div className="text-white font-black text-3xl">Bike Racing</div>
               <div className="text-zinc-400 text-sm text-center px-8">Dodge traffic, use nitro boost, reach the finish first!</div>
+              <div className="px-4 py-2 rounded-xl text-sm" style={{ background: `${difficulty.color}18`, border: `1px solid ${difficulty.color}44`, color: difficulty.color }}>
+                {difficulty.emoji} vs <b className="text-white">{difficulty.botName}</b> · Bot speed {Math.round(BOT_SPEED_MULT * 100)}% · {difficulty.level}
+              </div>
               <motion.button whileTap={{ scale: 0.95 }} onClick={startGame}
                 className="px-10 py-4 rounded-2xl font-black text-black text-lg"
                 style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)" }}>

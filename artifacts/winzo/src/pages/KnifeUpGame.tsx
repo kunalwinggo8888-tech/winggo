@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { getBotDifficulty } from "@/lib/botDifficulty";
 
 const PLATFORM_PCT = 0.10;
 const W = 390, H = 600;
@@ -9,6 +10,8 @@ const KNIFE_LEN = 60, MAX_KNIVES = 7;
 
 export default function KnifeUpGame({ onBack, initialFee = 10 }: { onBack: () => void; initialFee?: number }) {
   const { addWinning } = useWallet();
+  const difficulty = getBotDifficulty(initialFee);
+  const TARGET_HITS_REQUIRED = difficulty.level === "Beginner" ? 10 : difficulty.level === "Pro" ? 12 : 15;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const stateRef = useRef({
@@ -24,7 +27,7 @@ export default function KnifeUpGame({ onBack, initialFee = 10 }: { onBack: () =>
   const [level, setLevel] = useState(1);
   const [won, setWon] = useState(false);
   const [msg, setMsg] = useState("");
-  const TARGET_HITS = 15;
+  const TARGET_HITS = TARGET_HITS_REQUIRED;
   const prize = Math.floor(initialFee * 2 * (1 - PLATFORM_PCT));
 
   const throwKnife = useCallback(() => {
@@ -171,7 +174,8 @@ export default function KnifeUpGame({ onBack, initialFee = 10 }: { onBack: () =>
       <div className="flex items-center gap-3 px-4 py-3" style={{ background: "rgba(0,0,0,0.6)" }}>
         <button onClick={onBack} className="text-white text-xl">←</button>
         <span className="text-white font-black text-lg">🔪 Knife Up</span>
-        <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee} Entry</span>
+        <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee}</span>
+        <span className="text-xs font-bold px-2 py-1 rounded-full ml-1" style={{ background: `${difficulty.color}22`, color: difficulty.color, border: `1px solid ${difficulty.color}40` }}>{difficulty.emoji} {difficulty.level}</span>
       </div>
 
       <div className="relative" style={{ width: W, maxWidth: "100%" }}>
@@ -195,6 +199,9 @@ export default function KnifeUpGame({ onBack, initialFee = 10 }: { onBack: () =>
               <div className="text-zinc-400 text-sm text-center px-8">Tap to throw knives into the rotating log. Don't hit existing knives!</div>
               <div className="px-4 py-2 rounded-xl text-sm" style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700" }}>
                 Hit <b>{TARGET_HITS}</b> knives without collision to win!
+              </div>
+              <div className="px-4 py-2 rounded-xl text-sm" style={{ background: `${difficulty.color}18`, border: `1px solid ${difficulty.color}44`, color: difficulty.color }}>
+                {difficulty.emoji} <b>{difficulty.level}</b> · Target: {TARGET_HITS} hits to win
               </div>
               <motion.button whileTap={{ scale: 0.95 }} onClick={startGame}
                 className="px-10 py-4 rounded-2xl font-black text-black text-lg"

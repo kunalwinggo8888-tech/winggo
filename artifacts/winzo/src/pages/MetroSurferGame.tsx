@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { getBotDifficulty, getBotScore } from "@/lib/botDifficulty";
 
 const PLATFORM_PCT = 0.10;
 const W = 390, H = 600;
@@ -12,6 +13,7 @@ interface Coin { x: number; y: number; lane: number; collected: boolean }
 
 export default function MetroSurferGame({ onBack, initialFee = 10 }: { onBack: () => void; initialFee?: number }) {
   const { addWinning } = useWallet();
+  const difficulty = getBotDifficulty(initialFee);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef({
     lane: 1, targetLane: 1, laneX: LANE_X[1], playerY: H - 130,
@@ -23,7 +25,7 @@ export default function MetroSurferGame({ onBack, initialFee = 10 }: { onBack: (
   const rafRef = useRef(0);
   const [phase, setPhase] = useState<"intro" | "playing" | "result">("intro");
   const [score, setScore] = useState(0);
-  const [botScore] = useState(() => Math.floor(Math.random() * 60 + 60) * 10);
+  const [botScore] = useState(() => getBotScore(1200, difficulty));
   const [won, setWon] = useState(false);
   const prize = Math.floor(initialFee * 2 * (1 - PLATFORM_PCT));
 
@@ -225,7 +227,8 @@ export default function MetroSurferGame({ onBack, initialFee = 10 }: { onBack: (
       <div className="w-full flex items-center gap-3 px-4 py-3" style={{ background: "rgba(0,0,0,0.6)" }}>
         <button onClick={onBack} className="text-white text-xl">←</button>
         <span className="text-white font-black text-lg">🚇 Metro Surfer</span>
-        <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee} Entry</span>
+        <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee}</span>
+        <span className="text-xs font-bold px-2 py-1 rounded-full ml-1" style={{ background: `${difficulty.color}22`, color: difficulty.color, border: `1px solid ${difficulty.color}40` }}>{difficulty.emoji} {difficulty.level}</span>
       </div>
 
       <div className="relative w-full" style={{ maxWidth: W }}>
@@ -239,8 +242,8 @@ export default function MetroSurferGame({ onBack, initialFee = 10 }: { onBack: (
               <div className="text-7xl">🚇</div>
               <div className="text-white font-black text-3xl">Metro Surfer</div>
               <div className="text-zinc-400 text-sm text-center px-8">Swipe left/right to change lanes. Dodge obstacles, collect coins!</div>
-              <div className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background: "rgba(100,80,255,0.2)", border: "1px solid rgba(100,80,255,0.4)", color: "#a78bfa" }}>
-                Beat Bot Score: <span className="text-white">{botScore}</span>
+              <div className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background: `${difficulty.color}18`, border: `1px solid ${difficulty.color}44`, color: difficulty.color }}>
+                {difficulty.emoji} vs <span className="text-white">{difficulty.botName}</span> · Beat {botScore} pts
               </div>
               <motion.button whileTap={{ scale: 0.95 }} onClick={startGame}
                 className="px-10 py-4 rounded-2xl font-black text-black text-lg"

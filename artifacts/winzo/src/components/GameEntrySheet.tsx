@@ -12,6 +12,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { getBotDifficulty } from "@/lib/botDifficulty";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -386,6 +387,7 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
   const minFee = Math.min(...tiers);
   const insufficient = total < minFee;
   const canPlaySelected = total >= selected;
+  const difficulty = getBotDifficulty(selected);
 
   function handlePlay() {
     if (!canPlaySelected || !game) return;
@@ -599,6 +601,53 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                       ))}
                     </div>
                   </div>
+
+                  {/* ── BOT DIFFICULTY BADGE ── */}
+                  <motion.div
+                    key={difficulty.level}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="mx-4 mb-3 flex items-center justify-between px-4 py-2.5 rounded-2xl"
+                    style={{
+                      background: `${difficulty.color}12`,
+                      border: `1.5px solid ${difficulty.color}40`,
+                      boxShadow: `0 0 18px ${difficulty.glowColor}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <motion.span
+                        className="text-xl"
+                        animate={{ scale: [1, 1.15, 1] }}
+                        transition={{ duration: 1.4, repeat: Infinity }}
+                      >
+                        {difficulty.emoji}
+                      </motion.span>
+                      <div>
+                        <div className="font-black text-sm leading-tight" style={{ color: difficulty.color }}>
+                          {difficulty.level}
+                        </div>
+                        <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>
+                          Bot Difficulty
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="text-[10px] font-black" style={{ color: "rgba(255,255,255,0.7)" }}>
+                        {difficulty.botName}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: `${difficulty.color}25`, color: difficulty.color }}>
+                          Error {(difficulty.errorRate * 100).toFixed(0)}%
+                        </span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                          {difficulty.reactionTime}ms
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
 
                   {/* Add money hint */}
                   {total < Math.max(...tiers) && (

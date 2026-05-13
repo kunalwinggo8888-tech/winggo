@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { getBotDifficulty } from "@/lib/botDifficulty";
 
 const PLATFORM_PCT = 0.10;
 const W = 390, H = 500;
@@ -20,6 +21,8 @@ function generateTerrain(startX: number, count: number) {
 
 export default function HillClimberGame({ onBack, initialFee = 10 }: { onBack: () => void; initialFee?: number }) {
   const { addWinning } = useWallet();
+  const difficulty = getBotDifficulty(initialFee);
+  const WIN_THRESHOLD = difficulty.level === "Beginner" ? 0.55 : difficulty.level === "Pro" ? 0.70 : 0.88;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const stateRef = useRef({
@@ -111,7 +114,7 @@ export default function HillClimberGame({ onBack, initialFee = 10 }: { onBack: (
     // End conditions
     if (s.fuel <= 0 && s.carVX < 0.3) {
       s.running = false;
-      const didWin = s.distance >= FINISH_X * 0.75;
+      const didWin = s.distance >= FINISH_X * WIN_THRESHOLD;
       setWon(didWin);
       if (didWin) addWinning(prize, "Hill Climber Win");
       setPhase("result");
@@ -261,6 +264,7 @@ export default function HillClimberGame({ onBack, initialFee = 10 }: { onBack: (
         <button onClick={onBack} className="text-white text-xl">←</button>
         <span className="text-white font-black text-lg">⛰️ Hill Climber</span>
         <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee}</span>
+        <span className="text-xs font-bold px-2 py-1 rounded-full ml-1" style={{ background: `${difficulty.color}22`, color: difficulty.color, border: `1px solid ${difficulty.color}40` }}>{difficulty.emoji} {difficulty.level}</span>
       </div>
       <div className="relative w-full" style={{ maxWidth: W }}>
         <canvas ref={canvasRef} width={W} height={H} className="w-full" style={{ display: "block" }} />
@@ -272,6 +276,9 @@ export default function HillClimberGame({ onBack, initialFee = 10 }: { onBack: (
               <div className="text-7xl">⛰️</div>
               <div className="text-white font-black text-3xl">Hill Climber</div>
               <div className="text-zinc-400 text-sm text-center px-8">Hold GAS to climb hills! Collect fuel pickups. Reach the finish flag!</div>
+              <div className="px-4 py-2 rounded-xl text-sm" style={{ background: `${difficulty.color}18`, border: `1px solid ${difficulty.color}44`, color: difficulty.color }}>
+                {difficulty.emoji} <b>{difficulty.level}</b> · Reach {Math.round(WIN_THRESHOLD * 100)}% of {FINISH_X}m to win
+              </div>
               <motion.button whileTap={{ scale: 0.95 }} onClick={startGame}
                 className="px-10 py-4 rounded-2xl font-black text-black text-lg"
                 style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)" }}>

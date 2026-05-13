@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { getBotDifficulty, getBotScore } from "@/lib/botDifficulty";
 
 const PLATFORM_PCT = 0.10;
 const W = 390, H = 500;
@@ -9,6 +10,7 @@ const PERFECT_ZONE = 0.15;
 
 export default function GearUpGame({ onBack, initialFee = 10 }: { onBack: () => void; initialFee?: number }) {
   const { addWinning } = useWallet();
+  const difficulty = getBotDifficulty(initialFee);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const stateRef = useRef({
@@ -40,7 +42,7 @@ export default function GearUpGame({ onBack, initialFee = 10 }: { onBack: () => 
       pts = 0; result = "miss"; label = "❌ TOO EARLY/LATE";
     }
     s.totalScore += pts;
-    s.botScore += Math.floor(Math.random() * 200 + 100);
+    s.botScore += getBotScore(300, difficulty);
     s.shiftResult = result;
     s.shiftFlash = 30;
     s.gear++;
@@ -185,6 +187,7 @@ export default function GearUpGame({ onBack, initialFee = 10 }: { onBack: () => 
         <button onClick={onBack} className="text-white text-xl">←</button>
         <span className="text-white font-black text-lg">⚙️ Gear Up</span>
         <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>₹{initialFee}</span>
+        <span className="text-xs font-bold px-2 py-1 rounded-full ml-1" style={{ background: `${difficulty.color}22`, color: difficulty.color, border: `1px solid ${difficulty.color}40` }}>{difficulty.emoji} {difficulty.level}</span>
       </div>
       <div className="relative w-full" style={{ maxWidth: W }}>
         <canvas ref={canvasRef} width={W} height={H} className="w-full" style={{ display: "block" }} />
@@ -203,6 +206,9 @@ export default function GearUpGame({ onBack, initialFee = 10 }: { onBack: () => 
               <div className="text-7xl">⚙️</div>
               <div className="text-white font-black text-3xl">Gear Up!</div>
               <div className="text-zinc-400 text-sm text-center px-8">Watch the RPM needle. Tap SHIFT when it hits the golden zone for max points!</div>
+              <div className="px-4 py-2 rounded-xl text-sm" style={{ background: `${difficulty.color}18`, border: `1px solid ${difficulty.color}44`, color: difficulty.color }}>
+                {difficulty.emoji} vs <b className="text-white">{difficulty.botName}</b> · {difficulty.level}
+              </div>
               <div className="px-3 py-2 rounded-xl text-sm text-center" style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700" }}>
                 🟡 Perfect: 300pts &nbsp;|&nbsp; 🟢 Good: 150pts &nbsp;|&nbsp; ❌ Miss: 0pts
               </div>
