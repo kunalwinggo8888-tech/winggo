@@ -1,0 +1,157 @@
+Update the WINGGO Home Page so ALL added games appear properly instead of showing only 4 games.
+
+━━━━━━━━━━━━━━━
+🏠 HOME PAGE GAME SECTION FIX
+━━━━━━━━━━━━━━━
+
+Current Problem:
+
+- Only 4 games are visible on Home Page
+- Newly added games are not showing
+
+Fix Requirements:
+
+- Show ALL games on Home Page automatically
+- Add scrollable gaming sections
+- Games should load dynamically from game list/database
+
+━━━━━━━━━━━━━━━
+🎮 GAME CATEGORIES
+━━━━━━━━━━━━━━━
+
+Create separate sections on Home Page.
+
+━━━━━━━━━━━━━━━
+🔥 POPULAR GAMES
+━━━━━━━━━━━━━━━
+
+- Ludo
+- Carrom
+- Snake & Ladder
+- Bubble Shooter
+- 8 Ball Pool
+
+━━━━━━━━━━━━━━━
+🕹️ ARCADE GAMES
+━━━━━━━━━━━━━━━
+
+- Metro Surfer
+- Fruit Samurai
+- Candy Match
+- Knife Up
+- Fly Me
+- Bottle Shoot
+- Liquid Sort Puzzle
+- Bear Run
+
+━━━━━━━━━━━━━━━
+🏏 SPORTS GAMES
+━━━━━━━━━━━━━━━
+
+- Cricket T20
+- Archery
+- Basketball
+- Penalty Shootout
+- Pool 3D
+- Stump It
+
+━━━━━━━━━━━━━━━
+🏎️ RACING GAMES
+━━━━━━━━━━━━━━━
+
+- Mr. Racer
+- Bike Racing
+- Gear Up
+- Hill Climber
+
+━━━━━━━━━━━━━━━
+🧠 PUZZLE GAMES
+━━━━━━━━━━━━━━━
+
+- Water Sort Puzzle
+- 2048 Hexa 3D
+- Alien Fusion
+- Bricks Breaker 3D
+
+━━━━━━━━━━━━━━━
+🃏 CARD GAMES
+━━━━━━━━━━━━━━━
+
+- Rummy
+- Poker
+- Solitaire
+- Call Break
+- 21 Card
+
+━━━━━━━━━━━━━━━
+⚔️ ACTION GAMES
+━━━━━━━━━━━━━━━
+
+- Axe Master 3D
+- Slap Fest
+- Angry Monsters
+- Sheep Battle 3D
+- Fruit Chop 3D
+
+━━━━━━━━━━━━━━━
+📱 HOME PAGE LAYOUT
+━━━━━━━━━━━━━━━
+
+Design:
+
+- Vertical scrollable sections
+- Horizontal game sliders inside each category
+- Premium WinZO-style cards
+
+Each Game Card Should Show:
+✔ Game thumbnail
+✔ Game name
+✔ “Play Now” button
+✔ Entry fee badge
+✔ Online players count
+
+━━━━━━━━━━━━━━━
+🎨 UI DESIGN
+━━━━━━━━━━━━━━━
+
+- Exact premium WinZO-style Home UI
+- Dark black + gold/purple glow theme
+- Smooth animations
+- Glassmorphism cards
+- Mobile optimized layout
+
+━━━━━━━━━━━━━━━
+⚡ FUNCTIONALITY
+━━━━━━━━━━━━━━━
+
+When user clicks any game:
+✔ Open entry fee modal
+✔ Check wallet balance
+✔ Start game matchmaking
+
+━━━━━━━━━━━━━━━
+📦 GAME DATA SYSTEM
+━━━━━━━━━━━━━━━
+
+Store all games in centralized game list/database.
+
+Example:
+
+const games = [
+  { name: "Ludo", category: "Popular" },
+  { name: "Bubble Shooter", category: "Arcade" },
+  { name: "Poker", category: "Card" }
+];
+
+Load games dynamically on Home Page.
+
+━━━━━━━━━━━━━━━
+✅ FINAL RESULT
+━━━━━━━━━━━━━━━
+
+✔ All added games visible on Home Page
+✔ Games organized by category
+✔ Smooth scrolling works
+✔ Premium gaming layout
+✔ New games auto appear dynamically
+✔ Exact WinZO-style home experience

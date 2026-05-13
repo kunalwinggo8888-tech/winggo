@@ -6,7 +6,15 @@ import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firesto
 import { FIREBASE_ENABLED } from "@/firebase/config";
 import GameEntrySheet, { SheetGame } from "@/components/GameEntrySheet";
 
-const CATEGORIES = ["All Games", "Casual", "Board", "Card Games", "E-Sports", "Cricket", "Sports", "Battle", "Arcade"];
+const CATEGORY_SECTIONS = [
+  { key: "Popular", label: "🔥 Popular Games",   accent: "#ff4e00" },
+  { key: "Action",  label: "⚔️ Action Games",     accent: "#ef4444" },
+  { key: "Sports",  label: "🏏 Sports Games",     accent: "#22c55e" },
+  { key: "Racing",  label: "🏎️ Racing Games",     accent: "#ff8c00" },
+  { key: "Arcade",  label: "🕹️ Arcade Games",     accent: "#a855f7" },
+  { key: "Card",    label: "🃏 Card Games",        accent: "#3b82f6" },
+  { key: "Puzzle",  label: "🧠 Puzzle Games",      accent: "#FFD700" },
+];
 
 const BANNERS = [
   {
@@ -51,107 +59,52 @@ const BANNERS = [
   },
 ];
 
-const GAMES = [
-  {
-    id: 1,
-    name: "Bubble Shooter",
-    category: "Casual",
-    players: "2.4L playing",
-    prize: "₹5,000",
-    gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-    icon: "🎈",
-  },
-  {
-    id: 2,
-    name: "Snakes & Ladders",
-    category: "Board",
-    players: "1.9L playing",
-    prize: "₹8,000",
-    gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-    icon: "🐍",
-  },
-  {
-    id: 3,
-    name: "Carrom",
-    category: "Board",
-    players: "2.9L playing",
-    prize: "₹3,000",
-    gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
-    icon: "🎯",
-  },
-  {
-    id: 4,
-    name: "Teen Patti",
-    category: "Card Games",
-    players: "5.6L playing",
-    prize: "₹50,000",
-    gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-    icon: "🃏",
-  },
-  {
-    id: 5,
-    name: "Ludo Classic",
-    category: "Board",
-    players: "4.2L playing",
-    prize: "₹1,000",
-    gradient: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
-    icon: "🎲",
-  },
-  {
-    id: 6,
-    name: "8-Ball Pool",
-    category: "Sports",
-    players: "3.3L playing",
-    prize: "₹4,500",
-    gradient: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
-    icon: "🎱",
-  },
-  {
-    id: 7,
-    name: "World War",
-    category: "E-Sports",
-    players: "8.4L playing",
-    prize: "₹1,00,000",
-    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    icon: "⚔️",
-  },
-  {
-    id: 8,
-    name: "Cricket",
-    category: "Cricket",
-    players: "6.1L playing",
-    prize: "₹25,000",
-    gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
-    icon: "🏏",
-  },
-  {
-    id: 9,
-    name: "Fruit Samurai",
-    category: "Casual",
-    players: "3.1L playing",
-    prize: "₹2,500",
-    gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-    icon: "🍉",
-  },
-  {
-    id: 10,
-    name: "Knife Up",
-    category: "Casual",
-    players: "1.8L playing",
-    prize: "₹10,000",
-    gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-    icon: "🗡️",
-  },
-  {
-    id: 11,
-    name: "Solitaire",
-    category: "Card Games",
-    players: "2.1L playing",
-    prize: "₹5,000",
-    gradient: "linear-gradient(135deg, #e91e8c 0%, #6a0050 100%)",
-    icon: "🃏",
-  },
-];
+const GAME_CATALOG = [
+  // Popular
+  { id: "ludo",         name: "Ludo",             icon: "🎲", gradient: "linear-gradient(135deg,#a18cd1,#fbc2eb)", category: "Popular", players: "4.2L playing", minFee: "₹1" },
+  { id: "carrom",       name: "Carrom",            icon: "🎯", gradient: "linear-gradient(135deg,#f7971e,#ffd200)", category: "Popular", players: "2.9L playing", minFee: "₹2" },
+  { id: "snakes",       name: "Snake & Ladder",    icon: "🐍", gradient: "linear-gradient(135deg,#11998e,#38ef7d)", category: "Popular", players: "1.9L playing", minFee: "₹2" },
+  { id: "bubble",       name: "Bubble Shooter",    icon: "🫧", gradient: "linear-gradient(135deg,#f093fb,#f5576c)", category: "Popular", players: "2.4L playing", minFee: "₹1" },
+  { id: "pool3d",       name: "8 Ball Pool",       icon: "🎱", gradient: "linear-gradient(135deg,#166534,#14532d)", category: "Popular", players: "2.5L playing", minFee: "₹5" },
+  // Action
+  { id: "axemaster",    name: "Axe Master 3D",     icon: "🪓", gradient: "linear-gradient(135deg,#5c3d1e,#8B4513)", category: "Action",  players: "1.1L playing", minFee: "₹5" },
+  { id: "slapfest",     name: "Slap Fest",         icon: "👋", gradient: "linear-gradient(135deg,#FFD700,#ff8c00)", category: "Action",  players: "1.9L playing", minFee: "₹5" },
+  { id: "sheepbattle",  name: "Sheep Battle 3D",   icon: "🐑", gradient: "linear-gradient(135deg,#a3e635,#4d7c0f)", category: "Action",  players: "1.7L playing", minFee: "₹5" },
+  { id: "fruitchop",    name: "Fruit Chop 3D",     icon: "🍉", gradient: "linear-gradient(135deg,#22c55e,#15803d)", category: "Action",  players: "2.0L playing", minFee: "₹5" },
+  { id: "angrymonsters",name: "Angry Monsters",    icon: "👾", gradient: "linear-gradient(135deg,#ff0099,#493240)", category: "Action",  players: "1.2L playing", minFee: "₹5" },
+  // Sports
+  { id: "crickettd20",  name: "Cricket T20",       icon: "🏏", gradient: "linear-gradient(135deg,#ff8c00,#FFD700)", category: "Sports",  players: "4.8L playing", minFee: "₹5" },
+  { id: "pool3d",       name: "Pool 3D",           icon: "🎱", gradient: "linear-gradient(135deg,#166534,#14532d)", category: "Sports",  players: "2.5L playing", minFee: "₹5" },
+  { id: "archery",      name: "Archery",           icon: "🏹", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", category: "Sports",  players: "1.3L playing", minFee: "₹5" },
+  { id: "basketball",   name: "Basketball",        icon: "🏀", gradient: "linear-gradient(135deg,#ff6b35,#f7c59f)", category: "Sports",  players: "1.5L playing", minFee: "₹5" },
+  { id: "penalty",      name: "Penalty Shootout",  icon: "⚽", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Sports",  players: "2.1L playing", minFee: "₹5" },
+  { id: "stumpit",      name: "Stump It",          icon: "🏏", gradient: "linear-gradient(135deg,#FFD700,#ff4e00)", category: "Sports",  players: "1.1L playing", minFee: "₹5" },
+  // Racing
+  { id: "mrracer",      name: "Mr. Racer 3D",      icon: "🏎️", gradient: "linear-gradient(135deg,#ff3300,#ff8800)", category: "Racing",  players: "2.3L playing", minFee: "₹5" },
+  { id: "bikeracing",   name: "Bike Racing",       icon: "🏍️", gradient: "linear-gradient(135deg,#1a1a2e,#ff6600)", category: "Racing",  players: "1.4L playing", minFee: "₹5" },
+  { id: "gearup",       name: "Gear Up",           icon: "⚙️", gradient: "linear-gradient(135deg,#434343,#000000)", category: "Racing",  players: "1.0L playing", minFee: "₹5" },
+  { id: "hillclimber",  name: "Hill Climber",      icon: "🚙", gradient: "linear-gradient(135deg,#56ab2f,#a8e063)", category: "Racing",  players: "1.2L playing", minFee: "₹5" },
+  // Arcade
+  { id: "candy",        name: "Candy Match",       icon: "🍬", gradient: "linear-gradient(135deg,#FF4081,#00E5FF)", category: "Arcade",  players: "1.6L playing", minFee: "₹5" },
+  { id: "bricksbreaker",name: "Bricks Breaker 3D", icon: "🧱", gradient: "linear-gradient(135deg,#00e5ff,#0077aa)", category: "Arcade",  players: "1.5L playing", minFee: "₹5" },
+  { id: "metrosurfer",  name: "Metro Surfer",      icon: "🏃", gradient: "linear-gradient(135deg,#1e3c72,#2a5298)", category: "Arcade",  players: "1.8L playing", minFee: "₹5" },
+  { id: "knifeup",      name: "Knife Up",          icon: "🗡️", gradient: "linear-gradient(135deg,#4facfe,#00f2fe)", category: "Arcade",  players: "1.8L playing", minFee: "₹5" },
+  { id: "flyme",        name: "Fly Me",            icon: "✈️", gradient: "linear-gradient(135deg,#a8edea,#fed6e3)", category: "Arcade",  players: "1.1L playing", minFee: "₹5" },
+  { id: "bottleshoot",  name: "Bottle Shoot",      icon: "🍾", gradient: "linear-gradient(135deg,#ffd89b,#19547b)", category: "Arcade",  players: "1.3L playing", minFee: "₹5" },
+  { id: "liquidsort",   name: "Liquid Sort",       icon: "🧪", gradient: "linear-gradient(135deg,#7F00FF,#E100FF)", category: "Arcade",  players: "1.2L playing", minFee: "₹5" },
+  { id: "bearrun",      name: "Bear Run",          icon: "🐻", gradient: "linear-gradient(135deg,#f7971e,#ffd200)", category: "Arcade",  players: "1.0L playing", minFee: "₹5" },
+  // Card
+  { id: "rummy",        name: "Rummy",             icon: "🃏", gradient: "linear-gradient(135deg,#ff6b6b,#c0392b)", category: "Card",    players: "3.5L playing", minFee: "₹5" },
+  { id: "poker",        name: "Poker",             icon: "♦️", gradient: "linear-gradient(135deg,#00c851,#007e33)", category: "Card",    players: "1.5L playing", minFee: "₹5" },
+  { id: "solitaire",    name: "Solitaire",         icon: "🃏", gradient: "linear-gradient(135deg,#e91e8c,#6a0050)", category: "Card",    players: "2.1L playing", minFee: "₹5" },
+  { id: "callbreak",    name: "Call Break",        icon: "♠️", gradient: "linear-gradient(135deg,#4169E1,#1a237e)", category: "Card",    players: "2.2L playing", minFee: "₹5" },
+  { id: "twenty1",      name: "21 Card",           icon: "🃏", gradient: "linear-gradient(135deg,#FFD700,#ff8c00)", category: "Card",    players: "2.8L playing", minFee: "₹5" },
+  // Puzzle
+  { id: "hexa2048",     name: "2048 Hexa 3D",      icon: "🔷", gradient: "linear-gradient(135deg,#FFD700,#b8860b)", category: "Puzzle",  players: "1.4L playing", minFee: "₹5" },
+  { id: "alienfusion",  name: "Alien Fusion",      icon: "👽", gradient: "linear-gradient(135deg,#a855f7,#6d28d9)", category: "Puzzle",  players: "1.3L playing", minFee: "₹5" },
+  { id: "watersort",    name: "Water Sort",        icon: "💧", gradient: "linear-gradient(135deg,#2980B9,#6DD5FA)", category: "Puzzle",  players: "1.1L playing", minFee: "₹5" },
+  { id: "bricksbreaker",name: "Bricks Breaker 3D", icon: "🧱", gradient: "linear-gradient(135deg,#00e5ff,#0077aa)", category: "Puzzle",  players: "1.5L playing", minFee: "₹5" },
+] as const;
 
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
 const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: string; category: string; icon: string }> = {
@@ -218,7 +171,6 @@ const IMPLEMENTED_GAMES = new Set(["ludo","5","solitaire","11","snakes","2","car
 
 export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onWallet, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
-  const [activeCategory, setActiveCategory] = useState("All Games");
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
   const [liveGames, setLiveGames] = useState<GameConfig[]>([]);
@@ -285,33 +237,8 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
     return subscribeGames(setLiveGames);
   }, []);
 
-  // Merge Firestore data with local visual overrides
-  const allDisplayGames = liveGames
-    .filter((g) => g.isActive)
-    .map((g) => {
-      const id = g.id ?? "";
-      const v = GAME_VISUALS[id] ?? {};
-      return {
-        id,
-        name:       g.name,
-        category:   v.category ?? g.category,
-        players:    v.players ?? "1L+ playing",
-        prize:      v.prize ?? `₹${Math.max(...g.entryFees) * g.prizeMultiplier * 10}`,
-        gradient:   v.gradient ?? FALLBACK_GRADIENT,
-        icon:       v.icon ?? g.thumbnail,
-        comingSoon: !IMPLEMENTED_GAMES.has(id),
-      };
-    });
-
-  // Fallback to static GAMES when Firestore is loading (empty)
-  const displayGames = allDisplayGames.length > 0
-    ? allDisplayGames
-    : GAMES.map((g) => ({ ...g, id: String(g.id), comingSoon: !IMPLEMENTED_GAMES.has(String(g.id)) && !IMPLEMENTED_GAMES.has(g.name.toLowerCase().replace(/\s+/g,"").split("classic")[0]) }));
-
-  const filteredGames =
-    activeCategory === "All Games"
-      ? displayGames
-      : displayGames.filter((g) => g.category.toLowerCase() === activeCategory.toLowerCase());
+  // Featured game for hero card (from Firestore)
+  const featuredGame = liveGames.find((g) => g.isFeatured && g.isActive);
 
   return (
     <div
@@ -572,7 +499,7 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
 
         {/* ─── FEATURED GAME HERO CARD ─── */}
         {(() => {
-          const featured = liveGames.find((g) => g.isFeatured && g.isActive);
+          const featured = featuredGame;
           if (!featured) return null;
           const v = GAME_VISUALS[featured.id ?? ""] ?? {};
           return (
@@ -824,133 +751,115 @@ export default function Dashboard({ onSpin, onLudo, onWorldWar, onSnakes, onCarr
           ))}
         </div>
 
-        {/* ─── CATEGORY TABS ─── */}
-        <div className="mt-5 px-4">
-          <h3 className="text-white font-bold text-base mb-3">Game Categories</h3>
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {CATEGORIES.map((cat) => (
-              <motion.button
-                key={cat}
-                data-testid={`tab-category-${cat.toLowerCase().replace(/\s+/g, "-")}`}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveCategory(cat)}
-                className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold cursor-pointer transition-all duration-200"
-                style={
-                  activeCategory === cat
-                    ? {
-                        background: "linear-gradient(135deg, #FFD700, #ff8c00)",
-                        color: "#000",
-                        boxShadow: "0 0 14px rgba(255,215,0,0.4)",
-                      }
-                    : {
-                        background: "rgba(255,255,255,0.07)",
-                        color: "#a1a1aa",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                      }
-                }
-              >
-                {cat}
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* ─── GAME GRID ─── */}
-        <div className="px-4 mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-bold text-base">
-              {activeCategory === "All Games" ? "All Games" : activeCategory}
-            </h3>
-            <span className="text-zinc-500 text-xs">{filteredGames.length} games</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <AnimatePresence>
-              {filteredGames.map((game, i) => (
-                <motion.div
-                  key={game.id}
-                  data-testid={`card-game-${game.id}`}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.25, delay: i * 0.04 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => openEntrySheet(game)}
-                  className="rounded-2xl overflow-hidden cursor-pointer"
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: (game.id === "ludo" || game.id === "5")
-                      ? "1.5px solid rgba(161,112,255,0.5)"
-                      : (game.id === "worldwar" || game.id === "7")
-                      ? "1.5px solid rgba(231,76,60,0.5)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                    boxShadow: (game.id === "ludo" || game.id === "5")
-                      ? "0 4px 20px rgba(161,112,255,0.2)"
-                      : (game.id === "worldwar" || game.id === "7")
-                      ? "0 4px 20px rgba(231,76,60,0.2)"
-                      : "0 4px 20px rgba(0,0,0,0.4)",
-                  }}
+        {/* ─── ALL GAME CATEGORIES ─── */}
+        {CATEGORY_SECTIONS.map((section) => {
+          const sectionGames = GAME_CATALOG.filter((g) => g.category === section.key);
+          return (
+            <div key={section.key} className="mt-7">
+              {/* Section header */}
+              <div className="flex items-center justify-between px-4 mb-3">
+                <h3 className="text-white font-bold text-base">{section.label}</h3>
+                <span
+                  className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+                  style={{ background: `${section.accent}22`, color: section.accent, border: `1px solid ${section.accent}44` }}
                 >
-                  {/* Game art area */}
-                  <div
-                    className="relative flex items-center justify-center"
-                    style={{
-                      height: "110px",
-                      background: game.gradient,
-                    }}
-                  >
-                    <span className="text-5xl" style={{ opacity: game.comingSoon ? 0.6 : 1 }}>{game.icon}</span>
+                  {sectionGames.length} Games
+                </span>
+              </div>
 
-                    {/* Coming Soon overlay */}
-                    {game.comingSoon && (
-                      <div className="absolute inset-0 flex items-center justify-center"
-                        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(1px)" }}>
-                        <span className="px-2 py-1 rounded-lg text-[10px] font-black tracking-wide"
-                          style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.5)", color: "#FFD700" }}>
-                          🛠️ COMING SOON
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Prize badge (only when not coming soon) */}
-                    {!game.comingSoon && (
-                      <span
-                        className="absolute top-2 right-2 px-1.5 py-0.5 rounded-lg text-xs font-black text-black"
-                        style={{ background: "#FFD700", fontSize: "10px" }}
-                      >
-                        {game.prize}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Card info */}
-                  <div className="px-3 py-2.5">
-                    <div className="text-white font-bold text-sm leading-tight truncate">
-                      {game.name}
-                    </div>
-                    <div className="text-zinc-500 text-xs mt-0.5">{game.players}</div>
-
-                    {/* Play Now / Coming Soon button */}
-                    {game.comingSoon ? (
-                      <div className="mt-2 w-full py-1.5 rounded-xl text-center text-xs font-bold"
-                        style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.25)", color: "rgba(255,215,0,0.6)" }}>
-                        Coming Soon
-                      </div>
-                    ) : (
+              {/* Horizontal scroll strip */}
+              <div className="flex gap-3 px-4 overflow-x-auto pb-3 no-scrollbar">
+                {sectionGames.map((game) => {
+                  const implemented = IMPLEMENTED_GAMES.has(game.id);
+                  return (
+                    <motion.div
+                      key={`${section.key}-${game.id}`}
+                      data-testid={`card-game-${game.id}`}
+                      whileTap={{ scale: 0.93 }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={() => openEntrySheet({ id: game.id, name: game.name, icon: game.icon, gradient: game.gradient, players: game.players })}
+                      className="flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer"
+                      style={{
+                        width: "120px",
+                        background: "rgba(255,255,255,0.04)",
+                        border: implemented
+                          ? `1px solid ${section.accent}33`
+                          : "1px solid rgba(255,255,255,0.07)",
+                        boxShadow: implemented
+                          ? `0 4px 18px ${section.accent}22`
+                          : "none",
+                      }}
+                    >
+                      {/* Thumbnail */}
                       <div
-                        className="mt-2 w-full py-1.5 rounded-xl text-center text-xs font-bold text-black"
-                        style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)" }}
+                        className="relative flex items-center justify-center"
+                        style={{ height: "90px", background: game.gradient }}
                       >
-                        Play Now
+                        <span className="text-4xl" style={{ opacity: implemented ? 1 : 0.55 }}>
+                          {game.icon}
+                        </span>
+
+                        {/* Coming Soon overlay */}
+                        {!implemented && (
+                          <div
+                            className="absolute inset-0 flex items-center justify-center"
+                            style={{ background: "rgba(0,0,0,0.5)" }}
+                          >
+                            <span
+                              className="text-[8px] font-black px-1.5 py-0.5 rounded-lg"
+                              style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.45)", color: "#FFD700" }}
+                            >
+                              SOON
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Min fee badge */}
+                        {implemented && (
+                          <span
+                            className="absolute top-1.5 right-1.5 rounded-md text-black font-black"
+                            style={{ background: "#FFD700", fontSize: "8px", padding: "2px 5px" }}
+                          >
+                            {game.minFee}+
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        </div>
+
+                      {/* Card info */}
+                      <div className="px-2.5 py-2">
+                        <div className="text-white font-bold leading-tight truncate" style={{ fontSize: "11px" }}>
+                          {game.name}
+                        </div>
+                        <div className="text-zinc-500 mt-0.5 truncate" style={{ fontSize: "9px" }}>
+                          {game.players}
+                        </div>
+                        {implemented ? (
+                          <div
+                            className="mt-1.5 w-full rounded-lg text-center font-black text-black"
+                            style={{ background: "linear-gradient(90deg,#FFD700,#ff8c00)", fontSize: "9px", padding: "4px 0" }}
+                          >
+                            Play Now
+                          </div>
+                        ) : (
+                          <div
+                            className="mt-1.5 w-full rounded-lg text-center font-bold"
+                            style={{ background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.18)", color: "rgba(255,215,0,0.45)", fontSize: "9px", padding: "4px 0" }}
+                          >
+                            Soon
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Divider */}
+              <div className="mx-4 mt-2 h-px" style={{ background: "rgba(255,255,255,0.05)" }} />
+            </div>
+          );
+        })}
       </main>
 
 
