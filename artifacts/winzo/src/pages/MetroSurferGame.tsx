@@ -136,147 +136,260 @@ export default function MetroSurferGame({ onBack, initialFee }: Props) {
 
   // ── Draw environment ──────────────────────────────────────────────────────
   function drawEnv(ctx: CanvasRenderingContext2D, frame: number) {
-    // Sky
+    // 1. Bright sky
     const sky = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
-    sky.addColorStop(0, "#04010d"); sky.addColorStop(0.65, "#110327"); sky.addColorStop(1, "#1c0540");
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, HORIZON_Y);
+    sky.addColorStop(0,   "#1565c0");
+    sky.addColorStop(0.5, "#42a5f5");
+    sky.addColorStop(1,   "#90caf9");
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, HORIZON_Y + 8);
 
-    // Ground
+    // 2. Clouds (slowly drifting)
+    const cloudDefs = [{ bx: 55, by: 26, r: 19 }, { bx: 205, by: 14, r: 13 }, { bx: 315, by: 30, r: 17 }];
+    ctx.fillStyle = "rgba(255,255,255,0.90)";
+    for (const c of cloudDefs) {
+      const cx = ((c.bx + frame * 0.10) % (CW + 60)) - 30;
+      ctx.beginPath(); ctx.arc(cx, c.by, c.r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx - c.r * 0.55, c.by + 5, c.r * 0.68, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + c.r * 0.55, c.by + 6, c.r * 0.72, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 3. Horizon landscape strip
+    const hband = ctx.createLinearGradient(0, HORIZON_Y - 8, 0, HORIZON_Y + 28);
+    hband.addColorStop(0, "#66bb6a"); hband.addColorStop(0.45, "#388e3c"); hband.addColorStop(1, "rgba(56,142,60,0)");
+    ctx.fillStyle = hband; ctx.fillRect(0, HORIZON_Y - 8, CW, 36);
+
+    // 4. Ground/track base (concrete)
     const gnd = ctx.createLinearGradient(0, HORIZON_Y, 0, CH);
-    gnd.addColorStop(0, "#0c0c1c"); gnd.addColorStop(1, "#050510");
+    gnd.addColorStop(0, "#b0bec5"); gnd.addColorStop(0.25, "#90a4ae"); gnd.addColorStop(1, "#546e7a");
     ctx.fillStyle = gnd; ctx.fillRect(0, HORIZON_Y, CW, CH - HORIZON_Y);
 
-    // Side tunnel walls
-    ctx.fillStyle = "#070012";
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(HORIZON_X - 38, HORIZON_Y); ctx.lineTo(0, CH); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(CW, 0); ctx.lineTo(HORIZON_X + 38, HORIZON_Y); ctx.lineTo(CW, CH); ctx.closePath(); ctx.fill();
-
-    // Horizon glow
-    const hg = ctx.createRadialGradient(HORIZON_X, HORIZON_Y, 0, HORIZON_X, HORIZON_Y, 95);
-    hg.addColorStop(0, "rgba(120,60,255,0.3)"); hg.addColorStop(1, "rgba(120,60,255,0)");
-    ctx.fillStyle = hg; ctx.fillRect(HORIZON_X - 95, HORIZON_Y - 45, 190, 90);
-
-    // Scrolling tunnel lamps
-    for (let i = 0; i < 7; i++) {
-      const t = ((i / 7) + frame * 0.0055) % 1;
-      const s = zToS(t); const y = zToY(t); const alpha = 0.1 + t * 0.4;
-      const lx = laneToX(0, t) - 34 * s;
-      const rx = laneToX(2, t) + 34 * s;
-      const lh = 22 * s;
-      ctx.shadowColor = "#7c3aed"; ctx.shadowBlur = 14 * s;
-      ctx.fillStyle = `rgba(120,60,240,${alpha})`;
-      ctx.fillRect(lx - 4 * s, y - lh / 2, 3 * s, lh);
-      ctx.fillRect(rx,          y - lh / 2, 3 * s, lh);
-      // Ceiling glow dot
-      const lg = ctx.createRadialGradient(HORIZON_X, y - lh, 0, HORIZON_X, y - lh, 15 * s);
-      lg.addColorStop(0, `rgba(255,230,120,${alpha * 0.75})`); lg.addColorStop(1, "rgba(255,230,120,0)");
-      ctx.fillStyle = lg; ctx.fillRect(HORIZON_X - 15 * s, y - lh - 12 * s, 30 * s, 24 * s);
+    // 5. Red side walls (trapezoids converging to horizon)
+    const lwTop = laneToX(0, 0.01); const lwBot = laneToX(0, 1) - 62;
+    ctx.fillStyle = "#c62828";
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(lwTop, HORIZON_Y); ctx.lineTo(lwBot, CH); ctx.lineTo(0, CH); ctx.closePath(); ctx.fill();
+    // Left brick rows
+    ctx.fillStyle = "#b71c1c";
+    for (let row = 0; row < 14; row++) {
+      const by = row * 15;
+      for (let col = 0; col < 6; col++) {
+        const bx = col * 22 - (row % 2 === 0 ? 0 : 11);
+        if (bx + 18 > 0 && by + 12 < CH) ctx.fillRect(bx + 1, by + 1, 18, 12);
+      }
     }
-    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#e53935"; // highlight edge
+    ctx.beginPath(); ctx.moveTo(lwTop - 1, HORIZON_Y); ctx.lineTo(lwTop + 3, HORIZON_Y); ctx.lineTo(lwBot + 4, CH); ctx.lineTo(lwBot - 1, CH); ctx.closePath(); ctx.fill();
 
-    // Overhead wires
-    for (let wi = 0; wi < 3; wi++) {
-      ctx.beginPath();
-      ctx.moveTo(HORIZON_X + (wi - 1) * 3, HORIZON_Y - 4);
-      ctx.quadraticCurveTo(
-        HORIZON_X + (wi - 1) * 22, HORIZON_Y + (PLAYER_Y - HORIZON_Y) * 0.4 + Math.sin(frame * 0.025 + wi) * 3,
-        LANE_BOT[wi], PLAYER_Y - CH * 0.24,
-      );
-      ctx.strokeStyle = `rgba(90,70,180,0.38)`; ctx.lineWidth = 0.9; ctx.stroke();
+    const rwTop = laneToX(2, 0.01); const rwBot = laneToX(2, 1) + 62;
+    ctx.fillStyle = "#c62828";
+    ctx.beginPath(); ctx.moveTo(CW, 0); ctx.lineTo(rwTop, HORIZON_Y); ctx.lineTo(rwBot, CH); ctx.lineTo(CW, CH); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#b71c1c";
+    for (let row = 0; row < 14; row++) {
+      const by = row * 15;
+      for (let col = 0; col < 6; col++) {
+        const bx = CW - col * 22 + (row % 2 === 0 ? 0 : 11) - 20;
+        if (bx > 0 && bx + 18 < CW && by + 12 < CH) ctx.fillRect(bx, by + 1, 18, 12);
+      }
+    }
+    ctx.fillStyle = "#e53935";
+    ctx.beginPath(); ctx.moveTo(rwTop + 1, HORIZON_Y); ctx.lineTo(rwTop - 3, HORIZON_Y); ctx.lineTo(rwBot - 4, CH); ctx.lineTo(rwBot + 1, CH); ctx.closePath(); ctx.fill();
+
+    // 6. Green grass strips along wall edges
+    ctx.fillStyle = "#2e7d32";
+    ctx.beginPath(); ctx.moveTo(lwTop, HORIZON_Y); ctx.lineTo(laneToX(0, 0.01), HORIZON_Y); ctx.lineTo(laneToX(0, 1) - 3, CH); ctx.lineTo(lwBot, CH); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(rwTop, HORIZON_Y); ctx.lineTo(laneToX(2, 0.01), HORIZON_Y); ctx.lineTo(laneToX(2, 1) + 3, CH); ctx.lineTo(rwBot, CH); ctx.closePath(); ctx.fill();
+
+    // 7. Scrolling bushes on grass edges
+    for (let bi = 0; bi < 7; bi++) {
+      const t = ((bi / 7) + frame * 0.009) % 1;
+      if (t <= 0) continue;
+      const y = zToY(t); const s = Math.max(0.001, zToS(t));
+      const bw = Math.max(0.5, 22 * s); const bh = Math.max(0.5, 14 * s);
+      // Left bush
+      const lbx = laneToX(0, t) - 48 * s;
+      ctx.fillStyle = `rgba(27,94,32,${0.65 + t * 0.35})`; ctx.beginPath(); ctx.ellipse(lbx, y, bw, bh, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(46,125,50,${0.7 + t * 0.3})`; ctx.beginPath(); ctx.ellipse(lbx - bw * 0.45, y - bh * 0.2, bw * 0.65, bh * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(102,187,106,${0.55 + t * 0.4})`; ctx.beginPath(); ctx.ellipse(lbx + bw * 0.3, y - bh * 0.35, bw * 0.45, bh * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      // Right bush
+      const rbx = laneToX(2, t) + 48 * s;
+      ctx.fillStyle = `rgba(27,94,32,${0.65 + t * 0.35})`; ctx.beginPath(); ctx.ellipse(rbx, y, bw, bh, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(46,125,50,${0.7 + t * 0.3})`; ctx.beginPath(); ctx.ellipse(rbx + bw * 0.45, y - bh * 0.2, bw * 0.65, bh * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(102,187,106,${0.55 + t * 0.4})`; ctx.beginPath(); ctx.ellipse(rbx - bw * 0.3, y - bh * 0.35, bw * 0.45, bh * 0.5, 0, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Sleepers
-    for (let i = 0; i < 14; i++) {
-      const t  = ((i / 14) + frame * 0.012) % 1;
-      const y  = zToY(t); const s = zToS(t);
-      const lx = laneToX(0, t) - 54 * s;
-      const rx = laneToX(2, t) + 54 * s;
-      ctx.fillStyle = `rgba(22,12,42,${0.22 + t * 0.46})`; ctx.fillRect(lx, y - 2.5 * s, rx - lx, 5 * s);
+    // 8. Sleepers (wooden cross ties)
+    for (let i = 0; i < 16; i++) {
+      const t = ((i / 16) + frame * 0.013) % 1;
+      if (t <= 0) continue;
+      const y = zToY(t); const s = Math.max(0.001, zToS(t));
+      const lx = laneToX(0, t) - 56 * s; const rx = laneToX(2, t) + 56 * s;
+      ctx.fillStyle = `rgba(0,0,0,${0.12 + t * 0.10})`; ctx.fillRect(lx, y + 2 * s, rx - lx, 5 * s); // shadow
+      const br = Math.floor(88 - t * 22);
+      ctx.fillStyle = `rgb(${br + 22},${br},${Math.max(0, br - 22)})`; ctx.fillRect(lx, y - 2.5 * s, rx - lx, 5 * s);
+      ctx.fillStyle = `rgba(255,255,255,${0.07 + t * 0.05})`; ctx.fillRect(lx + 2 * s, y - 2.5 * s, rx - lx - 4 * s, 1.5 * s);
     }
 
-    // Rails between lanes
+    // 9. Rails (metallic silver, between lanes)
     for (const [la, lb] of [[0, 1], [1, 2]] as const) {
-      for (const offset of [-7, 7]) {
-        ctx.beginPath();
-        ctx.moveTo((LANE_TOP[la] + LANE_TOP[lb]) / 2 + offset * 0.12, HORIZON_Y);
-        ctx.lineTo((LANE_BOT[la] + LANE_BOT[lb]) / 2 + offset, PLAYER_Y + 80);
-        ctx.strokeStyle = "#2e2050"; ctx.lineWidth = 2; ctx.stroke();
+      for (const offset of [-5, 5]) {
+        const tx = (LANE_TOP[la] + LANE_TOP[lb]) / 2 + offset * 0.09;
+        const bx = (LANE_BOT[la] + LANE_BOT[lb]) / 2 + offset;
+        ctx.beginPath(); ctx.moveTo(tx + 1.5, HORIZON_Y); ctx.lineTo(bx + 2.5, PLAYER_Y + 100);
+        ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 3.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(tx, HORIZON_Y); ctx.lineTo(bx, PLAYER_Y + 100);
+        ctx.strokeStyle = "#78909c"; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(tx - 0.5, HORIZON_Y); ctx.lineTo(bx - 0.8, PLAYER_Y + 100);
+        ctx.strokeStyle = "#cfd8dc"; ctx.lineWidth = 0.7; ctx.stroke();
       }
     }
 
-    // Ground neon reflections
-    for (let ri = 0; ri < 3; ri++) {
-      const y = PLAYER_Y + 14 + ri * 14; const alpha = 0.06 - ri * 0.018;
-      const lx = laneToX(0, 1) - 50; const rx = laneToX(2, 1) + 50;
-      const gr = ctx.createLinearGradient(lx, y, rx, y);
-      gr.addColorStop(0, `rgba(120,60,240,0)`); gr.addColorStop(0.5, `rgba(120,60,240,${alpha})`); gr.addColorStop(1, `rgba(120,60,240,0)`);
-      ctx.fillStyle = gr; ctx.fillRect(lx, y, rx - lx, 10);
+    // 10. Lane dashed markings
+    for (let i = 0; i < 12; i++) {
+      const t = ((i / 12) + frame * 0.013) % 1;
+      if (t <= 0.04) continue;
+      const y = zToY(t); const s = Math.max(0.001, zToS(t));
+      const m01 = (laneToX(0, t) + laneToX(1, t)) / 2;
+      const m12 = (laneToX(1, t) + laneToX(2, t)) / 2;
+      ctx.fillStyle = `rgba(255,255,255,${0.14 + t * 0.12})`;
+      ctx.fillRect(m01 - 1.5 * s, y, 3 * s, 7 * s);
+      ctx.fillRect(m12 - 1.5 * s, y, 3 * s, 7 * s);
     }
+
+    // 11. Overhead electric wires (4 lines converging)
+    for (let wi = 0; wi < 4; wi++) {
+      const wx_top = HORIZON_X + (wi - 1.5) * 7;
+      const wx_bot = LANE_BOT[0] + wi * (LANE_BOT[2] - LANE_BOT[0]) / 3;
+      ctx.beginPath();
+      ctx.moveTo(wx_top, HORIZON_Y);
+      ctx.quadraticCurveTo((wx_top + wx_bot) * 0.5, HORIZON_Y + (PLAYER_Y - HORIZON_Y) * 0.38 + Math.sin(frame * 0.022 + wi) * 1.5, wx_bot, PLAYER_Y - CH * 0.21);
+      ctx.strokeStyle = "rgba(38,50,56,0.7)"; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.strokeStyle = "rgba(207,216,220,0.28)"; ctx.lineWidth = 0.4; ctx.stroke();
+    }
+    // Horizontal cross-bar supports
+    for (let ci = 0; ci < 4; ci++) {
+      const t = 0.18 + ci * 0.22; const y = zToY(t); const s = Math.max(0.001, zToS(t));
+      const lw = laneToX(0, t) - 24 * s; const rw = laneToX(2, t) + 24 * s;
+      ctx.beginPath(); ctx.moveTo(lw, y - 19 * s); ctx.lineTo(rw, y - 19 * s);
+      ctx.strokeStyle = `rgba(38,50,56,${0.28 + t * 0.32})`; ctx.lineWidth = 1.4 * s; ctx.stroke();
+    }
+
+    // 12. Track sheen (subtle reflection)
+    const sheen = ctx.createLinearGradient(0, PLAYER_Y - 28, 0, PLAYER_Y + 40);
+    sheen.addColorStop(0, "rgba(255,255,255,0.09)"); sheen.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = sheen;
+    ctx.fillRect(laneToX(0, 0.97) - 44, PLAYER_Y - 28, laneToX(2, 0.97) - laneToX(0, 0.97) + 88, 68);
+
+    // 13. Distance fog at horizon
+    const fog = ctx.createLinearGradient(0, HORIZON_Y - 10, 0, HORIZON_Y + 70);
+    fog.addColorStop(0, "rgba(144,202,249,0.52)"); fog.addColorStop(0.55, "rgba(144,202,249,0.16)"); fog.addColorStop(1, "rgba(144,202,249,0)");
+    ctx.fillStyle = fog; ctx.fillRect(0, HORIZON_Y - 10, CW, 80);
   }
 
   // ── Draw game object ──────────────────────────────────────────────────────
   function drawGO(ctx: CanvasRenderingContext2D, go: GO, frame: number, magnet: boolean) {
     const { lane, z, kind, sub } = go;
-    // Objects with z <= 0 are behind the horizon — skip to avoid negative scale
-    if (z <= 0) return;
+    if (z <= 0) return; // behind horizon — skip
     const x = laneToX(lane, z); const y = zToY(z);
-    const s = Math.max(0.001, zToS(z)); // always positive
+    const s = Math.max(0.001, zToS(z));
     ctx.save(); ctx.translate(x, y);
 
     if (kind === "coin") {
-      const pulse = 1 + Math.sin(frame * 0.18) * 0.08;
-      ctx.shadowColor = "#FFD700"; ctx.shadowBlur = magnet ? 26 * s : 10 * s;
+      // Bright spinning gold coin
+      const pulse = 1 + Math.sin(frame * 0.2) * 0.1;
+      const r = Math.max(0.5, 11 * s * pulse);
+      // Outer ring
+      ctx.shadowColor = "#FFD700"; ctx.shadowBlur = magnet ? 28 * s : 12 * s;
+      ctx.fillStyle = "#f59e0b";
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      // Inner gold face
       ctx.fillStyle = "#FFD700";
-      ctx.beginPath(); ctx.arc(0, 0, Math.max(0.5, 10 * s * pulse), 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#fff8e0";
-      ctx.beginPath(); ctx.arc(-2.5 * s, -2.5 * s, Math.max(0.5, 4 * s), 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#92400e"; ctx.font = `bold ${8 * s}px sans-serif`; ctx.textAlign = "center";
-      ctx.fillText("₹", 0.5 * s, 3 * s);
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2); ctx.fill();
+      // Highlight
+      ctx.fillStyle = "rgba(255,255,220,0.7)";
+      ctx.beginPath(); ctx.arc(-r * 0.28, -r * 0.28, Math.max(0.3, r * 0.32), 0, Math.PI * 2); ctx.fill();
+      // ₹ symbol
+      ctx.fillStyle = "#78350f"; ctx.font = `bold ${Math.max(4, 8 * s)}px sans-serif`; ctx.textAlign = "center";
+      ctx.fillText("₹", 0.5 * s, 3.5 * s);
 
     } else if (kind === "powerup") {
-      ctx.shadowColor = sub === "magnet" ? "#FFD700" : "#38ef7d";
-      ctx.shadowBlur = 22 * s;
-      ctx.font = `${28 * s}px sans-serif`; ctx.textAlign = "center";
-      ctx.fillText(sub === "magnet" ? "🧲" : "🚀", 0, 10 * s);
-      ctx.fillStyle = sub === "magnet" ? "#FFD700" : "#38ef7d";
-      ctx.font = `bold ${7 * s}px sans-serif`;
-      ctx.fillText(sub === "magnet" ? "MAGNET" : "JETPACK", 0, 22 * s);
+      // Glowing powerup with label
+      const pw = sub === "magnet";
+      ctx.shadowColor = pw ? "#fbbf24" : "#34d399"; ctx.shadowBlur = 24 * s;
+      // Badge background
+      ctx.fillStyle = pw ? "rgba(251,191,36,0.22)" : "rgba(52,211,153,0.22)";
+      rrect(ctx, -18 * s, -18 * s, 36 * s, 36 * s, 8 * s); ctx.fill();
+      ctx.strokeStyle = pw ? "#fbbf24" : "#34d399"; ctx.lineWidth = 1.5 * s;
+      rrect(ctx, -18 * s, -18 * s, 36 * s, 36 * s, 8 * s); ctx.stroke();
+      ctx.font = `${Math.max(8, 22 * s)}px sans-serif`; ctx.textAlign = "center";
+      ctx.fillText(pw ? "🧲" : "🚀", 0, 8 * s);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = pw ? "#fbbf24" : "#34d399";
+      ctx.font = `bold ${Math.max(3, 7 * s)}px sans-serif`;
+      ctx.fillText(pw ? "MAGNET" : "JETPACK", 0, 24 * s);
 
     } else if (kind === "obstacle") {
       if (sub === "train") {
-        const w = 64 * s; const h = 90 * s;
+        // Bright red/orange metro train car
+        const w = 66 * s; const h = 92 * s;
+        // Body gradient
         const g = ctx.createLinearGradient(-w / 2, -h, w / 2, 0);
-        g.addColorStop(0, "#7f1d1d"); g.addColorStop(0.45, "#dc2626"); g.addColorStop(1, "#7f1d1d");
-        ctx.shadowColor = "#ef4444"; ctx.shadowBlur = 18 * s;
-        ctx.fillStyle = g; rrect(ctx, -w / 2, -h, w, h, 8 * s); ctx.fill();
-        ctx.fillStyle = "rgba(255,255,180,0.65)";
-        ctx.fillRect(-w * 0.38, -h * 0.72, w * 0.28, h * 0.15);
-        ctx.fillRect( w * 0.1,  -h * 0.72, w * 0.28, h * 0.15);
-        ctx.shadowColor = "#fef08a"; ctx.shadowBlur = 24 * s;
-        ctx.fillStyle = "#fef08a"; ctx.fillRect(-w * 0.38, -h * 0.96, w * 0.76, h * 0.06);
-        ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(-w * 0.3, -h * 0.18, w * 0.6, h * 0.18);
+        g.addColorStop(0, "#b91c1c"); g.addColorStop(0.4, "#ef4444"); g.addColorStop(0.7, "#f87171"); g.addColorStop(1, "#b91c1c");
+        ctx.shadowColor = "#ef4444"; ctx.shadowBlur = 16 * s;
+        ctx.fillStyle = g; rrect(ctx, -w / 2, -h, w, h, 10 * s); ctx.fill();
+        // Orange accent stripe
+        ctx.fillStyle = "#f97316";
+        ctx.fillRect(-w / 2, -h * 0.55, w, h * 0.08);
+        // Windows
+        ctx.fillStyle = "rgba(186,230,253,0.75)";
+        ctx.fillRect(-w * 0.36, -h * 0.76, w * 0.3, h * 0.16);
+        ctx.fillRect( w * 0.06, -h * 0.76, w * 0.3, h * 0.16);
+        // Window frames
+        ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1 * s;
+        ctx.strokeRect(-w * 0.36, -h * 0.76, w * 0.3, h * 0.16);
+        ctx.strokeRect( w * 0.06, -h * 0.76, w * 0.3, h * 0.16);
+        // Headlight glow
+        ctx.shadowColor = "#fef08a"; ctx.shadowBlur = 22 * s;
+        ctx.fillStyle = "#fef08a"; ctx.fillRect(-w * 0.36, -h * 0.97, w * 0.72, h * 0.065);
+        // Front grille
+        ctx.shadowBlur = 0; ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(-w * 0.28, -h * 0.2, w * 0.56, h * 0.2);
+        // Number plate
+        ctx.fillStyle = "#fff"; ctx.font = `bold ${Math.max(4, 7 * s)}px sans-serif`; ctx.textAlign = "center";
+        ctx.fillText("🚆", 0, -h * 0.1);
 
       } else if (sub === "barrier") {
-        const w = 54 * s; const h = 58 * s;
-        ctx.shadowColor = "#f97316"; ctx.shadowBlur = 12 * s; ctx.fillStyle = "#f97316";
-        ctx.fillRect(-w / 2, -h, w, 5 * s);
-        for (let bi = 0; bi <= 3; bi++) ctx.fillRect(-w / 2 + bi * (w / 3.2), -h, 5 * s, h);
-        ctx.fillStyle = "#000";
-        for (let si = 0; si < 4; si++) {
-          const sx = -w / 2 + si * (w / 4);
-          ctx.beginPath(); ctx.moveTo(sx, -h); ctx.lineTo(sx + 8 * s, -h); ctx.lineTo(sx, -h + 5 * s); ctx.closePath(); ctx.fill();
+        // Yellow-black construction barrier
+        const w = 56 * s; const h = 60 * s;
+        ctx.shadowColor = "#fbbf24"; ctx.shadowBlur = 10 * s;
+        // Top beam (yellow-black)
+        const stripeW = w / 5;
+        for (let si = 0; si < 5; si++) {
+          ctx.fillStyle = si % 2 === 0 ? "#fbbf24" : "#111";
+          ctx.fillRect(-w / 2 + si * stripeW, -h, stripeW, 6 * s);
         }
+        // Vertical bars
+        ctx.fillStyle = "#fbbf24";
+        for (let bi = 0; bi <= 3; bi++) ctx.fillRect(-w / 2 + bi * (w / 3.2), -h + 6 * s, 5 * s, h - 6 * s);
+        // Cross braces (X shape)
+        ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 2.5 * s;
+        ctx.beginPath(); ctx.moveTo(-w / 2, -h + 6 * s); ctx.lineTo(w / 2, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w / 2, -h + 6 * s); ctx.lineTo(-w / 2, 0); ctx.stroke();
 
       } else {
-        const w = 58 * s; const h = 26 * s;
+        // Concrete low block — slide under
+        const w = 60 * s; const h = 28 * s;
         const g = ctx.createLinearGradient(-w / 2, -h, w / 2, 0);
-        g.addColorStop(0, "#1e3a5f"); g.addColorStop(0.5, "#3b82f6"); g.addColorStop(1, "#1e3a5f");
-        ctx.shadowColor = "#60a5fa"; ctx.shadowBlur = 14 * s;
-        ctx.fillStyle = g; rrect(ctx, -w / 2, -h, w, h, 4 * s); ctx.fill();
-        ctx.fillStyle = "rgba(255,255,255,0.2)";
-        for (let si = 0; si < 3; si++) ctx.fillRect(-w / 2 + si * (w / 3) + 4 * s, -h + 5 * s, 10 * s, 4 * s);
-        ctx.fillStyle = "#fff"; ctx.font = `bold ${7 * s}px sans-serif`; ctx.textAlign = "center";
-        ctx.fillText("SLIDE!", 0, -h * 0.3);
+        g.addColorStop(0, "#374151"); g.addColorStop(0.5, "#6b7280"); g.addColorStop(1, "#374151");
+        ctx.shadowColor = "#9ca3af"; ctx.shadowBlur = 10 * s;
+        ctx.fillStyle = g; rrect(ctx, -w / 2, -h, w, h, 5 * s); ctx.fill();
+        // Concrete grain lines
+        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 0.7 * s;
+        for (let li = 1; li < 3; li++) { ctx.beginPath(); ctx.moveTo(-w / 2 + 3 * s, -h + li * h / 3); ctx.lineTo(w / 2 - 3 * s, -h + li * h / 3); ctx.stroke(); }
+        // Warning stripes
+        ctx.fillStyle = "#fbbf24";
+        for (let si = 0; si < 3; si++) ctx.fillRect(-w / 2 + si * (w / 3) + 4 * s, -h + 4 * s, 8 * s, 4 * s);
+        // Label
+        ctx.fillStyle = "#fff"; ctx.font = `bold ${Math.max(4, 7 * s)}px sans-serif`; ctx.textAlign = "center";
+        ctx.fillText("SLIDE!", 0, -h * 0.25);
       }
     }
 
@@ -288,62 +401,90 @@ export default function MetroSurferGame({ onBack, initialFee }: Props) {
     const { laneX: px, jumpY, pstate, frame, magnet, jetpack } = gs;
     ctx.save(); ctx.translate(px, PLAYER_Y - jumpY);
 
-    if (jetpack) { ctx.shadowColor = "#38ef7d"; ctx.shadowBlur = 30; }
-    else if (magnet) { ctx.shadowColor = "#FFD700"; ctx.shadowBlur = 22; }
-    else { ctx.shadowColor = "#7c3aed"; ctx.shadowBlur = 10; }
-
     if (pstate === "slide") {
-      ctx.fillStyle = "#FFD700";
-      ctx.beginPath(); ctx.ellipse(0, -6, 16, 9, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#1e1b4b";
-      ctx.beginPath(); ctx.ellipse(3, -6, 7, 5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#312e81";
-      ctx.fillRect(-18, -3, 9, 6); ctx.fillRect(9, -3, 9, 6);
+      // Sliding pose — crouched flat
+      if (jetpack)      { ctx.shadowColor = "#34d399"; ctx.shadowBlur = 28; }
+      else if (magnet)  { ctx.shadowColor = "#fbbf24"; ctx.shadowBlur = 20; }
+      else              { ctx.shadowColor = "rgba(0,0,0,0.3)"; ctx.shadowBlur = 8; }
+
+      // Body (red jacket, flattened)
+      ctx.fillStyle = jetpack ? "#34d399" : magnet ? "#fbbf24" : "#dc2626";
+      ctx.beginPath(); ctx.ellipse(0, -7, 18, 10, 0, 0, Math.PI * 2); ctx.fill();
+      // Jacket shine
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.beginPath(); ctx.ellipse(-3, -10, 8, 4, -0.3, 0, Math.PI * 2); ctx.fill();
+      // Legs (blue jeans, trailing)
+      ctx.fillStyle = "#1d4ed8";
+      ctx.fillRect(-18, -4, 10, 7); ctx.fillRect(8, -4, 10, 7);
+      // White shoes
+      ctx.fillStyle = "#f1f5f9"; ctx.fillRect(-20, 2, 9, 5); ctx.fillRect(11, 2, 9, 5);
+      // Head (helmet, low)
+      ctx.shadowBlur = 0; ctx.fillStyle = "#fcd34d";
+      ctx.beginPath(); ctx.arc(12, -9, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(147,197,253,0.6)"; rrect(ctx, 6, -11, 11, 5, 2); ctx.fill();
+
     } else {
-      const swing = pstate === "jump" ? 0 : Math.sin(frame * 0.28) * 12;
-      const bodyCol = jetpack ? "#38ef7d" : magnet ? "#FFD700" : "#a78bfa";
+      const swing = pstate === "jump" ? 0 : Math.sin(frame * 0.30) * 13;
+      const jacketCol = jetpack ? "#34d399" : magnet ? "#fbbf24" : "#dc2626";
 
-      // Ground shadow
-      ctx.shadowBlur = 0; ctx.fillStyle = "rgba(0,0,0,0.26)";
-      ctx.beginPath(); ctx.ellipse(0, 4, jumpY > 0 ? 7 + jumpY * 0.04 : 13, 4, 0, 0, Math.PI * 2); ctx.fill();
+      // Ground shadow (smaller when jumping)
+      ctx.shadowBlur = 0; ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.beginPath(); ctx.ellipse(0, 4, jumpY > 0 ? 6 + jumpY * 0.04 : 14, 4, 0, 0, Math.PI * 2); ctx.fill();
 
-      // Legs
-      if (jetpack) { ctx.shadowColor = "#38ef7d"; ctx.shadowBlur = 20; }
-      else if (magnet) { ctx.shadowColor = "#FFD700"; ctx.shadowBlur = 16; }
-      else { ctx.shadowColor = "#7c3aed"; ctx.shadowBlur = 10; }
+      // Glow
+      if (jetpack)     { ctx.shadowColor = "#34d399"; ctx.shadowBlur = 24; }
+      else if (magnet) { ctx.shadowColor = "#fbbf24"; ctx.shadowBlur = 18; }
+      else             { ctx.shadowColor = "rgba(220,38,38,0.4)"; ctx.shadowBlur = 10; }
 
-      ctx.fillStyle = "#1e1b4b";
-      ctx.save(); ctx.rotate((-swing * Math.PI) / 180); ctx.fillRect(-7, 0, 5, 18); ctx.restore();
-      ctx.save(); ctx.rotate((swing * Math.PI) / 180);  ctx.fillRect(2,  0, 5, 18); ctx.restore();
-      ctx.fillStyle = "#312e81";
-      ctx.save(); ctx.rotate((-swing * Math.PI) / 180); ctx.fillRect(-9, 16, 8, 5); ctx.restore();
-      ctx.save(); ctx.rotate((swing * Math.PI) / 180);  ctx.fillRect(1,  16, 8, 5); ctx.restore();
+      // Legs (blue jeans, animated)
+      ctx.fillStyle = "#1d4ed8";
+      ctx.save(); ctx.rotate((-swing * Math.PI) / 180); ctx.fillRect(-7, 0, 6, 19); ctx.restore();
+      ctx.save(); ctx.rotate(( swing * Math.PI) / 180); ctx.fillRect(1,  0, 6, 19); ctx.restore();
+      // Shoes (white)
+      ctx.fillStyle = "#e2e8f0";
+      ctx.save(); ctx.rotate((-swing * Math.PI) / 180); ctx.fillRect(-9, 17, 9, 6); ctx.restore();
+      ctx.save(); ctx.rotate(( swing * Math.PI) / 180); ctx.fillRect(0,  17, 9, 6); ctx.restore();
 
-      // Body
-      ctx.fillStyle = bodyCol; rrect(ctx, -11, -28, 22, 28, 5); ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.16)"; ctx.fillRect(-4, -24, 8, 10);
+      // Jacket body (red)
+      ctx.fillStyle = jacketCol; rrect(ctx, -12, -30, 24, 30, 6); ctx.fill();
+      // Jacket zipper/chest stripe
+      ctx.fillStyle = "rgba(255,255,255,0.22)"; ctx.fillRect(-2, -27, 4, 18);
+      // Jacket side shading
+      ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(8, -30, 4, 30);
 
-      // Arms
-      ctx.fillStyle = bodyCol;
-      ctx.save(); ctx.rotate((swing * Math.PI) / 180);  rrect(ctx, -18, -26, 7, 15, 3); ctx.fill(); ctx.restore();
-      ctx.save(); ctx.rotate((-swing * Math.PI) / 180); rrect(ctx, 11,  -26, 7, 15, 3); ctx.fill(); ctx.restore();
+      // Arms (red jacket, swinging)
+      ctx.fillStyle = jacketCol;
+      ctx.save(); ctx.rotate(( swing * Math.PI) / 180); rrect(ctx, -19, -28, 8, 16, 4); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.rotate((-swing * Math.PI) / 180); rrect(ctx, 11,  -28, 8, 16, 4); ctx.fill(); ctx.restore();
+      // Hands (skin tone)
+      ctx.fillStyle = "#fcd5b4";
+      ctx.save(); ctx.rotate(( swing * Math.PI) / 180); ctx.beginPath(); ctx.arc(-15, -12, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.rotate((-swing * Math.PI) / 180); ctx.beginPath(); ctx.arc(15,  -12, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
 
-      // Head
-      ctx.shadowBlur = 0; ctx.fillStyle = "#f5d0a9";
-      ctx.beginPath(); ctx.arc(0, -35, 10, 0, Math.PI * 2); ctx.fill();
+      // Head/face
+      ctx.shadowBlur = 0; ctx.fillStyle = "#fcd5b4";
+      ctx.beginPath(); ctx.arc(0, -37, 11, 0, Math.PI * 2); ctx.fill();
+      // Eyes
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath(); ctx.arc(-3.5, -38, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(3.5, -38, 2, 0, Math.PI * 2); ctx.fill();
 
-      // Helmet & visor
-      ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0, -38, 8, Math.PI, 0); ctx.fill();
-      ctx.fillStyle = "rgba(100,200,255,0.5)"; rrect(ctx, -7, -36, 14, 5, 2); ctx.fill();
+      // Helmet (gold)
+      ctx.fillStyle = "#fbbf24"; ctx.beginPath(); ctx.arc(0, -40, 9, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = "#f59e0b"; ctx.fillRect(-9, -40, 18, 3); // brim
+      // Visor (cyan tint)
+      ctx.fillStyle = "rgba(147,197,253,0.65)"; rrect(ctx, -8, -38, 16, 5, 2); ctx.fill();
+      // Helmet stripe
+      ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(-1, -49, 2.5, 10);
 
       // Jetpack
       if (jetpack) {
-        ctx.shadowColor = "#38ef7d"; ctx.shadowBlur = 18;
-        ctx.fillStyle = "#111827"; rrect(ctx, -18, -26, 7, 16, 3); ctx.fill();
-        ctx.fillStyle = "#38ef7d"; ctx.fillRect(-17, -10, 5, 4);
-        for (let fi = 0; fi < 4; fi++) {
-          ctx.fillStyle = `rgba(56,239,125,${0.65 - fi * 0.14})`;
-          ctx.fillRect(-17 + fi, -6, 2, 4 + Math.random() * 8);
+        ctx.shadowColor = "#34d399"; ctx.shadowBlur = 20;
+        ctx.fillStyle = "#1e293b"; rrect(ctx, -20, -28, 8, 18, 3); ctx.fill();
+        ctx.fillStyle = "#34d399"; ctx.fillRect(-19, -11, 6, 5);
+        for (let fi = 0; fi < 5; fi++) {
+          ctx.fillStyle = `rgba(52,211,153,${0.7 - fi * 0.13})`;
+          ctx.fillRect(-19 + fi * 0.5, -6, 2.5, 5 + Math.random() * 9);
         }
       }
     }
@@ -355,54 +496,67 @@ export default function MetroSurferGame({ onBack, initialFee }: Props) {
   function drawHUD(ctx: CanvasRenderingContext2D, gs: GS) {
     const { score, coins, timeLeft, botScore, magnet, jetpack, pstate } = gs;
 
-    // Top bar
-    ctx.fillStyle = "rgba(5,3,14,0.84)"; ctx.fillRect(0, 0, CW, 68);
-    ctx.fillStyle = "rgba(255,215,0,0.08)"; ctx.fillRect(0, 67, CW, 1);
+    // Top bar — clean white-tinted panel
+    const barGrad = ctx.createLinearGradient(0, 0, 0, 72);
+    barGrad.addColorStop(0, "rgba(0,0,0,0.82)"); barGrad.addColorStop(1, "rgba(0,0,0,0.58)");
+    ctx.fillStyle = barGrad; ctx.fillRect(0, 0, CW, 72);
+    // Bottom border (gold accent line)
+    const bl = ctx.createLinearGradient(0, 71, CW, 71);
+    bl.addColorStop(0, "rgba(251,191,36,0)"); bl.addColorStop(0.5, "rgba(251,191,36,0.55)"); bl.addColorStop(1, "rgba(251,191,36,0)");
+    ctx.fillStyle = bl; ctx.fillRect(0, 71, CW, 1.5);
 
-    // Timer (center)
-    const tc = timeLeft <= 10 ? "#ef4444" : timeLeft <= 25 ? "#f97316" : "#FFD700";
-    if (timeLeft <= 10) { ctx.shadowColor = "#ef4444"; ctx.shadowBlur = 12; }
-    ctx.fillStyle = tc; ctx.font = "bold 20px system-ui,sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(fmtTime(timeLeft), CW / 2, 26); ctx.shadowBlur = 0;
-    ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.font = "8px system-ui,sans-serif";
-    ctx.fillText("TIME LEFT", CW / 2, 40);
+    // ── Timer (center) ───────────────────────────────────────────────────────
+    const urgent = timeLeft <= 10; const warn = timeLeft <= 25;
+    const tc = urgent ? "#ef4444" : warn ? "#fb923c" : "#fff";
+    if (urgent) { ctx.shadowColor = "#ef4444"; ctx.shadowBlur = 14; }
+    ctx.fillStyle = tc; ctx.font = "bold 22px system-ui,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(fmtTime(timeLeft), CW / 2, 28); ctx.shadowBlur = 0;
+    ctx.fillStyle = urgent ? "rgba(239,68,68,0.55)" : "rgba(255,255,255,0.28)";
+    ctx.font = "7.5px system-ui,sans-serif"; ctx.fillText("TIME LEFT", CW / 2, 42);
 
-    // Score (right)
+    // ── Score & Coins (right) ────────────────────────────────────────────────
     ctx.textAlign = "right";
-    ctx.fillStyle = "#fff"; ctx.font = "bold 17px system-ui,sans-serif"; ctx.fillText(score.toLocaleString(), CW - 10, 26);
-    ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.font = "8px system-ui,sans-serif"; ctx.fillText("SCORE", CW - 10, 40);
-    ctx.fillStyle = "#FFD700"; ctx.font = "11px system-ui,sans-serif"; ctx.fillText(`🪙 ${coins}`, CW - 10, 56);
+    ctx.shadowColor = "rgba(251,191,36,0.5)"; ctx.shadowBlur = 6;
+    ctx.fillStyle = "#fbbf24"; ctx.font = "bold 18px system-ui,sans-serif"; ctx.fillText(score.toLocaleString(), CW - 12, 27);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255,255,255,0.28)"; ctx.font = "7.5px system-ui,sans-serif"; ctx.fillText("SCORE", CW - 12, 40);
+    ctx.fillStyle = "#FFD700"; ctx.font = "bold 11px system-ui,sans-serif"; ctx.fillText(`🪙 ${coins}`, CW - 12, 58);
 
-    // Leaderboard (left)
+    // ── YOU vs BOT leaderboard (left) ───────────────────────────────────────
     ctx.textAlign = "left";
-    ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "8px system-ui,sans-serif"; ctx.fillText("YOU  vs  BOT", 10, 14);
-    const bw = 84; const mx = Math.max(score, botScore, 1);
-    ctx.fillStyle = "rgba(255,255,255,0.08)"; rrect(ctx, 10, 18, bw, 7, 3); ctx.fill();
-    ctx.fillStyle = "#a78bfa"; rrect(ctx, 10, 18, (score / mx) * bw, 7, 3); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.08)"; rrect(ctx, 10, 30, bw, 7, 3); ctx.fill();
-    ctx.fillStyle = "#ef4444"; rrect(ctx, 10, 30, (botScore / mx) * bw, 7, 3); ctx.fill();
-    ctx.fillStyle = "#a78bfa"; ctx.font = "8px system-ui,sans-serif"; ctx.fillText(`🏃 ${score}`, 10, 50);
-    ctx.fillStyle = "#ef4444"; ctx.fillText(`🤖 ${Math.floor(botScore)}`, 10, 62);
+    ctx.fillStyle = "rgba(255,255,255,0.38)"; ctx.font = "7.5px system-ui,sans-serif"; ctx.fillText("YOU  vs  BOT", 10, 13);
+    const bw = 86; const mx = Math.max(score, botScore, 1);
+    // YOU bar
+    ctx.fillStyle = "rgba(255,255,255,0.08)"; rrect(ctx, 10, 17, bw, 8, 4); ctx.fill();
+    ctx.fillStyle = "#22c55e"; rrect(ctx, 10, 17, Math.min(bw, (score / mx) * bw), 8, 4); ctx.fill();
+    // BOT bar
+    ctx.fillStyle = "rgba(255,255,255,0.08)"; rrect(ctx, 10, 30, bw, 8, 4); ctx.fill();
+    ctx.fillStyle = "#ef4444"; rrect(ctx, 10, 30, Math.min(bw, (botScore / mx) * bw), 8, 4); ctx.fill();
+    // Labels
+    ctx.fillStyle = "#86efac"; ctx.font = "bold 7.5px system-ui,sans-serif"; ctx.fillText(`🏃 ${score}`, 10, 50);
+    ctx.fillStyle = "#fca5a5"; ctx.fillText(`🤖 ${Math.floor(botScore)}`, 10, 62);
 
-    // Powerup banners
+    // ── Powerup banners ──────────────────────────────────────────────────────
     let by = 80;
     if (magnet) {
-      ctx.fillStyle = "rgba(255,215,0,0.11)"; rrect(ctx, CW / 2 - 66, by, 132, 16, 8); ctx.fill();
-      ctx.fillStyle = "#FFD700"; ctx.font = "bold 9px system-ui,sans-serif"; ctx.textAlign = "center";
-      ctx.fillText("🧲 MAGNET ACTIVE", CW / 2, by + 11); by += 20;
+      ctx.fillStyle = "rgba(251,191,36,0.18)"; rrect(ctx, CW / 2 - 68, by, 136, 18, 9); ctx.fill();
+      ctx.strokeStyle = "rgba(251,191,36,0.4)"; ctx.lineWidth = 1; rrect(ctx, CW / 2 - 68, by, 136, 18, 9); ctx.stroke();
+      ctx.fillStyle = "#fbbf24"; ctx.font = "bold 9px system-ui,sans-serif"; ctx.textAlign = "center";
+      ctx.fillText("🧲 MAGNET ACTIVE", CW / 2, by + 12); by += 22;
     }
     if (jetpack) {
-      ctx.fillStyle = "rgba(56,239,125,0.11)"; rrect(ctx, CW / 2 - 66, by, 132, 16, 8); ctx.fill();
-      ctx.fillStyle = "#38ef7d"; ctx.font = "bold 9px system-ui,sans-serif"; ctx.textAlign = "center";
-      ctx.fillText("🚀 JETPACK ACTIVE", CW / 2, by + 11);
+      ctx.fillStyle = "rgba(52,211,153,0.18)"; rrect(ctx, CW / 2 - 68, by, 136, 18, 9); ctx.fill();
+      ctx.strokeStyle = "rgba(52,211,153,0.4)"; ctx.lineWidth = 1; rrect(ctx, CW / 2 - 68, by, 136, 18, 9); ctx.stroke();
+      ctx.fillStyle = "#34d399"; ctx.font = "bold 9px system-ui,sans-serif"; ctx.textAlign = "center";
+      ctx.fillText("🚀 JETPACK ACTIVE", CW / 2, by + 12);
     }
 
-    // Bottom hint
-    const hc = pstate === "jump" ? "#a78bfa" : pstate === "slide" ? "#38ef7d" : "rgba(255,255,255,0.18)";
-    ctx.fillStyle = hc; ctx.font = "9px system-ui,sans-serif"; ctx.textAlign = "center";
+    // ── Bottom action hint ───────────────────────────────────────────────────
+    const hintCol = pstate === "jump" ? "#86efac" : pstate === "slide" ? "#93c5fd" : "rgba(255,255,255,0.22)";
+    ctx.fillStyle = hintCol; ctx.font = "9px system-ui,sans-serif"; ctx.textAlign = "center";
     ctx.fillText(
-      pstate === "jump" ? "↑ JUMPING" : pstate === "slide" ? "↓ SLIDING" : "← Swipe to switch lane  ↑ Jump  ↓ Slide",
-      CW / 2, CH - 9,
+      pstate === "jump" ? "↑ JUMPING" : pstate === "slide" ? "↓ SLIDING" : "← Swipe  ↑ Jump  ↓ Slide →",
+      CW / 2, CH - 10,
     );
   }
 
@@ -596,10 +750,10 @@ export default function MetroSurferGame({ onBack, initialFee }: Props) {
     <div style={{ background: "#0a0a0f", width: "100%", maxWidth: 480, margin: "0 auto", minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "rgba(0,0,0,0.7)", borderBottom: "1px solid rgba(255,215,0,0.1)", flexShrink: 0 }}>
-        <button onClick={onBack} style={{ color: "rgba(255,255,255,0.7)", fontSize: 22, background: "none", border: "none", cursor: "pointer", padding: 4 }}>←</button>
-        <span style={{ color: "#FFD700", fontWeight: 900, fontSize: 13, letterSpacing: "0.14em" }}>🏃 METRO SURFER</span>
-        <span style={{ background: "rgba(255,215,0,0.08)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 10, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "linear-gradient(90deg,#b91c1c,#dc2626)", borderBottom: "2px solid #fbbf24", flexShrink: 0 }}>
+        <button onClick={onBack} style={{ color: "#fff", fontSize: 22, background: "none", border: "none", cursor: "pointer", padding: 4 }}>←</button>
+        <span style={{ color: "#fff", fontWeight: 900, fontSize: 13, letterSpacing: "0.14em", textShadow: "0 0 12px rgba(251,191,36,0.7)" }}>🏃 METRO SURFER</span>
+        <span style={{ background: "rgba(0,0,0,0.25)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)", borderRadius: 10, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
           {isFreeMode ? "FREE" : `₹${initialFee}`}
         </span>
       </div>
