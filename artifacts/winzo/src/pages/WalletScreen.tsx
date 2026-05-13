@@ -13,9 +13,8 @@ import type { MatchRecord } from "@/context/MatchHistoryContext";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type Tab = "add" | "bonus" | "withdraw" | "history" | "matches";
+type Tab = "add" | "bonus" | "withdraw" | "history";
 type WithdrawMethod = "upi" | "bank";
-type HistoryFilter = "all" | "deposit" | "win" | "withdraw" | "bonus" | "fee";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -934,300 +933,146 @@ function WithdrawalTab({
   );
 }
 
-// ─── HISTORY TAB ─────────────────────────────────────────────────────────────
+// ─── ADVANCED HISTORY TAB ────────────────────────────────────────────────────
 
-function HistoryTab({
-  transactions,
-}: {
-  transactions: Array<{
-    id: string|number; type: string; title: string; display: string;
-    time: string; color: string; status?: string; rawAmount: number; roomId?: string;
-  }>;
-}) {
-  const [filter, setFilter] = useState<HistoryFilter>("all");
+type HistorySubTab = "all" | "games" | "worldwar" | "deposit" | "withdraw" | "bonus";
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return transactions;
-    return transactions.filter((t) => t.type === filter);
-  }, [transactions, filter]);
+const SUB_TABS: { id: HistorySubTab; label: string; icon: string }[] = [
+  { id: "all",      label: "All History",   icon: "📋" },
+  { id: "games",    label: "Games",         icon: "🎮" },
+  { id: "worldwar", label: "World War",     icon: "⚔️" },
+  { id: "deposit",  label: "Add Money",     icon: "💳" },
+  { id: "withdraw", label: "Withdrawals",   icon: "🏦" },
+  { id: "bonus",    label: "Bonus",         icon: "🎁" },
+];
 
-  const stats = useMemo(() => ({
-    won:       transactions.filter((t) => t.type === "win").reduce((s, t) => s + t.rawAmount, 0),
-    deposited: transactions.filter((t) => t.type === "deposit").reduce((s, t) => s + t.rawAmount, 0),
-    withdrawn: transactions.filter((t) => t.type === "withdraw").reduce((s, t) => s + Math.abs(t.rawAmount), 0),
-    bonus:     transactions.filter((t) => t.type === "bonus").reduce((s, t) => s + t.rawAmount, 0),
-  }), [transactions]);
-
-  // Group game sessions by roomId
-  const gameSessions = useMemo(() => {
-    const map: Record<string, { fee?: typeof transactions[0]; win?: typeof transactions[0] }> = {};
-    transactions.filter((t) => t.roomId).forEach((t) => {
-      if (!map[t.roomId!]) map[t.roomId!] = {};
-      if (t.type === "fee") map[t.roomId!].fee = t;
-      if (t.type === "win") map[t.roomId!].win = t;
-    });
-    return Object.values(map).filter((s) => s.fee || s.win);
-  }, [transactions]);
-
-  const FILTERS: [HistoryFilter, string, string][] = [
-    ["all",      "All",      ""],
-    ["deposit",  "Deposits", "💳"],
-    ["win",      "Winnings", "🏆"],
-    ["withdraw", "Withdraw", "🏦"],
-    ["bonus",    "Bonus",    "🎁"],
-    ["fee",      "Games",    "🎮"],
-  ];
-
+// ── Empty state ───────────────────────────────────────────────────────────────
+function EmptyState({ label }: { label: string }) {
   return (
-    <div className="px-4 space-y-4">
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { label: "Total Won",    val: stats.won,       color: "#22c55e", icon: "🏆" },
-          { label: "Deposited",    val: stats.deposited, color: "#3b82f6", icon: "💳" },
-          { label: "Withdrawn",    val: stats.withdrawn, color: "#f59e0b", icon: "🏦" },
-          { label: "Bonus Earned", val: stats.bonus,     color: "#FFD700", icon: "🎁" },
-        ].map(({ label, val, color, icon }) => (
-          <div key={label}
-            className="rounded-xl p-3"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-            <div className="flex items-center gap-1 mb-1">
-              <span className="text-xs">{icon}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide"
-                style={{ color: "rgba(255,255,255,0.4)" }}>{label}</span>
-            </div>
-            <p className="font-black text-base" style={{ color }}>{fmt(val)}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Game sessions */}
-      {gameSessions.length > 0 && (
-        <div>
-          <p className="text-xs font-black uppercase tracking-widest mb-2.5"
-            style={{ color: "rgba(255,255,255,0.4)" }}>Recent Games</p>
-          <div className="space-y-2">
-            {gameSessions.slice(0, 5).map((s, i) => {
-              const fee  = s.fee ? Math.abs(s.fee.rawAmount) : 0;
-              const win  = s.win?.rawAmount ?? 0;
-              const net  = win - fee;
-              const isW  = net > 0;
-              return (
-                <div key={i}
-                  className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0"
-                    style={{
-                      background: isW ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-                      border: `1px solid ${isW ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                    }}>
-                    {isW ? "🏆" : "🎮"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white">
-                      {s.fee?.title?.replace("Entry Fee — ", "") ?? "Game"}
-                    </p>
-                    <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      Entry ₹{fee} · {isW ? `Won ₹${win}` : "Lost"}
-                    </p>
-                  </div>
-                  <span className="font-black text-sm shrink-0"
-                    style={{ color: isW ? "#4ade80" : "#f87171" }}>
-                    {isW ? `+₹${net.toFixed(2)}` : `-₹${fee}`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {FILTERS.map(([f, label, icon]) => (
-          <button key={f}
-            onClick={() => setFilter(f)}
-            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-            style={{
-              background: filter === f ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.04)",
-              border: `1px solid ${filter === f ? "rgba(255,215,0,0.5)" : "rgba(255,255,255,0.08)"}`,
-              color: filter === f ? "#FFD700" : "rgba(255,255,255,0.5)",
-            }}>
-            {icon} {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Transaction list */}
-      {filtered.length === 0 ? (
-        <div className="rounded-xl py-12 flex flex-col items-center gap-2"
-          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <span className="text-4xl">📭</span>
-          <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.35)" }}>No transactions yet</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
-            {filter === "all" ? "Play games and add money to get started!" : `No ${filter} transactions found`}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2 pb-6">
-          {filtered.map((tx) => <TxRow key={tx.id} tx={tx} />)}
-        </div>
-      )}
+    <div className="rounded-2xl py-14 flex flex-col items-center gap-3"
+      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+      <span className="text-5xl">📭</span>
+      <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.35)" }}>No records yet</p>
+      <p className="text-xs text-center px-10" style={{ color: "rgba(255,255,255,0.2)" }}>{label}</p>
     </div>
   );
 }
 
-// ─── MATCH HISTORY TAB ────────────────────────────────────────────────────────
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
+// ── Stat chip strip ───────────────────────────────────────────────────────────
+function StatStrip({ items }: { items: { label: string; val: string; color: string; icon: string }[] }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+      {items.map(({ label, val, color, icon }) => (
+        <div key={label} className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <span className="text-sm">{icon}</span>
+          <div>
+            <div className="font-black text-sm leading-none" style={{ color }}>{val}</div>
+            <div className="text-[9px] font-bold uppercase tracking-wide mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{label}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function MatchRow({ match, onGoWallet }: { match: MatchRecord; onGoWallet: () => void }) {
-  const [expanded, setExpanded] = useState(false);
+// ── Generic transaction card ──────────────────────────────────────────────────
+function TxCard({ tx }: { tx: { id: string|number; type?: string; title: string; display: string; time: string; color: string; status?: string } }) {
+  const statusColor = tx.status === "completed" ? "#4ade80" : tx.status === "rejected" ? "#f87171" : "#f59e0b";
+  const statusLabel = tx.status === "completed" ? "Success" : tx.status === "rejected" ? "Failed" : tx.status === "pending" ? "Pending" : "";
+  const emoji = tx.type === "win" ? "🏆" : tx.type === "deposit" ? "💳" : tx.type === "withdraw" ? "🏦" : tx.type === "bonus" ? "🎁" : tx.type === "fee" ? "🎮" : "💰";
+  const isPlus = tx.display.startsWith("+");
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-2xl"
+      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${isPlus ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.08)"}` }}>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+        style={{ background: `${tx.color}15`, border: `1px solid ${tx.color}30` }}>
+        {emoji}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-white truncate">{tx.title}</p>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{tx.time}</span>
+          {statusLabel && (
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+              style={{ background: `${statusColor}18`, color: statusColor, border: `1px solid ${statusColor}35` }}>
+              {statusLabel}
+            </span>
+          )}
+        </div>
+      </div>
+      <span className="font-black text-sm shrink-0" style={{ color: tx.color }}>{tx.display}</span>
+    </div>
+  );
+}
+
+// ── Game match card (casual games) ────────────────────────────────────────────
+function GameCard({ match }: { match: MatchRecord }) {
+  const [open, setOpen] = useState(false);
   const isWin = match.result === "win";
   const net   = isWin ? match.prize - match.entryFee : -match.entryFee;
 
   return (
-    <motion.div
-      layout
-      className="rounded-2xl overflow-hidden cursor-pointer"
-      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${isWin ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.12)"}` }}
-      onClick={() => setExpanded((p) => !p)}
-    >
-      {/* Row summary */}
+    <motion.div layout className="rounded-2xl overflow-hidden cursor-pointer"
+      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${isWin ? "rgba(74,222,128,0.14)" : "rgba(248,113,113,0.1)"}` }}
+      onClick={() => setOpen(p => !p)}>
       <div className="flex items-center gap-3 p-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-          style={{ background: isWin ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${isWin ? "rgba(74,222,128,0.25)" : "rgba(248,113,113,0.2)"}` }}>
+          style={{ background: isWin ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.08)", border: `1px solid ${isWin ? "rgba(74,222,128,0.25)" : "rgba(248,113,113,0.18)"}` }}>
           {match.gameIcon}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-bold text-white truncate">{match.gameName}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-bold text-white">{match.gameName}</span>
             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0"
               style={{ background: isWin ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.12)", color: isWin ? "#4ade80" : "#f87171", border: `1px solid ${isWin ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.25)"}` }}>
               {isWin ? "WIN" : "LOSS"}
             </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{fmtDate(match.date)}</span>
-            <span className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
-            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Entry ₹{match.entryFee}</span>
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.28)" }}>{fmtDate(match.date)}</span>
+            <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.18)" }}>·</span>
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.28)" }}>Entry ₹{match.entryFee}</span>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className="font-black text-sm" style={{ color: isWin ? "#4ade80" : "#f87171" }}>
             {isWin ? `+₹${net}` : `-₹${Math.abs(net)}`}
           </span>
-          <motion.span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}
-            animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-            ▼
-          </motion.span>
+          <motion.span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}
+            animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.18 }}>▼</motion.span>
         </div>
       </div>
 
-      {/* Expandable details */}
       <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="overflow-hidden"
-          >
-            <div className="px-3 pb-3 space-y-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-
-              {/* Score comparison */}
-              {(match.userScore !== undefined && match.opponentScore !== undefined) && (
-                <div className="pt-3">
-                  <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Score</p>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 text-center">
-                      <div className="text-2xl font-black" style={{ color: isWin ? "#4ade80" : "#f87171" }}>{match.userScore}</div>
-                      <div className="text-[9px] font-bold mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>YOU</div>
-                    </div>
-                    <div className="text-lg font-black" style={{ color: "rgba(255,255,255,0.2)" }}>VS</div>
-                    <div className="flex-1 text-center">
-                      <div className="text-2xl font-black" style={{ color: isWin ? "#f87171" : "#4ade80" }}>{match.opponentScore}</div>
-                      <div className="text-[9px] font-bold mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
-                        {match.opponentName ?? "OPPONENT"}
-                      </div>
-                    </div>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <div className="px-3 pb-3 pt-2 space-y-2 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+              {match.userScore !== undefined && match.opponentScore !== undefined && (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 text-center p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <div className="text-xl font-black" style={{ color: isWin ? "#4ade80" : "#f87171" }}>{match.userScore}</div>
+                    <div className="text-[9px] font-bold mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>YOU</div>
                   </div>
-                  {/* Score bar */}
-                  {match.userScore + match.opponentScore > 0 && (() => {
-                    const total = match.userScore + match.opponentScore;
-                    const pct   = Math.round((match.userScore / total) * 100);
-                    return (
-                      <div className="mt-2 flex h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isWin ? "#4ade80" : "#f87171" }} />
-                        <div className="h-full flex-1" style={{ background: isWin ? "#f87171" : "#4ade80" }} />
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* Team stats */}
-              {match.teamStats && match.teamStats.length > 0 && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Team Stats</p>
-                  <div className="space-y-2">
-                    {match.teamStats.map((t) => (
-                      <div key={t.teamName} className="flex items-center gap-2.5 p-2 rounded-xl"
-                        style={{ background: `${t.color}0d`, border: `1px solid ${t.color}25` }}>
-                        <span className="text-base">{t.icon}</span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-black" style={{ color: t.color }}>{t.teamName}</span>
-                            {t.isPlayer && (
-                              <span className="text-[8px] font-black px-1 py-0.5 rounded"
-                                style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.3)" }}>
-                                YOU
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="font-black text-sm" style={{ color: t.color }}>{t.score}</span>
-                      </div>
-                    ))}
+                  <div className="text-base font-black" style={{ color: "rgba(255,255,255,0.2)" }}>VS</div>
+                  <div className="flex-1 text-center p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <div className="text-xl font-black" style={{ color: isWin ? "#f87171" : "#4ade80" }}>{match.opponentScore}</div>
+                    <div className="text-[9px] font-bold mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      {match.opponentName ?? "OPP"}
+                    </div>
                   </div>
                 </div>
               )}
-
-              {/* Prize / Fee breakdown */}
               <div className="flex gap-2">
-                <div className="flex-1 p-2 rounded-xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Entry</div>
-                  <div className="text-sm font-black" style={{ color: "#f87171" }}>₹{match.entryFee}</div>
-                </div>
-                <div className="flex-1 p-2 rounded-xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Prize</div>
-                  <div className="text-sm font-black" style={{ color: isWin ? "#4ade80" : "rgba(255,255,255,0.25)" }}>
-                    {isWin ? `₹${match.prize}` : "—"}
+                {[["Entry", `₹${match.entryFee}`, "#f87171"], ["Prize", isWin ? `₹${match.prize}` : "—", isWin ? "#4ade80" : "rgba(255,255,255,0.2)"], ["Net", isWin ? `+₹${net}` : `-₹${Math.abs(net)}`, isWin ? "#4ade80" : "#f87171"]].map(([l, v, c]) => (
+                  <div key={l} className="flex-1 text-center p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="text-xs font-black" style={{ color: c as string }}>{v}</div>
+                    <div className="text-[9px] font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.28)" }}>{l}</div>
                   </div>
-                </div>
-                <div className="flex-1 p-2 rounded-xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Net</div>
-                  <div className="text-sm font-black" style={{ color: isWin ? "#4ade80" : "#f87171" }}>
-                    {isWin ? `+₹${net}` : `-₹${Math.abs(net)}`}
-                  </div>
-                </div>
+                ))}
               </div>
-
-              {/* Admin-only God Mode bot marker */}
-              {match.isGodMode && (
-                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
-                  style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
-                  <span className="text-xs">⚡</span>
-                  <span className="text-[10px] font-black" style={{ color: "rgba(239,68,68,0.55)" }}>
-                    GOD MODE BOT · ₹{match.entryFee} tier · admin tag
-                  </span>
-                </div>
-              )}
             </div>
           </motion.div>
         )}
@@ -1236,79 +1081,287 @@ function MatchRow({ match, onGoWallet }: { match: MatchRecord; onGoWallet: () =>
   );
 }
 
-function MatchesTab({ onGoWallet }: { onGoWallet: () => void }) {
-  const { matches, totalEarnings, totalMatches, wins } = useMatchHistory();
-  const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
-  const totalFees = matches.reduce((s, m) => s + m.entryFee, 0);
-  const netProfit = totalEarnings - totalFees;
+// ── World War premium card ─────────────────────────────────────────────────────
+function WorldWarCard({ match }: { match: MatchRecord }) {
+  const [open, setOpen] = useState(false);
+  const isWin   = match.result === "win";
+  const net     = isWin ? match.prize - match.entryFee : -match.entryFee;
+  const myTeam  = match.teamStats?.find(t => t.isPlayer);
+  const oppTeam = match.teamStats?.find(t => !t.isPlayer);
+  const myAvg   = myTeam  ? Math.round(myTeam.score  / 3) : 0;
+  const oppAvg  = oppTeam ? Math.round(oppTeam.score / 3) : 0;
 
   return (
-    <div className="px-4 space-y-4">
+    <motion.div layout className="rounded-2xl overflow-hidden cursor-pointer"
+      style={{ background: "linear-gradient(145deg,#0a0510 0%,#080412 100%)", border: `1px solid ${isWin ? "rgba(255,215,0,0.2)" : "rgba(248,113,113,0.15)"}`, boxShadow: isWin ? "0 0 16px rgba(255,215,0,0.07)" : "none" }}
+      onClick={() => setOpen(p => !p)}>
 
-      {/* Top earnings + wallet shortcut card */}
-      <div className="rounded-2xl p-4 relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg,#0d1a0d 0%,#0a0a0f 60%,#120818 100%)", border: "1px solid rgba(74,222,128,0.2)", boxShadow: "0 0 28px rgba(74,222,128,0.07)" }}>
-        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle,rgba(74,222,128,0.12) 0%,transparent 70%)" }} />
-        <div className="flex items-start justify-between mb-4 relative z-10">
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-0.5" style={{ color: "rgba(74,222,128,0.5)" }}>
-              Total Match Earnings
-            </p>
-            <div className="font-black text-3xl leading-none" style={{ color: "#4ade80" }}>
-              ₹{totalEarnings.toFixed(0)}
-            </div>
-            <p className="text-[10px] mt-0.5 font-bold" style={{ color: netProfit >= 0 ? "rgba(74,222,128,0.6)" : "rgba(248,113,113,0.6)" }}>
-              Net P/L: {netProfit >= 0 ? "+" : ""}₹{netProfit.toFixed(0)}
-            </p>
+      {/* Team battle row */}
+      <div className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[9px] font-black tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>⚔️ WORLD WAR</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
+              style={{ background: isWin ? "rgba(255,215,0,0.15)" : "rgba(248,113,113,0.12)", color: isWin ? "#FFD700" : "#f87171", border: `1px solid ${isWin ? "rgba(255,215,0,0.3)" : "rgba(248,113,113,0.25)"}` }}>
+              {isWin ? "🏆 RANK #1" : "💀 RANK #2"}
+            </span>
+            {match.isGodMode && (
+              <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(239,68,68,0.12)", color: "rgba(239,68,68,0.6)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                ⚡GOD
+              </span>
+            )}
           </div>
-          <button onClick={onGoWallet}
-            className="px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5"
-            style={{ background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700" }}>
-            💰 Wallet
-          </button>
         </div>
-        <div className="grid grid-cols-3 gap-2 relative z-10">
-          {[
-            { label: "Matches",  val: `${totalMatches}`,  color: "#a78bfa" },
-            { label: "Wins",     val: `${wins}`,           color: "#4ade80" },
-            { label: "Win Rate", val: `${winRate}%`,       color: "#FFD700" },
-          ].map(({ label, val, color }) => (
-            <div key={label} className="rounded-xl p-2.5 text-center"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="font-black text-lg leading-none" style={{ color }}>{val}</div>
-              <div className="text-[9px] font-bold mt-0.5 uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</div>
+
+        {/* KARNA vs ARJUN cards */}
+        <div className="flex items-center gap-2">
+          {/* My team */}
+          {myTeam && (
+            <div className="flex-1 p-2.5 rounded-xl relative"
+              style={{ background: `${myTeam.color}12`, border: `1.5px solid ${myTeam.color}40` }}>
+              <div className="absolute -top-1.5 left-2">
+                <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full"
+                  style={{ background: "rgba(255,215,0,0.2)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.4)" }}>YOU</span>
+              </div>
+              <div className="text-center mt-1">
+                <div className="text-lg mb-0.5">{myTeam.icon}</div>
+                <div className="text-[10px] font-black" style={{ color: myTeam.color }}>{myTeam.teamName}</div>
+                <div className="text-xl font-black text-white mt-1">{myTeam.score}</div>
+                <div className="text-[9px] font-bold mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Avg {myAvg}/min</div>
+              </div>
             </div>
-          ))}
+          )}
+
+          {/* VS + result */}
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <div className="text-base font-black" style={{ color: "rgba(255,255,255,0.3)" }}>VS</div>
+            <div className="text-xl font-black" style={{ color: isWin ? "#4ade80" : "#f87171" }}>
+              {isWin ? "WIN" : "LOSS"}
+            </div>
+          </div>
+
+          {/* Opponent team */}
+          {oppTeam && (
+            <div className="flex-1 p-2.5 rounded-xl"
+              style={{ background: `${oppTeam.color}0d`, border: `1px solid ${oppTeam.color}25` }}>
+              <div className="text-center">
+                <div className="text-lg mb-0.5">{oppTeam.icon}</div>
+                <div className="text-[10px] font-black" style={{ color: oppTeam.color }}>{oppTeam.teamName}</div>
+                <div className="text-xl font-black text-white mt-1">{oppTeam.score}</div>
+                <div className="text-[9px] font-bold mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Avg {oppAvg}/min</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom strip */}
+        <div className="flex items-center justify-between mt-2.5">
+          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.28)" }}>{fmtDate(match.date)}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.28)" }}>Entry ₹{match.entryFee}</span>
+            <span className="text-[10px] font-black" style={{ color: isWin ? "#4ade80" : "#f87171" }}>
+              {isWin ? `+₹${net}` : `-₹${Math.abs(net)}`}
+            </span>
+            <motion.span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}
+              animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.18 }}>▼</motion.span>
+          </div>
         </div>
       </div>
 
-      {/* Match list */}
-      {matches.length === 0 ? (
-        <div className="rounded-2xl py-14 flex flex-col items-center gap-3"
-          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <span className="text-4xl">🎮</span>
-          <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.35)" }}>No matches yet</p>
-          <p className="text-xs text-center px-8" style={{ color: "rgba(255,255,255,0.2)" }}>
-            Play any game to see your match history here
-          </p>
-        </div>
-      ) : (
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <div className="px-3 pb-3 border-t space-y-2" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+              <div className="pt-2 grid grid-cols-3 gap-2">
+                {[["Rank", isWin ? "#1" : "#2", isWin ? "#FFD700" : "#f87171"], ["My Score", `${myTeam?.score ?? 0}`, "#fff"], ["Prize", isWin ? `₹${match.prize}` : "—", isWin ? "#4ade80" : "rgba(255,255,255,0.25)"]].map(([l, v, c]) => (
+                  <div key={l} className="text-center p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="text-sm font-black" style={{ color: c as string }}>{v}</div>
+                    <div className="text-[9px] font-bold uppercase tracking-wide mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Score progress bar */}
+              {myTeam && oppTeam && myTeam.score + oppTeam.score > 0 && (() => {
+                const total = myTeam.score + oppTeam.score;
+                const pct   = Math.round((myTeam.score / total) * 100);
+                return (
+                  <div>
+                    <div className="flex justify-between text-[9px] font-bold mb-1">
+                      <span style={{ color: myTeam.color }}>{myTeam.teamName} {pct}%</span>
+                      <span style={{ color: oppTeam.color }}>{oppTeam.teamName} {100 - pct}%</span>
+                    </div>
+                    <div className="flex h-2 rounded-full overflow-hidden" style={{ background: `${oppTeam.color}30` }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: myTeam.color }} />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ── Main HistoryTab ───────────────────────────────────────────────────────────
+function HistoryTab({
+  transactions,
+}: {
+  transactions: Array<{
+    id: string|number; type: string; title: string; display: string;
+    time: string; color: string; status?: string; rawAmount: number; roomId?: string;
+  }>;
+}) {
+  const [sub, setSub] = useState<HistorySubTab>("all");
+  const { matches }   = useMatchHistory();
+
+  const gameMatches = useMemo(() => matches.filter(m => m.gameId !== "worldwar"), [matches]);
+  const warMatches  = useMemo(() => matches.filter(m => m.gameId === "worldwar"),  [matches]);
+  const deposits    = useMemo(() => transactions.filter(t => t.type === "deposit"),  [transactions]);
+  const withdrawals = useMemo(() => transactions.filter(t => t.type === "withdraw"), [transactions]);
+  const bonuses     = useMemo(() => transactions.filter(t => t.type === "bonus"),    [transactions]);
+
+  const totalDeposited  = deposits.reduce((s, t) => s + t.rawAmount, 0);
+  const totalWithdrawn  = withdrawals.reduce((s, t) => s + Math.abs(t.rawAmount), 0);
+  const totalBonus      = bonuses.reduce((s, t) => s + t.rawAmount, 0);
+  const gameWins        = gameMatches.filter(m => m.result === "win").length;
+  const warWins         = warMatches.filter(m => m.result === "win").length;
+  const gameEarnings    = gameMatches.reduce((s, m) => s + (m.prize || 0), 0);
+  const warEarnings     = warMatches.reduce((s, m) => s + (m.prize || 0), 0);
+
+  return (
+    <div className="px-4 space-y-4">
+      {/* Sub-tab strip */}
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        {SUB_TABS.map(({ id, label, icon }) => (
+          <button key={id} onClick={() => setSub(id)}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-all"
+            style={{
+              background: sub === id ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.05)",
+              border: `1.5px solid ${sub === id ? "rgba(255,215,0,0.55)" : "rgba(255,255,255,0.08)"}`,
+              color:  sub === id ? "#FFD700" : "rgba(255,255,255,0.45)",
+              boxShadow: sub === id ? "0 0 12px rgba(255,215,0,0.15)" : "none",
+            }}>
+            <span>{icon}</span><span>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── ALL ── */}
+      {sub === "all" && (() => {
+        const allTx = transactions;
+        return (
+          <>
+            <StatStrip items={[
+              { label: "Deposited",  val: fmt(totalDeposited),               color: "#3b82f6", icon: "💳" },
+              { label: "Withdrawn",  val: fmt(totalWithdrawn),                color: "#f59e0b", icon: "🏦" },
+              { label: "Bonus",      val: fmt(totalBonus),                    color: "#FFD700", icon: "🎁" },
+              { label: "Game Wins",  val: `${gameWins + warWins}`,            color: "#4ade80", icon: "🏆" },
+            ]} />
+            {allTx.length === 0 && matches.length === 0
+              ? <EmptyState label="Play games and add money to get started!" />
+              : (
+                <div className="space-y-2 pb-6">
+                  {allTx.map(tx => <TxCard key={tx.id} tx={tx} />)}
+                  {matches.map(m => (
+                    m.gameId === "worldwar"
+                      ? <WorldWarCard key={m.id} match={m} />
+                      : <GameCard     key={m.id} match={m} />
+                  ))}
+                </div>
+              )
+            }
+          </>
+        );
+      })()}
+
+      {/* ── GAMES ── */}
+      {sub === "games" && (
         <>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
-              Match History ({totalMatches})
-            </p>
-          </div>
-          <div className="space-y-2 pb-6">
-            {matches.map((m) => (
-              <MatchRow key={m.id} match={m} onGoWallet={onGoWallet} />
-            ))}
-          </div>
+          <StatStrip items={[
+            { label: "Matches",  val: `${gameMatches.length}`,       color: "#a78bfa", icon: "🎮" },
+            { label: "Wins",     val: `${gameWins}`,                 color: "#4ade80", icon: "🏆" },
+            { label: "Earned",   val: fmt(gameEarnings),             color: "#4ade80", icon: "💰" },
+            { label: "Win Rate", val: gameMatches.length > 0 ? `${Math.round(gameWins/gameMatches.length*100)}%` : "—", color: "#FFD700", icon: "📊" },
+          ]} />
+          {gameMatches.length === 0
+            ? <EmptyState label="Play casual games to see your game history here" />
+            : <div className="space-y-2 pb-6">{gameMatches.map(m => <GameCard key={m.id} match={m} />)}</div>
+          }
+        </>
+      )}
+
+      {/* ── WORLD WAR ── */}
+      {sub === "worldwar" && (
+        <>
+          <StatStrip items={[
+            { label: "Battles",  val: `${warMatches.length}`,        color: "#f87171", icon: "⚔️" },
+            { label: "Wins",     val: `${warWins}`,                  color: "#FFD700", icon: "🏆" },
+            { label: "Earned",   val: fmt(warEarnings),              color: "#4ade80", icon: "💰" },
+            { label: "Win Rate", val: warMatches.length > 0 ? `${Math.round(warWins/warMatches.length*100)}%` : "—", color: "#FFD700", icon: "📊" },
+          ]} />
+          {warMatches.length === 0
+            ? <EmptyState label="Play World War mode to see your battle history here" />
+            : <div className="space-y-2 pb-6">{warMatches.map(m => <WorldWarCard key={m.id} match={m} />)}</div>
+          }
+        </>
+      )}
+
+      {/* ── ADD MONEY ── */}
+      {sub === "deposit" && (
+        <>
+          <StatStrip items={[
+            { label: "Total Added",  val: fmt(totalDeposited),       color: "#3b82f6", icon: "💳" },
+            { label: "Transactions", val: `${deposits.length}`,      color: "#a78bfa", icon: "📊" },
+            { label: "Pending",      val: `${deposits.filter(t => t.status === "pending").length}`, color: "#f59e0b", icon: "⏳" },
+          ]} />
+          {deposits.length === 0
+            ? <EmptyState label="No deposits yet — add money to start playing!" />
+            : <div className="space-y-2 pb-6">{deposits.map(tx => <TxCard key={tx.id} tx={tx} />)}</div>
+          }
+        </>
+      )}
+
+      {/* ── WITHDRAWALS ── */}
+      {sub === "withdraw" && (
+        <>
+          <StatStrip items={[
+            { label: "Withdrawn",    val: fmt(totalWithdrawn),       color: "#f59e0b", icon: "🏦" },
+            { label: "Transactions", val: `${withdrawals.length}`,   color: "#a78bfa", icon: "📊" },
+            { label: "Pending",      val: `${withdrawals.filter(t => t.status === "pending").length}`, color: "#f59e0b", icon: "⏳" },
+          ]} />
+          {withdrawals.length === 0
+            ? <EmptyState label="No withdrawals yet — win games and cash out!" />
+            : <div className="space-y-2 pb-6">{withdrawals.map(tx => <TxCard key={tx.id} tx={tx} />)}</div>
+          }
+        </>
+      )}
+
+      {/* ── BONUS ── */}
+      {sub === "bonus" && (
+        <>
+          <StatStrip items={[
+            { label: "Total Bonus",  val: fmt(totalBonus),           color: "#FFD700", icon: "🎁" },
+            { label: "Rewards",      val: `${bonuses.length}`,       color: "#a78bfa", icon: "📊" },
+          ]} />
+          {bonuses.length === 0
+            ? <EmptyState label="Earn bonuses via referrals and daily offers!" />
+            : <div className="space-y-2 pb-6">{bonuses.map(tx => <TxCard key={tx.id} tx={tx} />)}</div>
+          }
         </>
       )}
     </div>
   );
+}
+
+// ─── DATE FORMAT ─────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
@@ -1352,7 +1405,6 @@ export default function WalletScreen({ onNavigate, onBack }: Props) {
     ["bonus",    "Bonus",    "🎁"],
     ["withdraw", "Withdraw", "🏦"],
     ["history",  "History",  "📋"],
-    ["matches",  "Matches",  "🎮"],
   ];
 
   return (
@@ -1434,7 +1486,6 @@ export default function WalletScreen({ onNavigate, onBack }: Props) {
               />
             )}
             {tab === "history" && <HistoryTab transactions={transactions} />}
-            {tab === "matches" && <MatchesTab onGoWallet={() => setTab("add")} />}
           </motion.div>
         </AnimatePresence>
       </div>
