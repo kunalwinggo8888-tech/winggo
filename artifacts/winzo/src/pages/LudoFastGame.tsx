@@ -21,7 +21,7 @@ import { useMatchHistory } from "@/context/useMatchHistory";
 const C          = 26;           // cell size px
 const SZ         = 15 * C;       // board size px
 const MAX_MOVES  = 50;
-const HOME_SCORE = 56;
+const HOME_SCORE = 25;
 const KILL_BONUS = 15;
 const BOT_NAMES  = ["ArjunBot","RajBot","VikramBot","PriyaBot","DevBot","KiranBot"];
 const EMOTES     = ["😂","👍","😤","🔥","🎉","💪","😱","🤙","👑","😎"];
@@ -93,51 +93,59 @@ function canMoveTok(step: number, dice: number): boolean {
 
 const PIPS: Record<number, [number, number][]> = {
   1: [[50,50]],
-  2: [[27,27],[73,73]],
-  3: [[27,27],[50,50],[73,73]],
-  4: [[27,27],[73,27],[27,73],[73,73]],
-  5: [[27,27],[73,27],[50,50],[27,73],[73,73]],
-  6: [[27,25],[73,25],[27,50],[73,50],[27,75],[73,75]],
+  2: [[28,28],[72,72]],
+  3: [[28,28],[50,50],[72,72]],
+  4: [[28,28],[72,28],[28,72],[72,72]],
+  5: [[28,28],[72,28],[50,50],[28,72],[72,72]],
+  6: [[28,24],[72,24],[28,50],[72,50],[28,76],[72,76]],
 };
 
 function Dice3D({ value, rolling, onClick, disabled }: {
   value: number; rolling: boolean; onClick: () => void; disabled: boolean;
 }) {
-  const sz  = 70;
-  const pip = sz * 0.125;
+  const sz   = 72;
   const dots = PIPS[value] ?? PIPS[1];
   return (
     <motion.div
       onClick={!disabled ? onClick : undefined}
-      whileTap={!disabled ? { scale: 0.9 } : {}}
-      style={{ cursor: disabled ? "not-allowed" : "pointer", userSelect: "none" }}
+      whileTap={!disabled ? { scale: 0.88 } : {}}
+      style={{ cursor: disabled ? "not-allowed" : "pointer", userSelect: "none", flexShrink: 0 }}
       animate={rolling
-        ? { rotate: [0,-38,38,-24,24,-12,12,0], scale: [1,1.3,0.82,1.2,0.9,1.1,1], y: [0,-22,8,-13,4,-6,0] }
+        ? { rotate: [0,-44,44,-28,28,-15,15,0], scale: [1,1.38,0.76,1.24,0.87,1.13,1], y: [0,-28,11,-16,5,-8,0] }
         : { rotate: 0, scale: 1, y: 0 }}
-      transition={{ duration: 0.7 }}
+      transition={{ duration: 0.72 }}
     >
       <div style={{
         width: sz, height: sz,
-        borderRadius: sz * 0.18,
-        background: "linear-gradient(145deg,#ffffff,#dde0f0)",
+        borderRadius: 16,
+        background: "#ffffff",
+        border: "2.5px solid #111111",
         boxShadow: rolling
-          ? `5px 5px 20px rgba(0,0,0,.75), inset -3px -3px 8px rgba(0,0,0,.12), inset 3px 3px 8px rgba(255,255,255,.9), 0 0 45px rgba(255,215,0,.95), 0 0 90px rgba(255,215,0,.4)`
+          ? "4px 6px 18px rgba(0,0,0,0.75), -2px -2px 6px rgba(255,255,255,0.9), inset 0 2px 4px rgba(255,255,255,0.8), 0 0 50px rgba(255,215,0,1), 0 0 100px rgba(255,215,0,0.55)"
           : disabled
-          ? `3px 3px 10px rgba(0,0,0,.4), inset -2px -2px 5px rgba(0,0,0,.1), inset 2px 2px 5px rgba(255,255,255,.85)`
-          : `4px 4px 16px rgba(0,0,0,.6), inset -2px -2px 6px rgba(0,0,0,.1), inset 2px 2px 6px rgba(255,255,255,.9), 0 0 26px rgba(255,215,0,.55)`,
-        opacity: disabled && !rolling ? 0.55 : 1,
-        transition: "box-shadow 0.2s, opacity 0.2s",
-        flexShrink: 0,
+          ? "2px 3px 8px rgba(0,0,0,0.4)"
+          : "4px 6px 14px rgba(0,0,0,0.6), -2px -2px 5px rgba(255,255,255,0.7), inset 0 2px 3px rgba(255,255,255,0.6), 0 0 22px rgba(255,215,0,0.5)",
+        opacity: disabled && !rolling ? 0.48 : 1,
+        transition: "box-shadow 0.22s, opacity 0.22s",
+        position: "relative",
       }}>
-        <svg width={sz} height={sz} viewBox="0 0 100 100">
-          <defs>
-            <radialGradient id="pip-grad2" cx="30%" cy="30%">
-              <stop offset="0%" stopColor="#1e1b4b" />
-              <stop offset="100%" stopColor="#06040e" />
-            </radialGradient>
-          </defs>
+        <svg width={sz} height={sz} viewBox="0 0 100 100" style={{ display: "block" }}>
+          {/* Top-left 3D bevel highlight */}
+          <rect x={3} y={3} width={93} height={93} rx={14}
+            fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2.5} />
+          {/* Bottom-right shadow inset */}
+          <rect x={5} y={5} width={91} height={91} rx={12}
+            fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={1.5} />
+          {/* Pips */}
           {dots.map(([cx, cy], i) => (
-            <circle key={i} cx={cx} cy={cy} r={pip * 50} fill="url(#pip-grad2)" />
+            <g key={i}>
+              {/* pip drop shadow */}
+              <circle cx={cx+1} cy={cy+1.5} r={8.5} fill="rgba(0,0,0,0.22)" />
+              {/* pip face */}
+              <circle cx={cx} cy={cy} r={8.5} fill="#111111" />
+              {/* pip inner shine */}
+              <circle cx={cx-2.5} cy={cy-2.5} r={2.8} fill="rgba(255,255,255,0.18)" />
+            </g>
           ))}
         </svg>
       </div>
@@ -149,10 +157,15 @@ function Dice3D({ value, rolling, onClick, disabled }: {
 
 function Board({
   pTokens, bTokens, validTokens, highlightKill, onSelect,
+  pScore, bScore, pMoves, bMoves, turn, botName,
 }: {
   pTokens: number[]; bTokens: number[];
   validTokens: number[]; highlightKill: boolean;
   onSelect: (ti: number) => void;
+  pScore: number; bScore: number;
+  pMoves: number; bMoves: number;
+  turn: "player" | "bot";
+  botName: string;
 }) {
   // Build cell → token list
   type Tok = { pi: number; ti: number; step: number };
@@ -251,6 +264,91 @@ function Board({
       <line x1={6*C} y1={9*C} x2={6*C} y2={SZ}  stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
       <line x1={9*C} y1={9*C} x2={9*C} y2={SZ}  stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
 
+      {/* ── Active-turn glow border on the zone ── */}
+      {turn === "player" && (
+        <rect x={1} y={1} width={6*C-2} height={6*C-2}
+          fill="none" stroke="#ef4444" strokeWidth={3} rx={3} opacity={0.65}
+          style={{ animation: "zone-pulse 0.9s ease-in-out infinite alternate" }} />
+      )}
+      {turn === "bot" && (
+        <rect x={9*C+1} y={1} width={6*C-2} height={6*C-2}
+          fill="none" stroke="#3b82f6" strokeWidth={3} rx={3} opacity={0.65}
+          style={{ animation: "zone-pulse 0.9s ease-in-out infinite alternate" }} />
+      )}
+
+      {/* ── Score inside RED home base (YOU) ── */}
+      {/* Overlay tinted panel */}
+      <rect x={C+4} y={C+4} width={4*C-8} height={4*C-8} rx={6}
+        fill="rgba(220,38,38,0.08)" />
+      {/* "YOU" label */}
+      <text x={3*C} y={C + 4*C*0.22}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={C*0.45} fontWeight="900" fill="#dc2626"
+        letterSpacing="2" style={{ userSelect: "none" }}>YOU</text>
+      {/* Score number */}
+      <text x={3*C} y={C + 4*C*0.52}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={C*1.0} fontWeight="900" fill="#dc2626"
+        style={{ userSelect: "none", filter: "drop-shadow(0 0 4px rgba(220,38,38,0.5))" }}>
+        {pScore}
+      </text>
+      {/* Moves left */}
+      <text x={3*C} y={C + 4*C*0.82}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={C*0.35} fontWeight="700" fill="#9f1239"
+        style={{ userSelect: "none" }}>
+        {MAX_MOVES - pMoves} moves
+      </text>
+      {/* TURN indicator badge */}
+      {turn === "player" && (
+        <>
+          <rect x={3*C - C*0.85} y={C + 4*C*0.9} width={C*1.7} height={C*0.36} rx={4}
+            fill="#dc2626" opacity={0.9}
+            style={{ animation: "zone-pulse 0.7s ease-in-out infinite alternate" }} />
+          <text x={3*C} y={C + 4*C*0.9 + C*0.18}
+            textAnchor="middle" dominantBaseline="middle"
+            fontSize={C*0.28} fontWeight="900" fill="white" letterSpacing="1"
+            style={{ userSelect: "none" }}>YOUR TURN</text>
+        </>
+      )}
+
+      {/* ── Score inside BLUE home base (BOT) ── */}
+      <rect x={10*C+4} y={C+4} width={4*C-8} height={4*C-8} rx={6}
+        fill="rgba(37,99,235,0.08)" />
+      {/* Bot name label */}
+      <text x={12*C} y={C + 4*C*0.22}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={C*0.4} fontWeight="900" fill="#2563eb"
+        letterSpacing="1" style={{ userSelect: "none" }}>
+        {botName.slice(0, 7).toUpperCase()}
+      </text>
+      {/* Score number */}
+      <text x={12*C} y={C + 4*C*0.52}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={C*1.0} fontWeight="900" fill="#2563eb"
+        style={{ userSelect: "none", filter: "drop-shadow(0 0 4px rgba(37,99,235,0.5))" }}>
+        {bScore}
+      </text>
+      {/* Moves left */}
+      <text x={12*C} y={C + 4*C*0.82}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={C*0.35} fontWeight="700" fill="#1e40af"
+        style={{ userSelect: "none" }}>
+        {MAX_MOVES - bMoves} moves
+      </text>
+      {/* TURN indicator badge */}
+      {turn === "bot" && (
+        <>
+          <rect x={12*C - C*0.85} y={C + 4*C*0.9} width={C*1.7} height={C*0.36} rx={4}
+            fill="#2563eb" opacity={0.9}
+            style={{ animation: "zone-pulse 0.7s ease-in-out infinite alternate" }} />
+          <text x={12*C} y={C + 4*C*0.9 + C*0.18}
+            textAnchor="middle" dominantBaseline="middle"
+            fontSize={C*0.28} fontWeight="900" fill="white" letterSpacing="1"
+            style={{ userSelect: "none" }}>BOT TURN</text>
+        </>
+      )}
+
       {/* ── Tokens ── */}
       {Array.from(cellMap.entries()).map(([key, toks]) => {
         const [row, col] = key.split(",").map(Number);
@@ -305,7 +403,8 @@ function Board({
       })}
 
       <style>{`
-        @keyframes ludo-pulse { from { opacity: 0.3; r: ${r+3}px; } to { opacity: 1; r: ${r+7}px; } }
+        @keyframes ludo-pulse { from { opacity: 0.3; } to { opacity: 1; } }
+        @keyframes zone-pulse { from { opacity: 0.35; } to { opacity: 0.85; } }
       `}</style>
     </svg>
   );
@@ -722,7 +821,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
           {[
             ["🎲", "Every step moved", "+1 pt"],
-            ["🏠", "Token reaches Home", "+56 pts bonus"],
+            ["🏠", "Token reaches Home", "+25 pts bonus"],
             ["💀", "Kill opponent token", "+15 pts"],
             ["6️⃣", "Rolling 6 or kill", "Extra Turn"],
           ].map(([icon, label, val]) => (
@@ -839,10 +938,37 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         </div>
       </div>
 
-      {/* ── Score header ── */}
-      <div className="px-3 mb-2 flex-shrink-0">
-        <ScoreHeader pScore={pScore} bScore={bScore} pMoves={pMoves} bMoves={bMoves}
-          turn={turn} tier={tier} botName={botName.current} />
+      {/* ── Compact turn / fee strip ── */}
+      <div className="flex items-center justify-between px-3 pb-1 flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          <motion.div className="w-2.5 h-2.5 rounded-full"
+            style={{ background: "#ef4444", boxShadow: turn === "player" ? "0 0 8px #ef4444" : "none" }}
+            animate={turn === "player" ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+            transition={{ duration: 0.7, repeat: Infinity }} />
+          <span className="text-[10px] font-black" style={{ color: turn === "player" ? "#ef4444" : "rgba(255,255,255,0.3)" }}>YOU</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {/* Tier badge */}
+          <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
+            style={{
+              background: tier === "god" ? "rgba(255,59,92,0.15)" : tier === "medium" ? "rgba(249,115,22,0.15)" : "rgba(74,222,128,0.12)",
+              color: tier === "god" ? "#ff3b5c" : tier === "medium" ? "#f97316" : "#4ade80",
+              border: `1px solid ${tier === "god" ? "rgba(255,59,92,0.4)" : tier === "medium" ? "rgba(249,115,22,0.4)" : "rgba(74,222,128,0.35)"}`,
+            }}>
+            {tier === "god" ? "⚡ GOD" : tier === "medium" ? "🔶 MED" : "🟢 EASY"}
+          </span>
+          <span className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.25)" }}>·</span>
+          <span className="text-[10px] font-black" style={{ color: "rgba(255,215,0,0.7)" }}>
+            {isFreeMode ? "FREE" : `₹${initialFee}`}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-black" style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.3)" }}>BOT</span>
+          <motion.div className="w-2.5 h-2.5 rounded-full"
+            style={{ background: "#3b82f6", boxShadow: turn === "bot" ? "0 0 8px #3b82f6" : "none" }}
+            animate={turn === "bot" ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+            transition={{ duration: 0.7, repeat: Infinity }} />
+        </div>
       </div>
 
       {/* ── Extra turn banner ── */}
@@ -882,7 +1008,9 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         </AnimatePresence>
 
         <Board pTokens={pTokens} bTokens={bTokens} validTokens={validToks}
-          highlightKill={killFlash} onSelect={handleTokenSelect} />
+          highlightKill={killFlash} onSelect={handleTokenSelect}
+          pScore={pScore} bScore={bScore} pMoves={pMoves} bMoves={bMoves}
+          turn={turn} botName={botName.current} />
       </div>
 
       {/* ── Bottom controls ── */}
