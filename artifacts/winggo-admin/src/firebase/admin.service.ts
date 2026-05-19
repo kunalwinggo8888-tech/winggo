@@ -873,6 +873,55 @@ export async function rejectScreenshotDeposit(requestId: string, adminUid: strin
   });
 }
 
+// ─── WALLET: Admin balance adjustment ─────────────────────────────────────────
+
+export async function setUserWallet(
+  uid: string,
+  updates: { deposit?: number; winning?: number; bonus?: number },
+): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await setDoc(doc(adminDb, "wallets", uid), updates, { merge: true });
+}
+
+export async function subscribeUserWallet(
+  uid: string,
+  cb: (w: { deposit: number; winning: number; bonus: number }) => void,
+): Promise<() => void> {
+  if (!FIREBASE_ENABLED || !adminDb) { cb({ deposit: 0, winning: 0, bonus: 0 }); return () => {}; }
+  return onSnapshot(doc(adminDb, "wallets", uid), (snap) => {
+    const d = snap.data() ?? {};
+    cb({ deposit: (d.deposit as number) ?? 0, winning: (d.winning as number) ?? 0, bonus: (d.bonus as number) ?? 0 });
+  });
+}
+
+// ─── ADMIN BANNERS ────────────────────────────────────────────────────────────
+
+export interface AdminBanner {
+  id:        string;
+  imageUrl:  string;
+  title:     string;
+  isActive:  boolean;
+}
+
+export function subscribeAdminBanners(cb: (banners: AdminBanner[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) {
+    cb([
+      { id: "1", imageUrl: "", title: "Welcome Banner", isActive: true },
+      { id: "2", imageUrl: "", title: "Tournament Banner", isActive: true },
+    ]);
+    return () => {};
+  }
+  return onSnapshot(doc(adminDb, "config", "banners"), (snap) => {
+    const data = snap.data();
+    cb(Array.isArray(data?.items) ? (data.items as AdminBanner[]) : []);
+  });
+}
+
+export async function saveAdminBanners(banners: AdminBanner[]): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await setDoc(doc(adminDb, "config", "banners"), { items: banners, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 // ─── RE-EXPORTS ───────────────────────────────────────────────────────────────
 
 export { FIREBASE_ENABLED };
