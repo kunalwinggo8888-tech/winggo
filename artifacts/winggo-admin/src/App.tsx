@@ -15,6 +15,8 @@ import PageSecurity       from "@/pages/PageSecurity";
 import PageCodeEditor     from "@/pages/PageCodeEditor";
 import PageVersions       from "@/pages/PageVersions";
 import PageStaff          from "@/pages/PageStaff";
+import RecoveryPanel from "@/pages/RecoveryPanel";
+import { isRecoveryEmailLink } from "@/firebase/recovery.service";
 import {
   hasAdminSession, clearAdminSession,
   hasStaffSession, clearStaffSession,
@@ -22,6 +24,9 @@ import {
 
 type AppMode   = "admin" | "staff" | "none";
 type LoginMode = "admin" | "staff";
+
+/** True when this page load is a Firebase email-link redirect for recovery */
+const landedOnRecoveryLink = isRecoveryEmailLink();
 
 const PAGE_META: Record<AdminPage, { icon: string; title: string }> = {
   dashboard:     { icon: "📊", title: "Dashboard Overview"           },
@@ -38,12 +43,14 @@ const PAGE_META: Record<AdminPage, { icon: string; title: string }> = {
 };
 
 export default function App() {
-  const [mode,        setMode]       = useState<AppMode>(() => {
+  const [mode,         setMode]        = useState<AppMode>(() => {
     if (hasAdminSession()) return "admin";
     if (hasStaffSession()) return "staff";
     return "none";
   });
-  const [loginMode,   setLoginMode]  = useState<LoginMode>("admin");
+  const [loginMode,    setLoginMode]   = useState<LoginMode>("admin");
+  // Show recovery panel when explicitly requested OR when Firebase redirected back here
+  const [showRecovery, setShowRecovery] = useState(() => landedOnRecoveryLink);
   const [page,        setPage]       = useState<AdminPage>("dashboard");
   const [pageTab,     setPageTab]    = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -66,6 +73,16 @@ export default function App() {
     setLoginMode("admin");
   }
 
+  // ── Emergency recovery panel ───────────────────────────────────────────────
+  if (showRecovery) {
+    return (
+      <RecoveryPanel
+        onBack={() => setShowRecovery(false)}
+        onRecovered={() => { setShowRecovery(false); setMode("admin"); }}
+      />
+    );
+  }
+
   // ── Staff portal ───────────────────────────────────────────────────────────
   if (mode === "staff") {
     return <StaffDashboard onLogout={handleStaffLogout} />;
@@ -85,6 +102,7 @@ export default function App() {
       <AdminLogin
         onLogin={() => setMode("admin")}
         onStaffLogin={() => setLoginMode("staff")}
+        onRecovery={() => setShowRecovery(true)}
       />
     );
   }

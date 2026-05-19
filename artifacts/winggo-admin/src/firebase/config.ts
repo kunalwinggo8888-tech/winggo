@@ -61,7 +61,7 @@ export function clearStaffSession(): void { sessionStorage.removeItem(STAFF_SESS
  *  - Falls back to demo mode when Firebase is not configured
  */
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getFirestore, Firestore, doc, getDoc } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getDatabase, Database } from "firebase/database";
@@ -140,6 +140,9 @@ async function generateSessionToken(adminId: string, passwordHash: string): Prom
   return sha256(payload);
 }
 
+/** Export session saver so recovery flow can create a session after restoring creds */
+export function saveAdminSession(token: string): void { saveSession(token); }
+
 /** Save session to sessionStorage (cleared when browser tab closes) */
 function saveSession(token: string): void {
   const session: AdminSession = { token, expiresAt: Date.now() + SESSION_TTL };
@@ -173,10 +176,40 @@ export function clearAdminSession(): void {
 }
 
 /**
+ * Read the Firestore credential override written by the recovery system.
+ * Returns null if no override exists or Firebase is unavailable.
+ */
+async function getAdminConfigOverride(): Promise<{
+  adminId: string;
+  passwordHash: string;
+} | null> {
+  if (!FIREBASE_ENABLED || !_db) return null;
+  try {
+    const snap = await getDoc(doc(_db, "system/admin_config"));
+    if (!snap.exists()) return null;
+    const data = snap.data() as {
+      adminId?: string;
+      passwordHash?: string;
+      version?: number;
+    };
+    // version:2 sentinel confirms this is a recovery-written override
+    if (data.version === 2 && data.adminId && data.passwordHash) {
+      return { adminId: data.adminId, passwordHash: data.passwordHash };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Validate admin credentials.
- * Compares the provided username against VITE_ADMIN_ID and the
- * SHA-256 hash of the provided password against VITE_ADMIN_PASSWORD_HASH.
- * Both values are set as environment variables and never stored in code.
+ *
+ * Priority order:
+ *  1. Firestore override (system/admin_config) — written by the emergency
+ *     recovery flow. Lets recovered credentials work without rebuilding.
+ *  2. Env vars VITE_ADMIN_ID + VITE_ADMIN_PASSWORD_HASH — normal login path.
+ *  3. Hardcoded demo fallback — only when both env vars are absent.
  */
 export async function adminSignIn(
   adminId: string,
@@ -186,39 +219,47 @@ export async function adminSignIn(
     return { success: false, error: "Enter your Admin ID and password." };
   }
 
-  // Read expected credentials from env vars (set via Replit secrets/env)
-  const expectedId       = import.meta.env.VITE_ADMIN_ID           ?? "";
-  const expectedPassHash = import.meta.env.VITE_ADMIN_PASSWORD_HASH ?? "";
-
-  // Fallback for when env vars aren't set (dev/demo mode)
-  const useFallback = !expectedId || !expectedPassHash;
-
   try {
-    if (useFallback) {
-      // Demo fallback — only if env vars are missing
-      if (adminId === "kunalwinggo" && password === "winggokunal") {
-        const token = await generateSessionToken(adminId, "demo");
+    // ── Priority 1: Check Firestore recovery override ─────────────────────
+    const override = await getAdminConfigOverride();
+    if (override) {
+      const enteredHash = await sha256(password);
+      if (
+        adminId.trim() === override.adminId &&
+        enteredHash     === override.passwordHash
+      ) {
+        const token = await generateSessionToken(adminId, enteredHash);
         saveSession(token);
         return { success: true };
       }
-      return { success: false, error: "❌ Invalid Admin ID or password." };
+      // Override exists but creds don't match → fall through to env vars
     }
 
-    // ID check (case-sensitive)
-    if (adminId.trim() !== expectedId.trim()) {
-      return { success: false, error: "❌ Invalid Admin ID or password." };
+    // ── Priority 2: Env var credentials ──────────────────────────────────
+    const expectedId       = import.meta.env.VITE_ADMIN_ID            ?? "";
+    const expectedPassHash = import.meta.env.VITE_ADMIN_PASSWORD_HASH ?? "";
+    const useFallback      = !expectedId || !expectedPassHash;
+
+    if (!useFallback) {
+      if (adminId.trim() !== expectedId.trim()) {
+        return { success: false, error: "❌ Invalid Admin ID or password." };
+      }
+      const enteredHash = await sha256(password);
+      if (enteredHash !== expectedPassHash) {
+        return { success: false, error: "❌ Invalid Admin ID or password." };
+      }
+      const token = await generateSessionToken(adminId, enteredHash);
+      saveSession(token);
+      return { success: true };
     }
 
-    // Hash the entered password and compare
-    const enteredHash = await sha256(password);
-    if (enteredHash !== expectedPassHash) {
-      return { success: false, error: "❌ Invalid Admin ID or password." };
+    // ── Priority 3: Demo fallback (env vars absent) ───────────────────────
+    if (adminId === "kunalwinggo" && password === "winggokunal") {
+      const token = await generateSessionToken(adminId, "demo");
+      saveSession(token);
+      return { success: true };
     }
-
-    // Generate and persist session token
-    const token = await generateSessionToken(adminId, enteredHash);
-    saveSession(token);
-    return { success: true };
+    return { success: false, error: "❌ Invalid Admin ID or password." };
 
   } catch {
     return { success: false, error: "Authentication error. Please try again." };

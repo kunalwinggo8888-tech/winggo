@@ -7,9 +7,9 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminSignIn } from "@/firebase/config";
 
-interface Props { onLogin: () => void; onStaffLogin?: () => void; }
+interface Props { onLogin: () => void; onStaffLogin?: () => void; onRecovery?: () => void; }
 
-export default function AdminLogin({ onLogin, onStaffLogin }: Props) {
+export default function AdminLogin({ onLogin, onStaffLogin, onRecovery }: Props) {
   const [adminId, setAdminId]     = useState("");
   const [password, setPassword]   = useState("");
   const [showPass, setShowPass]   = useState(false);
@@ -288,6 +288,19 @@ export default function AdminLogin({ onLogin, onStaffLogin }: Props) {
                     <span key={b} className="text-[9px] font-bold" style={{ color: "rgba(0,212,255,0.2)" }}>{b}</span>
                   ))}
                 </div>
+
+                {/* Emergency recovery — very subtle, for owner use only */}
+                {onRecovery && (
+                  <button
+                    type="button"
+                    onClick={onRecovery}
+                    className="text-[8px] font-mono cursor-pointer transition-opacity opacity-25 hover:opacity-60"
+                    style={{ color: "rgba(255,80,0,0.9)", letterSpacing: "0.08em" }}
+                    title="Owner emergency recovery only">
+                    🔑 Emergency Owner Recovery
+                  </button>
+                )}
+
                 <p className="text-[9px] font-mono" style={{ color: "rgba(255,255,255,0.12)" }}>
                   WINGGO ADMIN · UNAUTHORIZED ACCESS PROHIBITED
                 </p>
