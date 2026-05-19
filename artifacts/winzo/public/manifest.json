@@ -2,8 +2,8 @@
   "name": "WINGGO — Play More Win More",
   "short_name": "WINGGO",
   "description": "India's real-money skill gaming platform. Play Ludo, Carrom, Cricket & more to win instant cash rewards.",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0f",
@@ -12,13 +12,13 @@
   "categories": ["games", "entertainment", "finance"],
   "icons": [
     {
-      "src": "./icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
