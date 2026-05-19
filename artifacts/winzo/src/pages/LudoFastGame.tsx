@@ -1192,7 +1192,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-black" style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.3)" }}>BOT</span>
+          <span className="text-[10px] font-black" style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.3)" }}>{botRef.current.name}</span>
           <motion.div className="w-2.5 h-2.5 rounded-full"
             style={{ background: "#3b82f6", boxShadow: turn === "bot" ? "0 0 8px #3b82f6" : "none" }}
             animate={turn === "bot" ? { scale: [1, 1.35, 1] } : { scale: 1 }}
@@ -1293,7 +1293,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             {canRoll ? (
               <span className="text-[9px] font-black" style={{ color: "#FFD700" }}>TAP TO ROLL</span>
             ) : turn === "bot" ? (
-              <span className="text-[9px] font-black" style={{ color: "rgba(59,130,246,0.7)" }}>BOT THINKING…</span>
+              <span className="text-[9px] font-black" style={{ color: "rgba(59,130,246,0.7)" }}>{botRef.current.name} THINKING…</span>
             ) : validToks.length > 0 ? (
               <span className="text-[9px] font-black" style={{ color: "rgba(255,215,0,0.8)" }}>PICK TOKEN</span>
             ) : pMoves >= MAX_MOVES ? (
@@ -1320,7 +1320,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
           </div>
           <div className="flex-1">
             <div className="flex justify-between mb-0.5">
-              <span className="text-[8px] font-bold" style={{ color: "rgba(59,130,246,0.7)" }}>BOT</span>
+              <span className="text-[8px] font-bold" style={{ color: "rgba(59,130,246,0.7)" }}>{botRef.current.name.slice(0, 7)}</span>
               <span className="text-[8px] font-bold" style={{ color: "rgba(59,130,246,0.7)" }}>{bMoves}/{MAX_MOVES}</span>
             </div>
             <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
