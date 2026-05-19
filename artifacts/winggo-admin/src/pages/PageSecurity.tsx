@@ -1,311 +1,325 @@
+/**
+ * PageSecurity — 3 tabs: Admin Profile · Activity Logs · Fraud Detection
+ */
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const FRAUD_ALERTS = [
-  { id: "WG-2041", name: "Raj Verma",      reason: "Multiple accounts detected (3 devices)",  ip: "103.21.58.14",  risk: "critical", time: "2m ago",   action: "auto-blocked" },
-  { id: "WG-1897", name: "Ankit Tiwari",   reason: "Rapid win pattern — 94% win rate",          ip: "49.36.102.88",  risk: "high",     time: "18m ago",  action: "review" },
-  { id: "WG-3102", name: "Priyanka Sen",   reason: "VPN/proxy usage detected",                  ip: "185.220.101.4", risk: "high",     time: "34m ago",  action: "review" },
-  { id: "WG-0993", name: "Suresh Yadav",   reason: "Withdrawal attempt > deposit",               ip: "117.55.12.39",  risk: "medium",   time: "1h ago",   action: "flagged" },
-  { id: "WG-2211", name: "Meena Gupta",    reason: "Shared UPI across 2 accounts",              ip: "122.172.45.8",  risk: "medium",   time: "2h ago",   action: "flagged" },
-  { id: "WG-3304", name: "Farhan Khan",    reason: "Device ID matches banned account",           ip: "103.87.22.61",  risk: "critical", time: "3h ago",   action: "auto-blocked" },
-];
-
-const IP_LOGS = [
-  { ip: "103.21.58.14",  country: "🇮🇳 India",    users: 3,  logins: 28, flag: true  },
-  { ip: "185.220.101.4", country: "🇩🇪 Germany",   users: 1,  logins: 4,  flag: true  },
-  { ip: "49.36.102.88",  country: "🇮🇳 India",    users: 1,  logins: 12, flag: false },
-  { ip: "157.119.8.201", country: "🇮🇳 India",    users: 2,  logins: 9,  flag: false },
-  { ip: "103.87.22.61",  country: "🇮🇳 India",    users: 2,  logins: 6,  flag: true  },
-];
-
-const ADMIN_LOG = [
-  { admin: "admin@winggo.in",  action: "Approved withdrawal WD-4521",      time: "5m ago",   type: "wallet"   },
-  { admin: "admin@winggo.in",  action: "Banned user WG-2041",               time: "8m ago",   type: "ban"      },
-  { admin: "admin@winggo.in",  action: "KYC approved for WG-1001",          time: "22m ago",  type: "kyc"      },
-  { admin: "admin@winggo.in",  action: "Game Ludo entry fee changed to ₹5", time: "1h ago",   type: "game"     },
-  { admin: "admin@winggo.in",  action: "Rejected withdrawal WD-4517",       time: "2h ago",   type: "wallet"   },
-  { admin: "admin@winggo.in",  action: "Login from new IP 103.21.58.14",    time: "3h ago",   type: "login"    },
-];
-
-const RISK_CFG = {
-  critical: { bg: "rgba(239,68,68,0.12)",   color: "#ef4444", border: "rgba(239,68,68,0.28)"   },
-  high:     { bg: "rgba(249,115,22,0.12)",  color: "#f97316", border: "rgba(249,115,22,0.28)"  },
-  medium:   { bg: "rgba(245,158,11,0.12)",  color: "#f59e0b", border: "rgba(245,158,11,0.28)"  },
+const T = {
+  blue:"#00d4ff", green:"#00ff88", red:"#ff3366", gold:"#f59e0b",
+  muted:"rgba(226,232,240,0.4)", card:"rgba(0,212,255,0.04)", bdr:"rgba(0,212,255,0.13)",
 };
 
-const ACTION_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  "auto-blocked": { label: "Auto Blocked",  color: "#ef4444", bg: "rgba(239,68,68,0.10)"  },
-  "review":       { label: "Needs Review",  color: "#f59e0b", bg: "rgba(245,158,11,0.10)" },
-  "flagged":      { label: "Flagged",       color: "#f97316", bg: "rgba(249,115,22,0.10)" },
-};
-
-const SCORE_METRICS = [
-  { label: "Fraud Blocks",     value: "99.2%", color: "#34d399", icon: "🛡️" },
-  { label: "Fake Accounts",    value: "12",    color: "#ef4444", icon: "👥" },
-  { label: "VPN Detections",   value: "8",     color: "#f97316", icon: "🌐" },
-  { label: "Alerts Today",     value: "6",     color: "#f59e0b", icon: "🚨" },
+const TABS=[
+  {id:"profile", label:"👤 Admin Profile" },
+  {id:"actlogs", label:"📊 Activity Logs" },
+  {id:"fraud",   label:"🚨 Fraud Detection"},
 ];
 
-export default function PageSecurity() {
-  const [tab, setTab] = useState<"alerts" | "ip" | "log">("alerts");
-  const [alertFilter, setAlertFilter] = useState<"all" | "critical" | "high" | "medium">("all");
-  const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
-  const [score, setScore] = useState(0);
+function TabBar({tab,setTab}:{tab:string;setTab:(t:string)=>void}) {
+  return (
+    <div className="flex gap-1 px-4 py-2 overflow-x-auto sticky top-0 z-10"
+      style={{background:"rgba(7,11,18,0.95)",backdropFilter:"blur(10px)",
+        borderBottom:"1px solid rgba(0,212,255,0.1)",scrollbarWidth:"none"}}>
+      {TABS.map((t)=>{
+        const isA=tab===t.id;
+        return (
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            className="px-3 py-2 rounded-xl text-xs font-black cursor-pointer shrink-0"
+            style={{background:isA?"rgba(0,212,255,0.1)":"rgba(255,255,255,0.03)",
+              color:isA?T.blue:"rgba(226,232,240,0.45)",
+              border:`1px solid ${isA?"rgba(0,212,255,0.28)":"rgba(255,255,255,0.06)"}`}}>
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
-  useEffect(() => {
-    const t = setTimeout(() => setScore(87), 400);
-    return () => clearTimeout(t);
-  }, []);
+// ─── Admin Profile ────────────────────────────────────────────────────────────
 
-  const filtered = FRAUD_ALERTS.filter(a =>
-    alertFilter === "all" ? true : a.risk === alertFilter
-  ).filter(a => !resolvedIds.has(a.id));
+function ProfileTab() {
+  const [current,  setCurrent]  = useState("");
+  const [newPass,  setNewPass]  = useState("");
+  const [confirm,  setConfirm]  = useState("");
+  const [showPw,   setShowPw]   = useState(false);
+  const [saving,   setSaving]   = useState(false);
+  const [msg,      setMsg]      = useState<{type:"ok"|"err";text:string}|null>(null);
+
+  async function handleSave() {
+    if (!current || !newPass) { setMsg({type:"err",text:"Fill all fields."}); return; }
+    if (newPass!==confirm)    { setMsg({type:"err",text:"Passwords don't match."}); return; }
+    if (newPass.length<8)     { setMsg({type:"err",text:"Password must be 8+ characters."}); return; }
+    setSaving(true);
+    await new Promise(r=>setTimeout(r,1200));
+    setSaving(false);
+    setMsg({type:"ok",text:"Password updated successfully!"});
+    setCurrent(""); setNewPass(""); setConfirm("");
+    setTimeout(()=>setMsg(null),3000);
+  }
 
   return (
-    <div className="space-y-5">
-      {/* Header metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {SCORE_METRICS.map((m, i) => (
-          <motion.div key={m.label}
-            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-            className="rounded-2xl p-4"
-            style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${m.color}28` }}>
-            <div className="text-2xl mb-1.5">{m.icon}</div>
-            <div className="text-2xl font-black" style={{ color: m.color }}>{m.value}</div>
-            <div className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{m.label}</div>
-          </motion.div>
-        ))}
+    <div className="p-4 space-y-4">
+      {/* Admin info */}
+      <div className="rounded-2xl px-4 py-4 flex items-center gap-4"
+        style={{background:T.card,border:`1px solid ${T.bdr}`}}>
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black"
+          style={{background:"linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,85,255,0.2))",
+            border:"1.5px solid rgba(0,212,255,0.3)",color:T.blue}}>
+          ⚡
+        </div>
+        <div>
+          <p className="text-base font-black text-white">kunalwinggo</p>
+          <p className="text-xs mt-0.5" style={{color:T.muted}}>Super Admin · Full Access</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <motion.div className="w-1.5 h-1.5 rounded-full" style={{background:T.green}}
+              animate={{opacity:[1,0.3,1]}} transition={{duration:1.8,repeat:Infinity}} />
+            <span className="text-[10px] font-black" style={{color:T.green}}>AUTHENTICATED</span>
+          </div>
+        </div>
       </div>
 
-      {/* Security score + live threat banner */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Score gauge */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-          className="rounded-2xl p-5 flex flex-col items-center justify-center"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(52,211,153,0.15)" }}>
-          <div className="relative w-28 h-28">
-            <svg viewBox="0 0 100 100" className="w-full h-full rotate-[-90deg]">
-              <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
-              <motion.circle cx="50" cy="50" r="40" fill="none"
-                stroke={score >= 80 ? "#34d399" : score >= 60 ? "#f59e0b" : "#ef4444"}
-                strokeWidth="10" strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 40}`}
-                initial={{ strokeDashoffset: 2 * Math.PI * 40 }}
-                animate={{ strokeDashoffset: 2 * Math.PI * 40 * (1 - score / 100) }}
-                transition={{ duration: 1.2, ease: "easeOut" }} />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black" style={{ color: score >= 80 ? "#34d399" : "#f59e0b" }}>{score}</span>
-              <span className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>/ 100</span>
-            </div>
-          </div>
-          <p className="text-sm font-black text-white mt-3">Security Score</p>
-          <p className="text-[11px] mt-1" style={{ color: score >= 80 ? "#34d399" : "#f59e0b" }}>
-            {score >= 80 ? "🟢 Good — Platform Secure" : "🟡 Medium — Action Needed"}
-          </p>
-        </motion.div>
-
-        {/* Critical alerts banner */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="md:col-span-2 rounded-2xl p-5"
-          style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.18)" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <motion.div className="w-2 h-2 rounded-full bg-red-400"
-              animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} />
-            <h3 className="text-white font-black text-sm">🚨 Active Threat Monitor</h3>
-          </div>
-          <div className="space-y-2">
-            {FRAUD_ALERTS.filter(a => a.risk === "critical" && !resolvedIds.has(a.id)).slice(0, 3).map(a => (
-              <motion.div key={a.id} layout
-                className="flex items-center gap-3 px-3 py-2 rounded-xl"
-                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}>
-                <span className="text-lg shrink-0">🔴</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white">{a.name} <span style={{ color: "rgba(255,255,255,0.4)" }}>({a.id})</span></p>
-                  <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{a.reason}</p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <motion.button whileTap={{ scale: 0.94 }}
-                    onClick={() => setResolvedIds(prev => new Set([...prev, a.id]))}
-                    className="text-[10px] font-black px-2.5 py-1 rounded-lg cursor-pointer"
-                    style={{ background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)" }}>
-                    Resolve
-                  </motion.button>
-                </div>
-              </motion.div>
-            ))}
-            {FRAUD_ALERTS.filter(a => a.risk === "critical" && !resolvedIds.has(a.id)).length === 0 && (
-              <p className="text-xs text-center py-3" style={{ color: "#34d399" }}>✅ All critical alerts resolved</p>
-            )}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2">
-        {(["alerts", "ip", "log"] as const).map(t => (
-          <motion.button key={t} whileTap={{ scale: 0.95 }} onClick={() => setTab(t)}
-            className="px-4 py-2 rounded-xl text-xs font-black cursor-pointer capitalize"
-            style={{
-              background: tab === t ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.04)",
-              color: tab === t ? "#f87171" : "rgba(255,255,255,0.5)",
-              border: `1px solid ${tab === t ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.08)"}`,
-            }}>
-            {t === "alerts" ? "🚨 Fraud Alerts" : t === "ip" ? "🌐 IP Tracker" : "📋 Admin Log"}
-          </motion.button>
-        ))}
-      </div>
-
-      <AnimatePresence mode="wait">
-        {/* Fraud Alerts tab */}
-        {tab === "alerts" && (
-          <motion.div key="alerts" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="flex gap-2 mb-3 flex-wrap">
-              {(["all", "critical", "high", "medium"] as const).map(f => (
-                <button key={f} onClick={() => setAlertFilter(f)}
-                  className="px-3 py-1 rounded-lg text-[10px] font-black cursor-pointer capitalize"
-                  style={{
-                    background: alertFilter === f ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.04)",
-                    color: alertFilter === f ? "#f87171" : "rgba(255,255,255,0.4)",
-                    border: `1px solid ${alertFilter === f ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.07)"}`,
-                  }}>
-                  {f}
-                </button>
-              ))}
-            </div>
-            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                      {["User", "Reason", "IP", "Risk", "Time", "Status", "Actions"].map(h => (
-                        <th key={h} className="text-left px-4 py-2.5 font-black text-[10px] uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <AnimatePresence>
-                      {filtered.map((a, i) => {
-                        const rc = RISK_CFG[a.risk as keyof typeof RISK_CFG];
-                        const ac = ACTION_CFG[a.action];
-                        return (
-                          <motion.tr key={a.id} layout
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }}
-                            transition={{ delay: i * 0.04 }}
-                            style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.01)" }}>
-                            <td className="px-4 py-3">
-                              <p className="font-bold text-white">{a.name}</p>
-                              <p style={{ color: "rgba(255,255,255,0.35)" }}>{a.id}</p>
-                            </td>
-                            <td className="px-4 py-3 max-w-48">
-                              <p className="truncate" style={{ color: "rgba(255,255,255,0.6)" }}>{a.reason}</p>
-                            </td>
-                            <td className="px-4 py-3 font-mono" style={{ color: "#60a5fa" }}>{a.ip}</td>
-                            <td className="px-4 py-3">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase"
-                                style={{ background: rc.bg, color: rc.color, border: `1px solid ${rc.border}` }}>
-                                {a.risk}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3" style={{ color: "rgba(255,255,255,0.4)" }}>{a.time}</td>
-                            <td className="px-4 py-3">
-                              <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold"
-                                style={{ background: ac.bg, color: ac.color }}>{ac.label}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-1.5">
-                                <motion.button whileTap={{ scale: 0.93 }}
-                                  onClick={() => setResolvedIds(prev => new Set([...prev, a.id]))}
-                                  className="px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer"
-                                  style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" }}>
-                                  Resolve
-                                </motion.button>
-                                <motion.button whileTap={{ scale: 0.93 }}
-                                  className="px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer"
-                                  style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
-                                  Ban
-                                </motion.button>
-                              </div>
-                            </td>
-                          </motion.tr>
-                        );
-                      })}
-                    </AnimatePresence>
-                    {filtered.length === 0 && (
-                      <tr><td colSpan={7} className="text-center py-8 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        No alerts in this category
-                      </td></tr>
-                    )}
-                  </tbody>
-                </table>
+      {/* Change password */}
+      <div className="rounded-2xl overflow-hidden" style={{background:T.card,border:`1px solid ${T.bdr}`}}>
+        <div className="px-4 py-3" style={{borderBottom:`1px solid ${T.bdr}`}}>
+          <p className="text-sm font-black text-white">Change Password</p>
+        </div>
+        <div className="p-4 space-y-3">
+          {([
+            {label:"CURRENT PASSWORD", val:current, set:setCurrent},
+            {label:"NEW PASSWORD",     val:newPass, set:setNewPass},
+            {label:"CONFIRM NEW",      val:confirm, set:setConfirm},
+          ] as const).map(({label,val,set})=>(
+            <div key={label as string}>
+              <label className="text-[9px] font-black tracking-widest block mb-1.5" style={{color:"rgba(0,212,255,0.45)"}}>
+                {label as string}
+              </label>
+              <div className="relative">
+                <input type={showPw?"text":"password"} value={val as string}
+                  onChange={e=>(set as (v:string)=>void)(e.target.value)}
+                  className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm text-white outline-none font-mono"
+                  style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(0,212,255,0.18)",caretColor:T.blue}} />
+                <button onClick={()=>setShowPw(p=>!p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-sm"
+                  style={{color:T.muted}}>{showPw?"🙈":"👁️"}</button>
               </div>
             </div>
-          </motion.div>
-        )}
+          ))}
 
-        {/* IP Tracker tab */}
-        {tab === "ip" && (
-          <motion.div key="ip" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                    {["IP Address", "Country", "Users", "Logins", "Flagged", "Action"].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 font-black text-[10px] uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {IP_LOGS.map((row, i) => (
-                    <motion.tr key={row.ip} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.06 }}
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: row.flag ? "rgba(239,68,68,0.02)" : "transparent" }}>
-                      <td className="px-4 py-3 font-mono font-bold" style={{ color: row.flag ? "#f87171" : "#60a5fa" }}>{row.ip}</td>
-                      <td className="px-4 py-3 text-white">{row.country}</td>
-                      <td className="px-4 py-3 font-black" style={{ color: row.users > 1 ? "#f59e0b" : "#34d399" }}>{row.users}</td>
-                      <td className="px-4 py-3" style={{ color: "rgba(255,255,255,0.6)" }}>{row.logins}</td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
-                          style={{ background: row.flag ? "rgba(239,68,68,0.12)" : "rgba(52,211,153,0.10)", color: row.flag ? "#f87171" : "#34d399" }}>
-                          {row.flag ? "⚠️ Yes" : "✅ No"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <motion.button whileTap={{ scale: 0.93 }}
-                          className="px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer"
-                          style={{ background: "rgba(239,68,68,0.10)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
-                          Block IP
-                        </motion.button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+          <AnimatePresence>
+            {msg && (
+              <motion.div initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+                className="px-3 py-2 rounded-lg text-xs font-black"
+                style={{background:msg.type==="ok"?"rgba(0,255,136,0.1)":"rgba(255,51,102,0.1)",
+                  color:msg.type==="ok"?T.green:T.red,
+                  border:`1px solid ${msg.type==="ok"?"rgba(0,255,136,0.25)":"rgba(255,51,102,0.25)"}`}}>
+                {msg.text}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.button whileTap={{scale:0.97}} onClick={handleSave} disabled={saving}
+            className="w-full py-2.5 rounded-xl text-sm font-black cursor-pointer"
+            style={{background:"rgba(0,212,255,0.1)",color:T.blue,border:"1px solid rgba(0,212,255,0.25)"}}>
+            {saving?"Updating…":"🔒 Update Password"}
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Activity Logs ────────────────────────────────────────────────────────────
+
+const SAMPLE_LOGS = [
+  {id:"1", action:"Approved withdrawal ₹500",  user:"Rahul Kumar",  time:"2 min ago",  type:"approve"},
+  {id:"2", action:"Banned user for fraud",     user:"Priya Sharma", time:"18 min ago", type:"ban"},
+  {id:"3", action:"Updated game config",       user:"System",       time:"1 hr ago",   type:"config"},
+  {id:"4", action:"Rejected KYC request",      user:"Amit Singh",   time:"2 hr ago",   type:"reject"},
+  {id:"5", action:"Sent push notification",    user:"All Users",    time:"3 hr ago",   type:"notify"},
+  {id:"6", action:"Created promo code LUDO100",user:"System",       time:"5 hr ago",   type:"config"},
+  {id:"7", action:"Approved withdrawal ₹1200", user:"Sneha Patel",  time:"6 hr ago",   type:"approve"},
+  {id:"8", action:"Updated app config",        user:"System",       time:"8 hr ago",   type:"config"},
+];
+
+function ActivityLogsTab() {
+  const colors: Record<string,string> = {
+    approve:"#00ff88", ban:"#ff3366", config:"#00d4ff", reject:"#f59e0b", notify:"#a855f7",
+  };
+  const icons: Record<string,string> = {
+    approve:"✓", ban:"⊘", config:"⚙", reject:"✕", notify:"🔔",
+  };
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-white">Admin Activity Log</h3>
+        <span className="text-[10px] font-black px-2 py-0.5 rounded"
+          style={{background:"rgba(0,212,255,0.08)",color:T.blue}}>Live · Auto-refreshing</span>
+      </div>
+      <div className="space-y-2">
+        {SAMPLE_LOGS.map((log)=>{
+          const color = colors[log.type]??T.blue;
+          const icon  = icons[log.type]??"•";
+          return (
+            <div key={log.id} className="rounded-xl px-4 py-3 flex items-center gap-3"
+              style={{background:T.card,border:`1px solid ${T.bdr}`}}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shrink-0"
+                style={{background:`${color}15`,color,border:`1px solid ${color}25`}}>
+                {icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-white truncate">{log.action}</p>
+                <p className="text-[11px]" style={{color:T.muted}}>User: {log.user}</p>
+              </div>
+              <p className="text-[10px] shrink-0" style={{color:T.muted}}>{log.time}</p>
             </div>
-          </motion.div>
-        )}
+          );
+        })}
+      </div>
+      <div className="rounded-xl px-4 py-3 text-center" style={{background:"rgba(0,212,255,0.04)",border:"1px dashed rgba(0,212,255,0.15)"}}>
+        <p className="text-[11px]" style={{color:T.muted}}>Connect to Firestore <span className="font-mono text-white">adminLogs</span> collection for live history</p>
+      </div>
+    </div>
+  );
+}
 
-        {/* Admin log tab */}
-        {tab === "log" && (
-          <motion.div key="log" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="space-y-2">
-            {ADMIN_LOG.map((entry, i) => {
-              const typeColor: Record<string, string> = { wallet: "#34d399", ban: "#ef4444", kyc: "#a78bfa", game: "#60a5fa", login: "#f59e0b" };
-              return (
-                <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: typeColor[entry.type] ?? "#fff" }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white truncate">{entry.action}</p>
-                    <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>{entry.admin}</p>
+// ─── Fraud Detection ──────────────────────────────────────────────────────────
+
+const FRAUD_ALERTS = [
+  {id:"WG-2041", name:"Raj Verma",    reason:"Multiple accounts (3 devices)",  ip:"103.21.58.14", risk:"critical", time:"2m ago"  },
+  {id:"WG-2039", name:"Fake Account", reason:"Bot-like withdrawal pattern",     ip:"45.112.14.88", risk:"high",     time:"18m ago" },
+  {id:"WG-2035", name:"Priya K.",     reason:"Rapid same-UPI withdrawals",      ip:"192.168.1.1",  risk:"medium",   time:"1h ago"  },
+];
+
+function FraudTab() {
+  const [thresholds, setThresholds] = useState({
+    maxWithdrawPerHour: 3,
+    maxSameUPI:         5,
+    maxDevices:         2,
+    autoBlockOnFlag:    true,
+  });
+  const [saved, setSaved] = useState(false);
+
+  function Toggle({on,onChange}:{on:boolean;onChange:(v:boolean)=>void}) {
+    return (
+      <button onClick={()=>onChange(!on)} className="cursor-pointer shrink-0"
+        style={{width:40,height:22,borderRadius:11,position:"relative",
+          background:on?"rgba(0,212,255,0.22)":"rgba(255,255,255,0.07)",
+          border:`1.5px solid ${on?T.blue:"rgba(255,255,255,0.12)"}`,transition:"all 0.2s"}}>
+        <motion.div animate={{x:on?18:2}} transition={{type:"spring",stiffness:420,damping:28}}
+          style={{width:14,height:14,borderRadius:7,position:"absolute",top:2,
+            background:on?T.blue:"rgba(255,255,255,0.3)"}} />
+      </button>
+    );
+  }
+
+  const riskColor = (risk:string) =>
+    risk==="critical"?T.red:risk==="high"?T.gold:T.blue;
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Live alerts */}
+      <div className="rounded-2xl overflow-hidden" style={{background:T.card,border:`1px solid ${T.bdr}`}}>
+        <div className="px-4 py-3 flex items-center gap-2" style={{borderBottom:`1px solid ${T.bdr}`}}>
+          <p className="text-sm font-black text-white">🚨 Active Fraud Alerts</p>
+          <span className="ml-auto text-[10px] font-black px-2 py-0.5 rounded"
+            style={{background:"rgba(255,51,102,0.1)",color:T.red}}>{FRAUD_ALERTS.length} flagged</span>
+        </div>
+        <div className="p-3 space-y-2">
+          {FRAUD_ALERTS.map((a)=>{
+            const rc = riskColor(a.risk);
+            return (
+              <div key={a.id} className="rounded-xl px-3 py-3"
+                style={{background:"rgba(0,0,0,0.2)",border:`1px solid ${rc}22`}}>
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-black text-white">{a.name}</p>
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded"
+                        style={{background:`${rc}15`,color:rc}}>{a.risk.toUpperCase()}</span>
+                    </div>
+                    <p className="text-[11px] mt-0.5" style={{color:T.muted}}>{a.reason}</p>
+                    <p className="text-[10px] font-mono mt-0.5" style={{color:T.muted}}>IP: {a.ip} · {a.time}</p>
                   </div>
-                  <span className="text-[10px] shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>{entry.time}</span>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        )}
+                  <div className="flex gap-1.5 shrink-0">
+                    <button className="px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer"
+                      style={{background:"rgba(255,51,102,0.08)",color:T.red,border:"1px solid rgba(255,51,102,0.2)"}}>
+                      Block
+                    </button>
+                    <button className="px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer"
+                      style={{background:"rgba(255,255,255,0.04)",color:T.muted,border:"1px solid rgba(255,255,255,0.08)"}}>
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Trigger thresholds */}
+      <div className="rounded-2xl overflow-hidden" style={{background:T.card,border:`1px solid ${T.bdr}`}}>
+        <div className="px-4 py-3" style={{borderBottom:`1px solid ${T.bdr}`}}>
+          <p className="text-sm font-black text-white">Fraud Detection Thresholds</p>
+        </div>
+        <div className="p-4 space-y-3">
+          {([
+            {key:"maxWithdrawPerHour" as const, label:"Max Withdrawals/Hour",    unit:"requests"},
+            {key:"maxSameUPI"         as const, label:"Max Same-UPI Withdrawals",unit:"requests"},
+            {key:"maxDevices"         as const, label:"Max Devices per Account", unit:"devices"},
+          ]).map(({key,label,unit})=>(
+            <div key={key} className="flex items-center justify-between py-1">
+              <div>
+                <p className="text-sm font-bold text-white">{label}</p>
+                <p className="text-[10px]" style={{color:T.muted}}>Auto-flag if exceeded</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="number" value={thresholds[key]}
+                  onChange={e=>setThresholds(t=>({...t,[key]:parseInt(e.target.value)||1}))}
+                  className="w-14 text-center py-1.5 rounded-lg text-sm font-black text-white outline-none font-mono"
+                  style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(0,212,255,0.2)"}} />
+                <span className="text-[10px]" style={{color:T.muted}}>{unit}</span>
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between py-1">
+            <div>
+              <p className="text-sm font-bold text-white">Auto-Block on Flag</p>
+              <p className="text-[10px]" style={{color:T.muted}}>Instantly ban accounts that trigger fraud rules</p>
+            </div>
+            <Toggle on={thresholds.autoBlockOnFlag}
+              onChange={v=>setThresholds(t=>({...t,autoBlockOnFlag:v}))} />
+          </div>
+          <motion.button whileTap={{scale:0.97}} onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2000);}}
+            className="w-full py-2.5 rounded-xl text-sm font-black cursor-pointer"
+            style={{background:saved?"rgba(0,255,136,0.1)":"rgba(0,212,255,0.1)",
+              color:saved?T.green:T.blue,border:`1px solid ${saved?"rgba(0,255,136,0.3)":"rgba(0,212,255,0.25)"}`}}>
+            {saved?"✅ Rules Saved!":"🛡️ Save Fraud Rules"}
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function PageSecurity({ jumpTab="" }:{jumpTab?:string}) {
+  const [tab, setTab] = useState(jumpTab||"profile");
+  useEffect(()=>{ if (jumpTab) setTab(jumpTab); },[jumpTab]);
+
+  return (
+    <div className="flex flex-col min-h-full">
+      <TabBar tab={tab} setTab={setTab} />
+      <AnimatePresence mode="wait">
+        <motion.div key={tab} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
+          exit={{opacity:0,y:-4}} transition={{duration:0.15}}>
+          {tab==="profile" && <ProfileTab />}
+          {tab==="actlogs" && <ActivityLogsTab />}
+          {tab==="fraud"   && <FraudTab />}
+        </motion.div>
       </AnimatePresence>
     </div>
   );

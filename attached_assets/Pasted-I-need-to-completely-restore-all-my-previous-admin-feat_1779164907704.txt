@@ -1,0 +1,22 @@
+I need to completely restore all my previous admin features into this new V2 Dark Neon Blue layout without losing the Master Code Editor. Please restructure the sidebar into organized, collapsible categories and implement screens for each. Here is the full structure required:
+​📊 DASHBOARD OVERVIEW (Main Screen Metrics)
+​Cards showing: Total Users, Online Users, Total Deposit, Total Withdrawal, Daily Profit/Loss, and Active Games.
+​👥 USER MANAGEMENT
+​User List with Block/Unblock actions, Wallet Balance Add/Remove, KYC Verification panel, UPI Details Management, Referral History, and Login History.
+​💳 WALLET & TRANSACTION SYSTEM
+​Deposit Request Approve/Reject, Withdrawal Approve/Reject, Transaction History Logs, and Bonus/Coupon System management.
+​🎮 GAME SETTINGS & TOURNAMENTS (With Cloud Uploader)
+​Existing Ludo & World War config (Fees, Prize, Status).
+​Dynamic Cloud Uploader: HTML5/Unity WebGL .zip file uploader that updates the Firebase games collection.
+​Tournament Create panel, Match Timing configuration, Prize Pool setup, and Auto Winner Distribution toggles.
+​🎁 BANNER, OFFERS & MARKETING
+​Home Screen Banners (Karan Arjun style links), Promo Codes manager, Daily Rewards setup, and Spin Wheel Control probability settings.
+​🔔 NOTIFICATION & SOCIAL
+​Push Notification center, Announcement bar text manager, and Telegram/WhatsApp group link updates.
+​🔗 REFERRAL & EARNINGS CONFIG
+​Referral commission percentage settings, Level Income rules, and Invite Rewards management.
+​🔒 SECURITY & LOGS
+​Admin Login profile, 2FA settings, Activity Logs, and Fraud Detection triggers.
+​💻 MASTER CODE EDITOR (Keep Separate)
+​Keep the full dark-themed Ace/Monaco editor to modify live HTML, CSS, JavaScript, and Flutter config JSONs with the 'Deploy Live' button.
+​Make sure all these sections are properly connected to their respective Firebase collections, use beautiful Lucide icons for each sidebar category, and ensure it remains 100% mobile-responsive so I can manage everything from my phone
