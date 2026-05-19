@@ -37,6 +37,16 @@ export interface UserProfile {
   fcmToken?: string;
   banned?: boolean;
   signupBonusClaimed?: boolean;
+  totalReferralEarnings?: number;
+  totalFriendsJoined?: number;
+  pendingReferralBonus?: number;
+}
+
+export interface ReferralStats {
+  totalReferralEarnings: number;
+  totalFriendsJoined: number;
+  pendingReferralBonus: number;
+  referralCode: string;
 }
 
 export interface WalletBalance {
@@ -235,6 +245,35 @@ export function subscribeUserProfile(uid: string, cb: (p: UserProfile) => void):
     doc(db, "users", uid),
     (snap) => { if (snap.exists()) cb({ uid: snap.id, ...snap.data() } as UserProfile); },
     () => { /* ignore offline snapshot errors */ },
+  );
+}
+
+/**
+ * Subscribe to a user's referral statistics in real-time.
+ * Reads totalReferralEarnings, totalFriendsJoined, pendingReferralBonus
+ * directly from the users/{uid} document.
+ * Safely defaults all three fields to 0 when the document is new or fields are missing.
+ */
+export function subscribeReferralStats(
+  uid: string,
+  cb: (stats: ReferralStats) => void,
+): () => void {
+  if (!FIREBASE_ENABLED || !db) {
+    cb({ totalReferralEarnings: 0, totalFriendsJoined: 0, pendingReferralBonus: 0, referralCode: "" });
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db, "users", uid),
+    (snap) => {
+      const data = snap.exists() ? (snap.data() as Partial<UserProfile>) : {};
+      cb({
+        totalReferralEarnings: data.totalReferralEarnings ?? 0,
+        totalFriendsJoined:    data.totalFriendsJoined    ?? 0,
+        pendingReferralBonus:  data.pendingReferralBonus  ?? 0,
+        referralCode:          data.referralCode          ?? "",
+      });
+    },
+    () => { /* ignore offline errors — keep last known value */ },
   );
 }
 

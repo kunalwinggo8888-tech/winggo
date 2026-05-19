@@ -1,47 +1,71 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
+import { useAuth } from "@/context/useAuth";
+import { subscribeReferralStats, ReferralStats } from "@/firebase/firestore.service";
 
-const REFERRAL_CODE = "WINGGO50";
-const USER_STATS = { earned: 650, friends: 13, pending: 150 };
+const DEFAULT_STATS: ReferralStats = {
+  totalReferralEarnings: 0,
+  totalFriendsJoined:    0,
+  pendingReferralBonus:  0,
+  referralCode:          "",
+};
 
-const TOP_REFERRERS = [
+interface LeaderboardRow {
+  rank: number;
+  name: string;
+  friends: number;
+  earned: string;
+  isMe?: boolean;
+}
+
+const TOP_REFERRERS: LeaderboardRow[] = [
   { rank: 1, name: "Rohit_P",  friends: 84, earned: "₹4,200" },
   { rank: 2, name: "Priya_K",  friends: 71, earned: "₹3,550" },
   { rank: 3, name: "Amit_S",   friends: 63, earned: "₹3,150" },
   { rank: 4, name: "Meera_V",  friends: 54, earned: "₹2,700" },
-  { rank: 5, name: "You",      friends: USER_STATS.friends, earned: `₹${USER_STATS.earned}`, isMe: true },
 ];
 
 const STEPS = [
   { num: "1", icon: "📤", title: "Share Your Code", desc: "Share your unique WINGGO referral code with friends" },
-  { num: "2", icon: "👤", title: "Friend Joins", desc: "Friend signs up on WINGGO using your referral code" },
-  { num: "3", icon: "🎮", title: "Friend Plays", desc: "Your friend plays any game and deposits cash" },
-  { num: "4", icon: "💰", title: "You Earn!", desc: "Instant bonus credited to your wallet — unlimited!" },
+  { num: "2", icon: "👤", title: "Friend Joins",    desc: "Friend signs up on WINGGO using your referral code" },
+  { num: "3", icon: "🎮", title: "Friend Plays",    desc: "Your friend plays any game and deposits cash" },
+  { num: "4", icon: "💰", title: "You Earn!",       desc: "Instant bonus credited to your wallet — unlimited!" },
 ];
 
 const BENEFITS = [
-  { icon: "💵", label: "Bonus Cash",        value: "₹50/refer" },
-  { icon: "🪙", label: "Extra Coins",        value: "500 coins" },
-  { icon: "🎁", label: "Daily Rewards",      value: "Every day" },
-  { icon: "⚡", label: "Instant Cashback",   value: "On deposit" },
-  { icon: "🏆", label: "Leaderboard Prize",  value: "Top 10 win" },
-  { icon: "♾️", label: "No Referral Limit",  value: "Unlimited" },
+  { icon: "💵", label: "Bonus Cash",       value: "₹50/refer" },
+  { icon: "🪙", label: "Extra Coins",       value: "500 coins" },
+  { icon: "🎁", label: "Daily Rewards",     value: "Every day" },
+  { icon: "⚡", label: "Instant Cashback",  value: "On deposit" },
+  { icon: "🏆", label: "Leaderboard Prize", value: "Top 10 win" },
+  { icon: "♾️", label: "No Referral Limit", value: "Unlimited" },
 ];
 
 interface Props { onBack?: () => void }
 
 export default function ReferEarn({ onBack }: Props) {
-  const [copied, setCopied] = useState(false);
+  const { user } = useAuth();
+  const [stats, setStats]       = useState<ReferralStats>(DEFAULT_STATS);
+  const [copied, setCopied]     = useState(false);
   const [shareFlash, setShareFlash] = useState(false);
 
+  const referralCode = user?.referralCode || stats.referralCode || "WINGGO50";
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = subscribeReferralStats(user.uid, (s) => setStats(s));
+    return unsub;
+  }, [user?.uid]);
+
   const handleCopy = useCallback(() => {
+    const text = `Join WINGGO with my code ${referralCode} and get ₹50 free! 🎮 https://winggo.app`;
     if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(REFERRAL_CODE).catch(() => {});
+      navigator.clipboard.writeText(text).catch(() => {});
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, []);
+  }, [referralCode]);
 
   const handleShare = useCallback(() => {
     setShareFlash(true);
@@ -49,11 +73,25 @@ export default function ReferEarn({ onBack }: Props) {
     if (typeof navigator !== "undefined" && (navigator as Navigator & { share?: (d: object) => Promise<void> }).share) {
       (navigator as Navigator & { share: (d: object) => Promise<void> }).share({
         title: "WINGGO — Play More Win More",
-        text: `Join WINGGO with my code ${REFERRAL_CODE} and get ₹50 free! India's #1 gaming platform. 🎮`,
+        text: `Join WINGGO with my code ${referralCode} and get ₹50 free! India's #1 gaming platform. 🎮`,
         url: "https://winggo.app",
       }).catch(() => {});
     }
-  }, []);
+  }, [referralCode]);
+
+  const STAT_STRIP = [
+    { label: "Total Earned",   value: `₹${stats.totalReferralEarnings.toLocaleString("en-IN")}`, color: "#FFD700" },
+    { label: "Friends Joined", value: `${stats.totalFriendsJoined}`,                              color: "#27ae60" },
+    { label: "Pending",        value: `₹${stats.pendingReferralBonus.toLocaleString("en-IN")}`,   color: "#f39c12" },
+  ];
+
+  const myRow = {
+    rank: 5,
+    name: user?.displayName?.split(" ")[0] || "You",
+    friends: stats.totalFriendsJoined,
+    earned: `₹${stats.totalReferralEarnings.toLocaleString("en-IN")}`,
+    isMe: true,
+  };
 
   return (
     <motion.div
@@ -93,7 +131,6 @@ export default function ReferEarn({ onBack }: Props) {
           <BackButton onBack={onBack} label="Home" />
         </div>
 
-        {/* Badge */}
         <span
           className="text-xs font-black px-3 py-1 rounded-full mb-3"
           style={{ background: "rgba(39,174,96,0.15)", border: "1px solid rgba(39,174,96,0.4)", color: "#27ae60" }}
@@ -109,18 +146,39 @@ export default function ReferEarn({ onBack }: Props) {
           Get instant rewards on every referral · No limit
         </p>
 
-        {/* Stat strip */}
-        <div className="flex gap-4 mt-5">
-          {[
-            { label: "Total Earned",   value: `₹${USER_STATS.earned}`, color: "#FFD700" },
-            { label: "Friends Joined", value: `${USER_STATS.friends}`,  color: "#27ae60" },
-            { label: "Pending",        value: `₹${USER_STATS.pending}`, color: "#f39c12" },
-          ].map((s) => (
-            <div key={s.label} className="flex flex-col items-center gap-0.5">
-              <span className="font-black text-xl" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)", fontSize: "10px" }}>{s.label}</span>
-            </div>
+        {/* Live stat strip */}
+        <div className="flex gap-6 mt-5">
+          {STAT_STRIP.map((s) => (
+            <AnimatePresence key={s.label} mode="wait">
+              <div className="flex flex-col items-center gap-0.5">
+                <motion.span
+                  key={s.value}
+                  className="font-black text-xl"
+                  style={{ color: s.color }}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.22 }}
+                >
+                  {s.value}
+                </motion.span>
+                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{s.label}</span>
+              </div>
+            </AnimatePresence>
           ))}
+        </div>
+
+        {/* Live indicator */}
+        <div className="flex items-center gap-1.5 mt-3">
+          <motion.div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: "#27ae60" }}
+            animate={{ opacity: [1, 0.3, 1] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+          />
+          <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.25)" }}>
+            Live · updates in real-time
+          </span>
         </div>
       </div>
 
@@ -141,14 +199,13 @@ export default function ReferEarn({ onBack }: Props) {
               Your Referral Code
             </div>
 
-            {/* Code row */}
             <div className="flex items-center gap-3">
               <div
                 className="flex-1 flex items-center justify-center py-3 rounded-xl"
                 style={{ background: "rgba(255,215,0,0.08)", border: "1px dashed rgba(255,215,0,0.35)" }}
               >
                 <span className="font-black text-2xl tracking-[0.25em]" style={{ color: "#FFD700" }}>
-                  {REFERRAL_CODE}
+                  {referralCode}
                 </span>
               </div>
 
@@ -175,7 +232,6 @@ export default function ReferEarn({ onBack }: Props) {
               </motion.button>
             </div>
 
-            {/* Reward info */}
             <div className="mt-3 flex gap-2">
               <div className="flex-1 py-2 px-3 rounded-xl text-center" style={{ background: "rgba(39,174,96,0.08)", border: "1px solid rgba(39,174,96,0.2)" }}>
                 <div className="font-black text-sm" style={{ color: "#27ae60" }}>₹50</div>
@@ -226,11 +282,8 @@ export default function ReferEarn({ onBack }: Props) {
           <p className="text-xs font-black tracking-widest uppercase mb-4" style={{ color: "rgba(255,255,255,0.3)" }}>
             🎯 How It Works
           </p>
-
           <div className="relative">
-            {/* connector line */}
             <div className="absolute left-[22px] top-6 bottom-6 w-px" style={{ background: "rgba(255,215,0,0.12)" }} />
-
             <div className="space-y-4">
               {STEPS.map((step, i) => (
                 <motion.div
@@ -240,35 +293,23 @@ export default function ReferEarn({ onBack }: Props) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.08 }}
                 >
-                  {/* Step circle */}
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center text-xl shrink-0 relative z-10"
-                    style={{
-                      background: "rgba(255,215,0,0.1)",
-                      border: "1.5px solid rgba(255,215,0,0.3)",
-                      boxShadow: "0 0 12px rgba(255,215,0,0.1)",
-                    }}
+                    style={{ background: "rgba(255,215,0,0.1)", border: "1.5px solid rgba(255,215,0,0.3)", boxShadow: "0 0 12px rgba(255,215,0,0.1)" }}
                   >
                     {step.icon}
                   </div>
-
-                  {/* Step content */}
                   <div
                     className="flex-1 py-3 px-4 rounded-2xl"
                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
                   >
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span
-                        className="text-xs font-black px-1.5 py-0.5 rounded-md"
-                        style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}
-                      >
+                      <span className="text-xs font-black px-1.5 py-0.5 rounded-md" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>
                         STEP {step.num}
                       </span>
                       <span className="text-sm font-black text-white">{step.title}</span>
                     </div>
-                    <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.38)" }}>
-                      {step.desc}
-                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.38)" }}>{step.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -293,10 +334,7 @@ export default function ReferEarn({ onBack }: Props) {
               >
                 <span className="text-2xl">{b.icon}</span>
                 <span className="text-xs font-black text-white text-center leading-tight">{b.label}</span>
-                <span
-                  className="text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(255,215,0,0.1)", color: "#FFD700", fontSize: "9px" }}
-                >
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(255,215,0,0.1)", color: "#FFD700", fontSize: "9px" }}>
                   {b.value}
                 </span>
               </motion.div>
@@ -311,65 +349,41 @@ export default function ReferEarn({ onBack }: Props) {
           </p>
 
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-            {TOP_REFERRERS.map((row, i) => (
+            {[...TOP_REFERRERS, myRow].map((row, i) => (
               <motion.div
-                key={row.name}
+                key={row.name + i}
                 className="flex items-center gap-3 px-4 py-3"
                 style={{
                   background: row.isMe ? "rgba(255,215,0,0.07)" : i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
-                  borderBottom: i < TOP_REFERRERS.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                  borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.05)" : "none",
                 }}
                 initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.07 }}
               >
-                {/* Rank */}
                 <span
                   className="text-sm font-black w-6 text-center"
-                  style={{
-                    color: i === 0 ? "#FFD700" : i === 1 ? "#aaa" : i === 2 ? "#cd7f32" : "rgba(255,255,255,0.25)",
-                  }}
+                  style={{ color: i === 0 ? "#FFD700" : i === 1 ? "#aaa" : i === 2 ? "#cd7f32" : "rgba(255,255,255,0.25)" }}
                 >
                   {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : row.rank}
                 </span>
-
-                {/* Avatar */}
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white"
-                  style={{
-                    background: row.isMe
-                      ? "linear-gradient(135deg,#FFD700,#ff8c00)"
-                      : "linear-gradient(135deg,#9b59b6,#3498db)",
-                  }}
+                  style={{ background: row.isMe ? "linear-gradient(135deg,#FFD700,#ff8c00)" : "linear-gradient(135deg,#9b59b6,#3498db)" }}
                 >
                   {row.name[0]}
                 </div>
-
-                {/* Name */}
-                <span
-                  className="flex-1 text-sm font-bold"
-                  style={{ color: row.isMe ? "#FFD700" : "rgba(255,255,255,0.65)" }}
-                >
-                  {row.name}
+                <span className="flex-1 text-sm font-bold" style={{ color: row.isMe ? "#FFD700" : "rgba(255,255,255,0.65)" }}>
+                  {row.isMe ? `${row.name} (You)` : row.name}
                 </span>
-
-                {/* Friends */}
-                <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  👥 {row.friends}
-                </span>
-
-                {/* Earned */}
-                <span
-                  className="text-xs font-black w-16 text-right"
-                  style={{ color: row.isMe ? "#27ae60" : "rgba(255,255,255,0.5)" }}
-                >
+                <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>👥 {row.friends}</span>
+                <span className="text-xs font-black w-16 text-right" style={{ color: row.isMe ? "#27ae60" : "rgba(255,255,255,0.5)" }}>
                   {row.earned}
                 </span>
               </motion.div>
             ))}
           </div>
 
-          {/* Motivational nudge */}
           <motion.div
             className="mt-3 py-3 px-4 rounded-2xl flex items-center gap-3"
             style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.2)" }}
@@ -388,10 +402,7 @@ export default function ReferEarn({ onBack }: Props) {
         <div className="mx-4 mt-4 mb-2">
           <motion.div
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-3"
-            style={{
-              background: "linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(39,174,96,0.08) 100%)",
-              border: "1px solid rgba(255,215,0,0.2)",
-            }}
+            style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(39,174,96,0.08) 100%)", border: "1px solid rgba(255,215,0,0.2)" }}
             animate={{ boxShadow: ["0 0 0 rgba(255,215,0,0)", "0 0 20px rgba(255,215,0,0.15)", "0 0 0 rgba(255,215,0,0)"] }}
             transition={{ duration: 2.5, repeat: Infinity }}
           >
@@ -421,7 +432,6 @@ export default function ReferEarn({ onBack }: Props) {
           </motion.button>
         </div>
       </div>
-      {/* bottom nav clearance */}
       <div style={{ height: 90 }} />
     </motion.div>
   );
