@@ -1,109 +1,110 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar, { AdminPage } from "@/components/AdminSidebar";
-import AdminTopBar from "@/components/AdminTopBar";
 import AdminLogin from "@/pages/AdminLogin";
-import PageDashboard from "@/pages/PageDashboard";
-import PageUsers from "@/pages/PageUsers";
-import PageWallet from "@/pages/PageWallet";
-import PageGames from "@/pages/PageGames";
-import PageGameAPI from "@/pages/PageGameAPI";
-import PageUpdateAPI from "@/pages/PageUpdateAPI";
-import PageWorldWar from "@/pages/PageWorldWar";
-import PageKYC from "@/pages/PageKYC";
-import PagePromotions from "@/pages/PagePromotions";
-import PageAnalytics from "@/pages/PageAnalytics";
-import PageSettings from "@/pages/PageSettings";
-import PageDeposits from "@/pages/PageDeposits";
-import PagePopupSettings from "@/pages/PagePopupSettings";
-import PageSecurity from "@/pages/PageSecurity";
-import PageTournament from "@/pages/PageTournament";
-import PageReferrals from "@/pages/PageReferrals";
+import PageGameSettings from "@/pages/PageGameSettings";
+import PageCodeEditor from "@/pages/PageCodeEditor";
 import { hasAdminSession, clearAdminSession } from "@/firebase/config";
 
-const PAGE_TITLES: Record<AdminPage, string> = {
-  dashboard:     "Dashboard",
-  users:         "User Management",
-  wallet:        "Wallet & Payments",
-  deposits:      "Razorpay Deposits",
-  gameapi:       "Game Management",
-  updateapi:     "Update API System",
-  worldwar:      "World War Manager",
-  kyc:           "KYC Panel",
-  promotions:    "Offers & Banners",
-  analytics:     "Analytics",
-  settings:      "Settings",
-  popupsettings: "Popup Manager",
-  security:      "Security Center",
-  tournament:    "Tournament Manager",
-  referrals:     "Referrals & Cashback",
-};
-
-const PAGE_ICONS: Record<AdminPage, string> = {
-  dashboard: "📊", users: "👥", wallet: "💰", deposits: "💳",
-  gameapi: "🎮", updateapi: "🔄", worldwar: "⚔️", kyc: "🪪",
-  promotions: "📢", analytics: "📈", settings: "⚙️", popupsettings: "🪄",
-  security: "🛡️", tournament: "🏆", referrals: "🔗",
+const PAGE_META: Record<AdminPage, { icon: string; title: string }> = {
+  games:  { icon: "🎮", title: "Game Settings & Cloud Uploader" },
+  editor: { icon: "💻", title: "Master Code Editor" },
 };
 
 export default function App() {
-  const [authed, setAuthed]       = useState(() => hasAdminSession());
-  const [page, setPage]           = useState<AdminPage>("dashboard");
-  const [collapsed, setCollapsed] = useState(false);
+  const [authed, setAuthed]           = useState(() => hasAdminSession());
+  const [page, setPage]               = useState<AdminPage>("games");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    const onResize = () => setCollapsed(window.innerWidth < 900);
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+  function handleLogout() {
+    clearAdminSession();
+    setAuthed(false);
+  }
 
-  function login()  { setAuthed(true); setPage("dashboard"); }
-  function logout() { clearAdminSession(); setAuthed(false); }
+  if (!authed) return <AdminLogin onLogin={() => setAuthed(true)} />;
 
-  if (!authed) return <AdminLogin onLogin={login} />;
-
-  const sidebarWidth = collapsed ? 64 : 228;
-
-  const PAGE_MAP: Record<AdminPage, React.ReactNode> = {
-    dashboard:     <PageDashboard />,
-    users:         <PageUsers />,
-    wallet:        <PageWallet />,
-    deposits:      <PageDeposits />,
-    gameapi:       <PageGameAPI />,
-    updateapi:     <PageUpdateAPI />,
-    worldwar:      <PageWorldWar />,
-    kyc:           <PageKYC />,
-    promotions:    <PagePromotions />,
-    analytics:     <PageAnalytics />,
-    settings:      <PageSettings />,
-    popupsettings: <PagePopupSettings />,
-    security:      <PageSecurity />,
-    tournament:    <PageTournament />,
-    referrals:     <PageReferrals />,
-  };
+  const meta = PAGE_META[page];
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#07050f" }}>
-      <AdminSidebar active={page} onNav={(p) => setPage(p)} onLogout={logout} collapsed={collapsed} />
+    <div className="min-h-screen flex" style={{ background: "#070b12", color: "#e2e8f0" }}>
 
-      <div className="flex-1 flex flex-col min-h-screen min-w-0"
-        style={{ marginLeft: sidebarWidth, transition: "margin-left 0.26s ease" }}>
-        <AdminTopBar
-          title={`${PAGE_ICONS[page]} ${PAGE_TITLES[page]}`}
-          onToggleSidebar={() => setCollapsed(!collapsed)}
-        />
+      {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
+      <AdminSidebar
+        active={page}
+        onNav={(p) => { setPage(p); setSidebarOpen(false); }}
+        onLogout={handleLogout}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-5">
+      {/* ── Main panel ───────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 lg:ml-[220px]">
+
+        {/* Top bar */}
+        <header
+          className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
+          style={{
+            background: "rgba(7,11,18,0.9)",
+            backdropFilter: "blur(12px)",
+            borderBottom: "1px solid rgba(0,212,255,0.1)",
+          }}
+        >
+          {/* Hamburger — mobile only */}
+          <button
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer"
+            style={{ background: "rgba(0,212,255,0.07)", border: "1px solid rgba(0,212,255,0.15)" }}
+            onClick={() => setSidebarOpen(true)}
+          >
+            <span className="text-base" style={{ color: "#00d4ff" }}>☰</span>
+          </button>
+
+          {/* Page title */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-lg">{meta.icon}</span>
+            <div className="min-w-0">
+              <span className="text-sm font-black text-white truncate block">{meta.title}</span>
+              <span className="text-[9px] font-bold tracking-widest hidden sm:block" style={{ color: "rgba(0,212,255,0.5)" }}>
+                WINGGO ADMIN CONSOLE
+              </span>
+            </div>
+          </div>
+
+          {/* Status pill */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+            style={{ background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.15)" }}>
+            <motion.div
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: "#00d4ff" }}
+              animate={{ opacity: [1, 0.2, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity }}
+            />
+            <span className="text-[10px] font-black" style={{ color: "#00d4ff" }}>SYSTEM ONLINE</span>
+          </div>
+
+          {/* Logout */}
+          <motion.button
+            whileTap={{ scale: 0.94 }}
+            onClick={handleLogout}
+            className="px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer"
+            style={{ background: "rgba(255,51,102,0.08)", color: "#ff3366", border: "1px solid rgba(255,51,102,0.2)" }}
+          >
+            ⏻
+          </motion.button>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={page}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22 }}
+              className="h-full"
             >
-              {PAGE_MAP[page]}
+              {page === "games"  && <PageGameSettings />}
+              {page === "editor" && <PageCodeEditor />}
             </motion.div>
           </AnimatePresence>
         </main>

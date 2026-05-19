@@ -8,7 +8,8 @@ import {
   onSnapshot, serverTimestamp, increment,
   doc, writeBatch, Timestamp, DocumentData, deleteDoc,
 } from "firebase/firestore";
-import { adminDb, adminRtdb, FIREBASE_ENABLED } from "./config";
+import { adminDb, adminRtdb, adminStorage, FIREBASE_ENABLED } from "./config";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   ref as rtdbRef, onValue, off, DataSnapshot,
 } from "firebase/database";
@@ -870,6 +871,92 @@ export async function rejectScreenshotDeposit(requestId: string, adminUid: strin
     processedBy: adminUid,
     rejectionReason: reason || "Request rejected by admin",
   });
+}
+
+// ─── RE-EXPORTS ───────────────────────────────────────────────────────────────
+
+export { FIREBASE_ENABLED };
+
+// ─── STORAGE: Game ZIP Upload ─────────────────────────────────────────────────
+
+export type UploadProgressCb = (pct: number) => void;
+
+/**
+ * Upload a .zip game bundle to Firebase Storage at `games/{gameId}/{fileName}`.
+ * Calls `onProgress(0–100)` as bytes transfer.
+ * Returns the public download URL on completion.
+ */
+export async function uploadGameZip(
+  file: File,
+  gameId: string,
+  onProgress?: UploadProgressCb,
+): Promise<string> {
+  if (!adminStorage) throw new Error("Firebase Storage is not configured. Add VITE_FIREBASE_STORAGE_BUCKET.");
+  const path = `games/${gameId}/${file.name}`;
+  const sRef = storageRef(adminStorage, path);
+  return new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(sRef, file);
+    task.on(
+      "state_changed",
+      (snap) => onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+      reject,
+      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
+    );
+  });
+}
+
+// ─── CODE EDITOR: Virtual File System in Firestore ────────────────────────────
+
+export interface CodeFileEntry {
+  content:     string;
+  savedAt:     number;
+  deployedAt?: number;
+}
+
+export type CodeFilesMap = Record<string, CodeFileEntry>;
+
+const CODE_COL = "codeEditor";
+const CODE_ID  = "files";
+
+/**
+ * Load all code editor files from Firestore.
+ * Returns an empty map when Firebase is not available.
+ */
+export async function loadCodeFiles(): Promise<CodeFilesMap> {
+  if (!FIREBASE_ENABLED || !adminDb) return {};
+  try {
+    const snap = await getDoc(doc(adminDb, CODE_COL, CODE_ID));
+    return snap.exists() ? (snap.data() as CodeFilesMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Save (overwrite) a single file's content to Firestore.
+ * Uses merge so other files in the same doc are untouched.
+ */
+export async function saveCodeFile(filename: string, content: string): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await setDoc(
+    doc(adminDb, CODE_COL, CODE_ID),
+    { [filename]: { content, savedAt: Date.now() } as CodeFileEntry },
+    { merge: true },
+  );
+}
+
+/**
+ * Deploy a file: save content + stamp deployedAt so the admin panel knows
+ * when this version was last pushed live.
+ */
+export async function deployCodeFile(filename: string, content: string): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  const now = Date.now();
+  await setDoc(
+    doc(adminDb, CODE_COL, CODE_ID),
+    { [filename]: { content, savedAt: now, deployedAt: now } as CodeFileEntry },
+    { merge: true },
+  );
 }
 
 // suppress unused import warning
