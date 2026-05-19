@@ -24,7 +24,9 @@ export type AdminPage =
   | "notifications"
   | "referral"
   | "security"
-  | "editor";
+  | "editor"
+  | "versions"
+  | "staff";
 
 export interface NavDest { page: AdminPage; tab: string }
 
@@ -95,6 +97,8 @@ const NAV: NavGroup[] = [
     ],
   },
   { id: "editor",        icon: Code2,           label: "Master Code Editor",    badge: "LIVE" },
+  { id: "versions",      icon: History,         label: "Version Control",       badge: "VIRAS" },
+  { id: "staff",         icon: UserCog,         label: "Staff Management"                      },
 ];
 
 // ─── SidebarContent ───────────────────────────────────────────────────────────

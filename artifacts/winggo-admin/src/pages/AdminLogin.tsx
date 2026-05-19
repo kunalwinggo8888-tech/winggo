@@ -7,9 +7,9 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminSignIn } from "@/firebase/config";
 
-interface Props { onLogin: () => void; }
+interface Props { onLogin: () => void; onStaffLogin?: () => void; }
 
-export default function AdminLogin({ onLogin }: Props) {
+export default function AdminLogin({ onLogin, onStaffLogin }: Props) {
   const [adminId, setAdminId]     = useState("");
   const [password, setPassword]   = useState("");
   const [showPass, setShowPass]   = useState(false);
@@ -275,7 +275,14 @@ export default function AdminLogin({ onLogin }: Props) {
               </form>
 
               {/* Footer */}
-              <div className="mt-6 flex flex-col items-center gap-2">
+              <div className="mt-6 flex flex-col items-center gap-3">
+                {onStaffLogin && (
+                  <button onClick={onStaffLogin}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black cursor-pointer w-full justify-center"
+                    style={{ background:"rgba(167,139,250,0.06)", color:"rgba(167,139,250,0.7)", border:"1px solid rgba(167,139,250,0.18)" }}>
+                    👤 Staff Portal Login →
+                  </button>
+                )}
                 <div className="flex items-center gap-4">
                   {["🔒 Encrypted", "🛡️ Protected", "📡 Monitored"].map((b) => (
                     <span key={b} className="text-[9px] font-bold" style={{ color: "rgba(0,212,255,0.2)" }}>{b}</span>

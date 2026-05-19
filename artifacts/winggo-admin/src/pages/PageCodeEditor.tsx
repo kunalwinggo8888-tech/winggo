@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Editor from "@monaco-editor/react";
 import {
-  loadCodeFiles, saveCodeFile, deployCodeFile,
+  loadCodeFiles, saveCodeFile, deployCodeFile, saveVersionSnapshot,
   CodeFileEntry, FIREBASE_ENABLED,
 } from "@/firebase/admin.service";
 
@@ -252,12 +252,24 @@ export default function PageCodeEditor() {
     setDeployStatus("deploying");
     try {
       await deployCodeFile(activeFile, content);
+      const now = Date.now();
       setMetadata((prev) => ({
         ...prev,
-        [activeFile]: { ...prev[activeFile], content, savedAt: Date.now(), deployedAt: Date.now() },
+        [activeFile]: { ...prev[activeFile], content, savedAt: now, deployedAt: now },
       }));
       setDeployStatus("deployed");
       setTimeout(() => setDeployStatus("idle"), 4000);
+
+      // ── Viras: save version snapshot of all files ─────────────────────────
+      setMetadata((latest) => {
+        const allContents: Record<string, string> = {};
+        for (const f of FILES) {
+          const entry = latest[f.name];
+          allContents[f.name] = f.name === activeFile ? content : (entry?.content ?? f.template);
+        }
+        void saveVersionSnapshot(allContents);
+        return latest; // no state change, just reading
+      });
     } catch {
       setDeployStatus("error");
     }

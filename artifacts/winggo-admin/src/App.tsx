@@ -2,6 +2,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar, { AdminPage, NavDest } from "@/components/AdminSidebar";
 import AdminLogin         from "@/pages/AdminLogin";
+import StaffLogin         from "@/pages/StaffLogin";
+import StaffDashboard     from "@/pages/StaffDashboard";
 import PageDashboard      from "@/pages/PageDashboard";
 import PageUserManagement from "@/pages/PageUserManagement";
 import PageWalletTxns     from "@/pages/PageWalletTxns";
@@ -11,24 +13,39 @@ import PageNotifications  from "@/pages/PageNotifications";
 import PageReferral       from "@/pages/PageReferral";
 import PageSecurity       from "@/pages/PageSecurity";
 import PageCodeEditor     from "@/pages/PageCodeEditor";
-import { hasAdminSession, clearAdminSession } from "@/firebase/config";
+import PageVersions       from "@/pages/PageVersions";
+import PageStaff          from "@/pages/PageStaff";
+import {
+  hasAdminSession, clearAdminSession,
+  hasStaffSession, clearStaffSession,
+} from "@/firebase/config";
+
+type AppMode   = "admin" | "staff" | "none";
+type LoginMode = "admin" | "staff";
 
 const PAGE_META: Record<AdminPage, { icon: string; title: string }> = {
-  dashboard:     { icon: "📊", title: "Dashboard Overview"       },
-  users:         { icon: "👥", title: "User Management"          },
-  wallet:        { icon: "💳", title: "Wallet & Transactions"    },
-  games:         { icon: "🎮", title: "Game Settings & Tournaments" },
-  marketing:     { icon: "🎁", title: "Banners, Offers & Marketing" },
-  notifications: { icon: "🔔", title: "Notifications & Social"   },
-  referral:      { icon: "🔗", title: "Referral & Earnings"      },
-  security:      { icon: "🔒", title: "Security & Logs"          },
-  editor:        { icon: "💻", title: "Master Code Editor"       },
+  dashboard:     { icon: "📊", title: "Dashboard Overview"           },
+  users:         { icon: "👥", title: "User Management"              },
+  wallet:        { icon: "💳", title: "Wallet & Transactions"        },
+  games:         { icon: "🎮", title: "Game Settings & Tournaments"  },
+  marketing:     { icon: "🎁", title: "Banners, Offers & Marketing"  },
+  notifications: { icon: "🔔", title: "Notifications & Social"       },
+  referral:      { icon: "🔗", title: "Referral & Earnings"          },
+  security:      { icon: "🔒", title: "Security & Logs"              },
+  editor:        { icon: "💻", title: "Master Code Editor"           },
+  versions:      { icon: "⏱️", title: "Viras Version Control"        },
+  staff:         { icon: "👥", title: "Staff Management"             },
 };
 
 export default function App() {
-  const [authed, setAuthed]           = useState(() => hasAdminSession());
-  const [page, setPage]               = useState<AdminPage>("dashboard");
-  const [pageTab, setPageTab]         = useState<string>("");
+  const [mode,        setMode]       = useState<AppMode>(() => {
+    if (hasAdminSession()) return "admin";
+    if (hasStaffSession()) return "staff";
+    return "none";
+  });
+  const [loginMode,   setLoginMode]  = useState<LoginMode>("admin");
+  const [page,        setPage]       = useState<AdminPage>("dashboard");
+  const [pageTab,     setPageTab]    = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function handleNav({ page: p, tab }: NavDest) {
@@ -37,13 +54,42 @@ export default function App() {
     setSidebarOpen(false);
   }
 
-  function handleLogout() {
+  function handleAdminLogout() {
     clearAdminSession();
-    setAuthed(false);
+    setMode("none");
+    setLoginMode("admin");
   }
 
-  if (!authed) return <AdminLogin onLogin={() => setAuthed(true)} />;
+  function handleStaffLogout() {
+    clearStaffSession();
+    setMode("none");
+    setLoginMode("admin");
+  }
 
+  // ── Staff portal ───────────────────────────────────────────────────────────
+  if (mode === "staff") {
+    return <StaffDashboard onLogout={handleStaffLogout} />;
+  }
+
+  // ── Login screens ──────────────────────────────────────────────────────────
+  if (mode === "none") {
+    if (loginMode === "staff") {
+      return (
+        <StaffLogin
+          onLogin={() => setMode("staff")}
+          onAdminMode={() => setLoginMode("admin")}
+        />
+      );
+    }
+    return (
+      <AdminLogin
+        onLogin={() => setMode("admin")}
+        onStaffLogin={() => setLoginMode("staff")}
+      />
+    );
+  }
+
+  // ── Full admin dashboard ───────────────────────────────────────────────────
   const meta = PAGE_META[page];
 
   return (
@@ -53,7 +99,7 @@ export default function App() {
         active={page}
         activeTab={pageTab}
         onNav={handleNav}
-        onLogout={handleLogout}
+        onLogout={handleAdminLogout}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -86,7 +132,7 @@ export default function App() {
             <span className="text-[10px] font-black" style={{ color: "#00d4ff" }}>SYSTEM ONLINE</span>
           </div>
 
-          <motion.button whileTap={{ scale: 0.94 }} onClick={handleLogout}
+          <motion.button whileTap={{ scale: 0.94 }} onClick={handleAdminLogout}
             className="px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer"
             style={{ background: "rgba(255,51,102,0.08)", color: "#ff3366", border: "1px solid rgba(255,51,102,0.2)" }}>
             ⏻
@@ -109,6 +155,8 @@ export default function App() {
               {page === "referral"      && <PageReferral jumpTab={pageTab} />}
               {page === "security"      && <PageSecurity jumpTab={pageTab} />}
               {page === "editor"        && <PageCodeEditor />}
+              {page === "versions"      && <PageVersions />}
+              {page === "staff"         && <PageStaff />}
             </motion.div>
           </AnimatePresence>
         </main>

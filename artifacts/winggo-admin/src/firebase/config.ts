@@ -1,5 +1,57 @@
 /**
  * Firebase Configuration — WINGGO Admin Panel
+ * Also exports StaffPermissions (shared type used by admin.service + StaffDashboard)
+ */
+
+// ─── Staff Permissions (shared type) ─────────────────────────────────────────
+
+export interface StaffPermissions {
+  users:         boolean;
+  deposits:      boolean;
+  withdrawals:   boolean;
+  kyc:           boolean;
+  games:         boolean;
+  marketing:     boolean;
+  notifications: boolean;
+  referral:      boolean;
+}
+
+export const ALL_PERMS: (keyof StaffPermissions)[] = [
+  "users","deposits","withdrawals","kyc","games","marketing","notifications","referral",
+];
+
+// ─── Staff Session ────────────────────────────────────────────────────────────
+
+const STAFF_SESSION_KEY = "winggo_staff_session_v1";
+const STAFF_SESSION_TTL = 24 * 60 * 60 * 1000;
+
+export interface StaffSessionData {
+  id:          string;
+  username:    string;
+  permissions: StaffPermissions;
+  expiresAt:   number;
+}
+
+export function saveStaffSession(id: string, username: string, permissions: StaffPermissions): void {
+  const data: StaffSessionData = { id, username, permissions, expiresAt: Date.now() + STAFF_SESSION_TTL };
+  sessionStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(data));
+}
+
+export function getStaffSession(): StaffSessionData | null {
+  try {
+    const raw = sessionStorage.getItem(STAFF_SESSION_KEY);
+    if (!raw) return null;
+    const data: StaffSessionData = JSON.parse(raw);
+    if (Date.now() > data.expiresAt) { sessionStorage.removeItem(STAFF_SESSION_KEY); return null; }
+    return data;
+  } catch { return null; }
+}
+
+export function hasStaffSession(): boolean { return Boolean(getStaffSession()); }
+export function clearStaffSession(): void { sessionStorage.removeItem(STAFF_SESSION_KEY); }
+
+/**
+ * Firebase Configuration — WINGGO Admin Panel (continued below)
  * Reads from the same VITE_FIREBASE_* env vars as the main app.
  *
  * Admin Authentication:

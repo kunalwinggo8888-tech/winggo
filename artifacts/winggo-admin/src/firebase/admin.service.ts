@@ -9,6 +9,7 @@ import {
   doc, writeBatch, Timestamp, DocumentData, deleteDoc,
 } from "firebase/firestore";
 import { adminDb, adminRtdb, adminStorage, FIREBASE_ENABLED } from "./config";
+import type { StaffPermissions } from "./config";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   ref as rtdbRef, onValue, off, DataSnapshot,
@@ -1048,6 +1049,147 @@ export async function uploadPaymentQR(file: File): Promise<string> {
       () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
     );
   });
+}
+
+// ─── VERSION SNAPSHOTS — Viras System ────────────────────────────────────────
+
+export interface VersionSnapshot {
+  id:         string;
+  label:      string;
+  versionNum: number;
+  files:      Record<string, string>;
+  createdAt:  number;
+}
+
+const VERSIONS_COL = "admin_versions";
+
+async function _sha256(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function saveVersionSnapshot(files: Record<string, string>): Promise<string> {
+  if (!FIREBASE_ENABLED || !adminDb) return "";
+  const q = query(collection(adminDb, VERSIONS_COL), orderBy("versionNum", "desc"), limit(1));
+  const snap = await getDocs(q);
+  const lastNum = snap.empty ? 0 : ((snap.docs[0].data() as VersionSnapshot).versionNum ?? 0);
+  const versionNum = lastNum + 1;
+  const now  = new Date();
+  const day  = now.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const time = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }).toUpperCase();
+  const label = `v${versionNum} · ${day} ${time}`;
+  const ref = await addDoc(collection(adminDb, VERSIONS_COL), {
+    label, versionNum, files, createdAt: Date.now(),
+  });
+  return ref.id;
+}
+
+export function subscribeVersionHistory(cb: (versions: VersionSnapshot[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  const q = query(collection(adminDb, VERSIONS_COL), orderBy("createdAt", "desc"), limit(50));
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VersionSnapshot)));
+  }, () => cb([]));
+}
+
+export async function rollbackToVersion(version: VersionSnapshot): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  const now = Date.now();
+  const merged: CodeFilesMap = {};
+  for (const [name, content] of Object.entries(version.files)) {
+    merged[name] = { content, savedAt: now, deployedAt: now };
+  }
+  await setDoc(doc(adminDb, CODE_COL, CODE_ID), merged, { merge: true });
+}
+
+// ─── STAFF MANAGEMENT ─────────────────────────────────────────────────────────
+
+export interface StaffAccount {
+  id:           string;
+  username:     string;
+  passwordHash: string;
+  permissions:  StaffPermissions;
+  createdAt:    number;
+  active:       boolean;
+  lastLogin?:   number;
+}
+
+const STAFF_COL = "staff_accounts";
+
+export async function createStaffAccount(
+  username: string,
+  password: string,
+  permissions: StaffPermissions,
+): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  const passwordHash = await _sha256(password);
+  await addDoc(collection(adminDb, STAFF_COL), {
+    username: username.trim().toLowerCase(),
+    passwordHash, permissions,
+    createdAt: Date.now(), active: true,
+  });
+}
+
+export function subscribeStaffAccounts(cb: (accounts: StaffAccount[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  const q = query(collection(adminDb, STAFF_COL), orderBy("createdAt", "desc"));
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as StaffAccount)));
+  }, () => cb([]));
+}
+
+export async function updateStaffAccount(
+  id: string,
+  data: Partial<Omit<StaffAccount, "id" | "createdAt">>,
+): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  if (typeof data.username === "string") data.username = data.username.trim().toLowerCase();
+  await updateDoc(doc(adminDb, STAFF_COL, id), data as DocumentData);
+}
+
+export async function resetStaffPassword(id: string, newPassword: string): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await updateDoc(doc(adminDb, STAFF_COL, id), { passwordHash: await _sha256(newPassword) });
+}
+
+export async function deleteStaffAccount(id: string): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await deleteDoc(doc(adminDb, STAFF_COL, id));
+}
+
+export async function staffSignIn(
+  username: string,
+  password: string,
+): Promise<{ success: boolean; account?: StaffAccount; error?: string }> {
+  if (!FIREBASE_ENABLED || !adminDb) {
+    if (username === "staff" && password === "staff123") {
+      return {
+        success: true,
+        account: {
+          id: "demo", username: "staff", passwordHash: "",
+          permissions: { users:true, deposits:true, withdrawals:false, kyc:false, games:false, marketing:false, notifications:false, referral:false },
+          createdAt: Date.now(), active: true,
+        },
+      };
+    }
+    return { success: false, error: "Invalid credentials." };
+  }
+  try {
+    const q = query(
+      collection(adminDb, STAFF_COL),
+      where("username", "==", username.trim().toLowerCase()),
+      limit(1),
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return { success: false, error: "Invalid credentials." };
+    const account = { id: snap.docs[0].id, ...snap.docs[0].data() } as StaffAccount;
+    if (!account.active) return { success: false, error: "This staff account has been disabled." };
+    if (await _sha256(password) !== account.passwordHash) return { success: false, error: "Invalid credentials." };
+    await updateDoc(doc(adminDb, STAFF_COL, account.id), { lastLogin: Date.now() });
+    return { success: true, account };
+  } catch {
+    return { success: false, error: "Authentication error. Please try again." };
+  }
 }
 
 // suppress unused import warning
