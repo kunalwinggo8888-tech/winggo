@@ -29,19 +29,25 @@ export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) 
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 flex items-end justify-around px-2"
+      className="fixed bottom-0 left-0"
       style={{
-        maxWidth: "480px",
-        margin: "0 auto",
-        zIndex: 9000,
+        width: "100%",
+        zIndex: 9999,
         background: "rgba(8,8,12,0.97)",
         backdropFilter: "blur(24px)",
         WebkitBackdropFilter: "blur(24px)",
         borderTop: "1px solid rgba(255,255,255,0.07)",
-        paddingTop: "10px",
-        paddingBottom: "env(safe-area-inset-bottom, 14px)",
       }}
     >
+      {/* Inner wrapper centers content on wide screens */}
+      <div
+        className="flex items-end justify-around px-2 mx-auto"
+        style={{
+          maxWidth: "480px",
+          paddingTop: "10px",
+          paddingBottom: "env(safe-area-inset-bottom, 14px)",
+        }}
+      >
       {NAV_ITEMS.map((item) =>
         "featured" in item && item.featured ? (
           <motion.button
@@ -112,6 +118,7 @@ export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) 
           </motion.button>
         )
       )}
+      </div>
     </nav>
   );
 }

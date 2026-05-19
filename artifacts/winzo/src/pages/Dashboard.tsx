@@ -300,8 +300,8 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
 
   return (
     <div
-      className="min-h-screen flex flex-col relative overflow-hidden"
-      style={{ background: "#0a0a0f", maxWidth: "480px", margin: "0 auto" }}
+      className="min-h-screen flex flex-col relative"
+      style={{ background: "#0a0a0f", maxWidth: "480px", margin: "0 auto", overflowX: "hidden" }}
     >
       {/* ─── HEADER ─── */}
       <header
@@ -475,7 +475,8 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
       </header>
 
       {/* ─── SCROLLABLE CONTENT ─── */}
-      <main className="flex-1 overflow-y-auto pb-24 pt-16">
+      <main className="flex-1 overflow-y-auto pb-24 pt-16"
+        style={{ WebkitOverflowScrolling: "touch" }}>
 
         {/* ─── BANNER SLIDER ─── */}
         <div className="relative mx-4 mt-4 rounded-2xl overflow-hidden" style={{ height: "180px" }}>
