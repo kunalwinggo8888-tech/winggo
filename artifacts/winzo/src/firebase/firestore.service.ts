@@ -809,6 +809,26 @@ export async function updateAppConfig(data: Partial<AppConfig>): Promise<void> {
   await setDoc(doc(db, "config", "app"), data, { merge: true });
 }
 
+// ─── APP-OPEN BANNER AD ────────────────────────────────────────────────────────
+
+export interface AppBannerConfig {
+  enabled:   boolean;
+  imageUrl:  string;
+  link:      string;
+  updatedAt: number;
+}
+
+export const DEFAULT_APP_BANNER: AppBannerConfig = {
+  enabled: false, imageUrl: "", link: "", updatedAt: 0,
+};
+
+export function subscribeAppBanner(cb: (c: AppBannerConfig) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb(DEFAULT_APP_BANNER); return () => {}; }
+  return onSnapshot(doc(db, "system", "app_banner"), (snap) => {
+    cb(snap.exists() ? { ...DEFAULT_APP_BANNER, ...snap.data() } as AppBannerConfig : DEFAULT_APP_BANNER);
+  }, () => cb(DEFAULT_APP_BANNER));
+}
+
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────
 
 export interface DailyStats {

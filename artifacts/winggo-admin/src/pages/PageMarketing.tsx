@@ -1,11 +1,12 @@
 /**
  * PageMarketing — 4 tabs: App Banners · Promo Codes · Daily Rewards · Spin Wheel
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   subscribeAdminBanners, saveAdminBanners, subscribeAppConfig, updateAppConfig,
-  AdminBanner, AppConfig,
+  subscribeAppBanner, saveAppBanner, uploadBannerImage,
+  AdminBanner, AppConfig, AppBannerConfig,
 } from "@/firebase/admin.service";
 
 const T = {
@@ -15,6 +16,7 @@ const T = {
 
 const TABS=[
   {id:"banners", label:"🖼️ App Banners"   },
+  {id:"popup",   label:"📢 App Banner Ad" },
   {id:"promo",   label:"🎫 Promo Codes"   },
   {id:"rewards", label:"⭐ Daily Rewards"  },
   {id:"spin",    label:"🎡 Spin Wheel"    },
@@ -37,6 +39,222 @@ function TabBar({tab,setTab}:{tab:string;setTab:(t:string)=>void}) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ─── App-Open Banner Ad Tab ───────────────────────────────────────────────────
+
+function AppBannerAdTab() {
+  const [cfg,        setCfg]        = useState<AppBannerConfig>({ enabled: false, imageUrl: "", link: "", updatedAt: 0 });
+  const [link,       setLink]       = useState("");
+  const [preview,    setPreview]    = useState<string | null>(null);
+  const [file,       setFile]       = useState<File | null>(null);
+  const [uploading,  setUploading]  = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [msg,        setMsg]        = useState<{ type:"ok"|"err"; text:string }|null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => subscribeAppBanner((c) => {
+    setCfg(c);
+    setLink(c.link ?? "");
+  }), []);
+
+  function flash(type:"ok"|"err", text:string) {
+    setMsg({ type, text });
+    setTimeout(() => setMsg(null), 3000);
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      let imageUrl = cfg.imageUrl;
+      if (file) {
+        setUploading(true);
+        imageUrl = await uploadBannerImage(file);
+        setUploading(false);
+        setFile(null);
+      }
+      await saveAppBanner({ imageUrl, link, enabled: cfg.enabled });
+      flash("ok", "✅ Banner saved successfully!");
+    } catch {
+      flash("err", "❌ Save failed. Check Firebase Storage rules.");
+    }
+    setSaving(false);
+  }
+
+  async function handleToggle(v: boolean) {
+    setCfg(c => ({ ...c, enabled: v }));
+    await saveAppBanner({ enabled: v });
+  }
+
+  const displayImage = preview ?? cfg.imageUrl;
+
+  return (
+    <div className="p-4 space-y-4 max-w-xl">
+
+      {/* Header card */}
+      <div className="px-4 py-3 rounded-2xl"
+        style={{ background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.12)" }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-black text-white">App-Open Banner Ad</p>
+            <p className="text-[11px] mt-0.5" style={{ color: T.muted }}>
+              Shown to users the moment they land on the Home screen
+            </p>
+          </div>
+          {/* Live toggle */}
+          <div className="flex flex-col items-center gap-1">
+            <Toggle on={cfg.enabled} onChange={handleToggle} color={T.green} />
+            <span className="text-[9px] font-black"
+              style={{ color: cfg.enabled ? T.green : "rgba(255,255,255,0.25)" }}>
+              {cfg.enabled ? "LIVE" : "OFF"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Status pulse */}
+      {cfg.enabled && cfg.imageUrl && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+          style={{ background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.18)" }}>
+          <motion.div className="w-2 h-2 rounded-full shrink-0" style={{ background: T.green }}
+            animate={{ opacity: [1, 0.25, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
+          <span className="text-[11px] font-black" style={{ color: T.green }}>
+            Banner is LIVE — users will see this popup on app open
+          </span>
+        </div>
+      )}
+
+      {/* Image upload */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,212,255,0.12)" }}>
+        <div className="px-4 py-2.5"
+          style={{ background: "rgba(0,212,255,0.06)", borderBottom: "1px solid rgba(0,212,255,0.1)" }}>
+          <p className="text-xs font-black text-white">Banner Image</p>
+          <p className="text-[10px]" style={{ color: T.muted }}>
+            Recommended: 900×600 px or 3:2 ratio. JPG/PNG/WebP
+          </p>
+        </div>
+        <div className="p-4 space-y-3" style={{ background: "rgba(0,0,0,0.2)" }}>
+          {displayImage ? (
+            <div className="relative rounded-xl overflow-hidden"
+              style={{ border: "1px solid rgba(0,212,255,0.15)" }}>
+              <img src={displayImage} alt="banner preview"
+                className="w-full object-cover" style={{ maxHeight: 220 }} />
+              <div className="absolute top-2 right-2">
+                <motion.button
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => fileRef.current?.click()}
+                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-black cursor-pointer"
+                  style={{ background: "rgba(0,0,0,0.7)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)" }}>
+                  Change
+                </motion.button>
+              </div>
+            </div>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => fileRef.current?.click()}
+              className="w-full h-36 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer"
+              style={{
+                background: "rgba(0,212,255,0.03)",
+                border: "2px dashed rgba(0,212,255,0.2)",
+              }}>
+              <span className="text-3xl opacity-30">📷</span>
+              <p className="text-xs font-black" style={{ color: "rgba(0,212,255,0.6)" }}>
+                Click to upload banner image
+              </p>
+              <p className="text-[10px]" style={{ color: T.muted }}>JPG, PNG, WebP</p>
+            </motion.button>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onFileChange}
+          />
+        </div>
+      </div>
+
+      {/* Click destination link */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,212,255,0.12)" }}>
+        <div className="px-4 py-2.5"
+          style={{ background: "rgba(0,212,255,0.06)", borderBottom: "1px solid rgba(0,212,255,0.1)" }}>
+          <p className="text-xs font-black text-white">Click Destination <span style={{ color: T.muted }}>(Optional)</span></p>
+          <p className="text-[10px]" style={{ color: T.muted }}>
+            Where to send users when they tap the banner. Leave blank to just dismiss.
+          </p>
+        </div>
+        <div className="p-4 space-y-2" style={{ background: "rgba(0,0,0,0.2)" }}>
+          <input
+            type="text"
+            value={link}
+            onChange={e => setLink(e.target.value)}
+            placeholder="e.g. wallet, tournament, spinwheel"
+            className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none font-mono"
+            style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,212,255,0.2)" }}
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {["wallet","spinwheel","tournament","leaderboard","refer"].map(s => (
+              <button key={s} onClick={() => setLink(s)}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer"
+                style={{
+                  background: link === s ? "rgba(0,212,255,0.12)" : "rgba(255,255,255,0.04)",
+                  color: link === s ? T.blue : T.muted,
+                  border: `1px solid ${link === s ? "rgba(0,212,255,0.25)" : "rgba(255,255,255,0.07)"}`,
+                }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Save button */}
+      <motion.button
+        onClick={handleSave}
+        disabled={saving || uploading}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
+        className="w-full py-3 rounded-xl text-sm font-black cursor-pointer"
+        style={{
+          background: msg?.type === "ok" ? "rgba(0,255,136,0.1)" : "rgba(0,212,255,0.1)",
+          color: msg?.type === "ok" ? T.green : T.blue,
+          border: `1px solid ${msg?.type === "ok" ? "rgba(0,255,136,0.3)" : "rgba(0,212,255,0.25)"}`,
+          opacity: saving ? 0.7 : 1,
+        }}>
+        {uploading ? "⬆️ Uploading image…" : saving ? "⏳ Saving…" : "💾 Save Banner Config"}
+      </motion.button>
+
+      {/* Message */}
+      <AnimatePresence>
+        {msg && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="px-3 py-2 rounded-xl text-xs font-bold text-center"
+            style={{
+              background: msg.type === "ok" ? "rgba(0,255,136,0.08)" : "rgba(255,51,102,0.08)",
+              color: msg.type === "ok" ? T.green : T.red,
+              border: `1px solid ${msg.type === "ok" ? "rgba(0,255,136,0.2)" : "rgba(255,51,102,0.2)"}`,
+            }}>
+            {msg.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview note */}
+      <p className="text-[10px] text-center" style={{ color: "rgba(226,232,240,0.2)" }}>
+        Changes are live-streamed to the Winggo app in real time via Firestore
+      </p>
     </div>
   );
 }
@@ -265,6 +483,7 @@ export default function PageMarketing({ jumpTab="" }:{jumpTab?:string}) {
         <motion.div key={tab} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
           exit={{opacity:0,y:-4}} transition={{duration:0.15}}>
           {tab==="banners" && <BannersTab />}
+          {tab==="popup"   && <AppBannerAdTab />}
           {tab==="promo"   && (
             <div className="p-4 flex flex-col items-center justify-center py-16">
               <div className="text-6xl mb-4 opacity-20">🎫</div>

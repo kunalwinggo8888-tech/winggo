@@ -66,8 +66,9 @@ import KYCScreen from "@/pages/KYCScreen";
 import LeaderboardScreen from "@/pages/LeaderboardScreen";
 import FirebaseSetupGuide from "@/pages/FirebaseSetupGuide";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
-import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG } from "@/firebase/firestore.service";
+import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
+import AppBannerModal from "@/components/AppBannerModal";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,9 @@ function AppInner() {
   const [appConfig, setAppConfig]     = useState<AppConfig>(DEFAULT_APP_CONFIG);
   const [showSetup, setShowSetup]     = useState(!FIREBASE_ENABLED);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showBanner,  setShowBanner]  = useState(false);
+  const [bannerCfg,   setBannerCfg]  = useState<AppBannerConfig>(DEFAULT_APP_BANNER);
+  const bannerShown = useRef(false);
   const [ludoFee, setLudoFee]           = useState(2);
   const [saanpSidiFee, setSaanpSidiFee] = useState(2);
   const [worldWarFee, setWorldWarFee]   = useState<number | undefined>(undefined);
@@ -147,6 +151,22 @@ function AppInner() {
   useEffect(() => {
     return subscribeAppConfig(setAppConfig);
   }, []);
+
+  // Subscribe to app-open banner config
+  useEffect(() => {
+    return subscribeAppBanner(setBannerCfg);
+  }, []);
+
+  // Show banner once per session when dashboard first appears
+  useEffect(() => {
+    if (screen !== "dashboard") return;
+    if (bannerShown.current) return;
+    if (!bannerCfg.enabled || !bannerCfg.imageUrl) return;
+    bannerShown.current = true;
+    // Small delay so Dashboard renders first
+    const t = setTimeout(() => setShowBanner(true), 600);
+    return () => clearTimeout(t);
+  }, [screen, bannerCfg]);
 
   // Splash auto-advance (3s)
   useEffect(() => {
@@ -204,6 +224,22 @@ function AppInner() {
     setScreen("login");
   }
 
+  // Navigate from banner tap — map link string to screen
+  function handleBannerNavigate(dest: string) {
+    const map: Partial<Record<string, Screen>> = {
+      wallet:      "wallet",
+      spinwheel:   "spinwheel",
+      spin:        "spinwheel",
+      leaderboard: "leaderboard",
+      refer:       "refer",
+      history:     "history",
+      profile:     "profile",
+      kyc:         "kyc",
+    };
+    const target = map[dest.toLowerCase()];
+    if (target) setScreen(target);
+  }
+
   // Show setup guide when Firebase isn't configured
   if (showSetup) {
     return <FirebaseSetupGuide onSkip={() => setShowSetup(false)} />;
@@ -233,6 +269,16 @@ function AppInner() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── App-Open Banner Modal ── */}
+      {showBanner && (
+        <AppBannerModal
+          imageUrl={bannerCfg.imageUrl}
+          link={bannerCfg.link}
+          onClose={() => setShowBanner(false)}
+          onNavigate={(dest) => { setShowBanner(false); handleBannerNavigate(dest); }}
+        />
+      )}
 
       {/* ── Force Update Overlay ── */}
       <AnimatePresence>

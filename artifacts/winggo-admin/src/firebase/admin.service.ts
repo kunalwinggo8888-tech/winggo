@@ -1195,3 +1195,38 @@ export async function staffSignIn(
 // suppress unused import warning
 function _noop(_: DocumentData) {}
 void _noop;
+
+// ─── APP-OPEN BANNER AD ────────────────────────────────────────────────────────
+
+export interface AppBannerConfig {
+  enabled:   boolean;
+  imageUrl:  string;
+  link:      string;
+  updatedAt: number;
+}
+
+const DEFAULT_BANNER: AppBannerConfig = { enabled: false, imageUrl: "", link: "", updatedAt: 0 };
+
+export function subscribeAppBanner(cb: (c: AppBannerConfig) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb(DEFAULT_BANNER); return () => {}; }
+  return onSnapshot(doc(adminDb, "system", "app_banner"), (snap) => {
+    cb(snap.exists() ? { ...DEFAULT_BANNER, ...snap.data() } as AppBannerConfig : DEFAULT_BANNER);
+  }, () => cb(DEFAULT_BANNER));
+}
+
+export async function saveAppBanner(cfg: Partial<AppBannerConfig>): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await setDoc(doc(adminDb, "system", "app_banner"), { ...cfg, updatedAt: Date.now() }, { merge: true });
+}
+
+export async function uploadBannerImage(file: File): Promise<string> {
+  if (!FIREBASE_ENABLED || !adminStorage) return "";
+  const ext  = file.name.split(".").pop() ?? "png";
+  const sRef = storageRef(adminStorage, `banners/app_open_${Date.now()}.${ext}`);
+  const task = uploadBytesResumable(sRef, file);
+  return new Promise((resolve, reject) => {
+    task.on("state_changed", null, reject,
+      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
+    );
+  });
+}

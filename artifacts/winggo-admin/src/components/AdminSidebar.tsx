@@ -11,7 +11,7 @@ import {
   ArrowUpFromLine, ScrollText, Gift, Image, Tag,
   Star, RotateCcw, BellRing, Newspaper, MessageSquare,
   Percent, Trophy, UploadCloud, UserCog, Activity,
-  AlertTriangle, ChevronDown, KeyRound,
+  AlertTriangle, ChevronDown, KeyRound, MonitorPlay,
   type LucideIcon,
 } from "lucide-react";
 
@@ -73,6 +73,7 @@ const NAV: NavGroup[] = [
   },
   { id: "marketing",     icon: Megaphone,       label: "Banners & Marketing",   items: [
       { tab: "banners",  icon: Image,           label: "App Banners"         },
+      { tab: "popup",    icon: MonitorPlay,     label: "App-Open Banner Ad"  },
       { tab: "promo",    icon: Tag,             label: "Promo Codes"         },
       { tab: "rewards",  icon: Star,            label: "Daily Rewards"       },
       { tab: "spin",     icon: RotateCcw,       label: "Spin Wheel"          },
