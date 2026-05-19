@@ -160,8 +160,9 @@ export async function botJoinRoom(
   maxPlayers: number
 ): Promise<void> {
   if (!FIREBASE_ENABLED || !rtdb) return;
-  const BOT_NAMES = ["ArjunBot", "KaranBot", "RajaBot", "VijayBot", "RohitBot", "PriyaBot"];
-  const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  const { getRandomBot: _getRandomBot } = await import("../data/botDatabase");
+  const bot_db = _getRandomBot();
+  const botName = bot_db.name;
   const botUid  = `bot_${Date.now()}`;
   const bot: MatchPlayer = {
     uid: botUid,

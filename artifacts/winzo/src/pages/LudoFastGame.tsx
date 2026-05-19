@@ -15,6 +15,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
 import { useMatchHistory } from "@/context/useMatchHistory";
+import { getRandomBot, type BotPlayer } from "@/data/botDatabase";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -23,8 +24,6 @@ const SZ         = 15 * C;       // board size px
 const MAX_MOVES  = 50;
 const HOME_SCORE = 25;
 const KILL_BONUS = 15;
-const BOT_NAMES  = ["Rohan","Priya","Arjun","Sneha","Vikram","Ananya","Rahul","Pooja","Dev","Kiran"];
-const BOT_CITIES = ["Mumbai","Delhi","Bangalore","Pune","Chennai","Hyderabad","Kolkata","Jaipur","Surat","Ahmedabad"];
 const EMOTES     = ["😂","👍","😤","🔥","🎉","💪","😱","🤙","👑","😎"];
 
 // Player indices
@@ -551,9 +550,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const isFreeMode = initialFee === 0;
   const tier: BotTier = isFreeMode || initialFee < 5 ? "easy" : initialFee < 20 ? "medium" : "god";
 
-  const botIdx  = useRef(Math.floor(Math.random() * BOT_NAMES.length));
-  const botName = useRef(BOT_NAMES[botIdx.current]);
-  const botCity = useRef(BOT_CITIES[botIdx.current]);
+  const botRef  = useRef<BotPlayer>(getRandomBot());
   const scored  = useRef(false);
 
   // All 4 tokens start at step 1 (deployed on board, no yard wait)
@@ -570,17 +567,19 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const [validToks,  setValidToks]  = useState<number[]>([]);
   const [logMsgs,    setLogMsgs]    = useState<string[]>(["🎮 Match started! All tokens deployed. Roll to move!"]);
   const [phase,      setPhase]      = useState<"matchmaking" | "playing" | "result">("matchmaking");
+  const [mmStage,    setMmStage]    = useState<"searching" | "found">("searching");
   const [emote,      setEmote]      = useState("");
   const [killFlash,  setKillFlash]  = useState(false);
 
   const pushLog = (msg: string) => setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
   const flashKill = () => { setKillFlash(true); setTimeout(() => setKillFlash(false), 600); };
 
-  // ── Matchmaking ─────────────────────────────────────────────────────────────
+  // ── Matchmaking — 4-second flow: 3.5s searching → 0.5s "found" → playing ───
   useEffect(() => {
     if (phase !== "matchmaking") return;
-    const t = setTimeout(() => setPhase("playing"), 3000);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setMmStage("found"),   3500);
+    const t2 = setTimeout(() => setPhase("playing"),   4000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
 
   // ── End condition ────────────────────────────────────────────────────────────
@@ -595,7 +594,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
       gameId: "ludofast", gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast", gameIcon: "🎲",
       result: won ? "win" : "loss", entryFee: initialFee,
       prize, userScore: pScore, opponentScore: bScore,
-      opponentName: botName.current,
+      opponentName: botRef.current.name,
     });
   }, [pMoves, bMoves, phase, pScore, bScore]);
 
@@ -789,7 +788,9 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         <motion.div initial={{ opacity: 0, y: -18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
           className="mb-10 text-center">
           <p className="text-[10px] font-black tracking-[0.25em] mb-2.5"
-            style={{ color: "rgba(255,215,0,0.45)" }}>FAST LUDO · MATCH FOUND</p>
+            style={{ color: "rgba(255,215,0,0.45)" }}>
+            {mmStage === "searching" ? "FAST LUDO · SEARCHING…" : "FAST LUDO · MATCH FOUND"}
+          </p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
             {!isFreeMode && (
               <span className="px-3 py-1.5 rounded-full text-xs font-black"
@@ -865,42 +866,68 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
           </motion.div>
 
           {/* ── OPPONENT ── */}
-          <motion.div
-            initial={{ opacity: 0, x: 48 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ type: "spring", stiffness: 220, damping: 22, delay: 0.1 }}
-            className="flex flex-col items-center gap-3 flex-1">
-
-            <div className="relative">
-              {/* Pulse ring */}
-              <motion.div className="absolute rounded-full pointer-events-none"
-                style={{ inset: -7, border: "2.5px solid #3b82f6", borderRadius: "50%" }}
-                animate={{ scale: [1, 1.14, 1], opacity: [0.75, 0.2, 0.75] }}
-                transition={{ duration: 1.9, repeat: Infinity, delay: 0.4 }} />
-
-              {/* Profile circle — initial + gradient */}
-              <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center overflow-hidden"
-                style={{
-                  background: "linear-gradient(135deg,#1d4ed8 0%,#1e1b4b 100%)",
-                  border: "3.5px solid #3b82f6",
-                  boxShadow: "0 0 28px rgba(59,130,246,0.6), 0 0 56px rgba(59,130,246,0.2)",
-                }}>
-                <span className="font-black text-white" style={{ fontSize: 38, lineHeight: 1 }}>
-                  {botName.current.charAt(0).toUpperCase()}
-                </span>
-              </div>
-
-              {/* Online badge */}
-              <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full flex items-center justify-center"
-                style={{ background: "#22c55e", border: "2.5px solid #06080f" }} />
-            </div>
-
-            <div className="text-center">
-              <div className="font-black text-white text-base leading-tight">{botName.current}</div>
-              <div className="text-[11px] font-bold mt-0.5" style={{ color: "rgba(59,130,246,0.85)" }}>
-                📍 {botCity.current}
-              </div>
-            </div>
-          </motion.div>
+          <AnimatePresence mode="wait">
+            {mmStage === "searching" ? (
+              /* ── Searching placeholder ── */
+              <motion.div key="searching"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                className="flex flex-col items-center gap-3 flex-1">
+                <div className="relative">
+                  <motion.div
+                    className="w-[88px] h-[88px] rounded-full flex items-center justify-center"
+                    style={{ background: "rgba(59,130,246,0.07)", border: "2px dashed rgba(59,130,246,0.3)" }}
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}>
+                    <motion.span style={{ fontSize: 34 }}
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: "linear" }}>
+                      🔍
+                    </motion.span>
+                  </motion.div>
+                </div>
+                <div className="text-center">
+                  <div className="font-black text-white text-sm">Finding Players</div>
+                  <motion.div className="text-[11px] font-bold mt-0.5"
+                    style={{ color: "rgba(59,130,246,0.6)" }}
+                    animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 0.9, repeat: Infinity }}>
+                    Scanning 7,000+ online…
+                  </motion.div>
+                </div>
+              </motion.div>
+            ) : (
+              /* ── Bot card (match found) ── */
+              <motion.div key="found"
+                initial={{ opacity: 0, x: 48, scale: 0.85 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className="flex flex-col items-center gap-3 flex-1">
+                <div className="relative">
+                  <motion.div className="absolute rounded-full pointer-events-none"
+                    style={{ inset: -7, border: "2.5px solid #3b82f6", borderRadius: "50%" }}
+                    animate={{ scale: [1, 1.14, 1], opacity: [0.75, 0.2, 0.75] }}
+                    transition={{ duration: 1.9, repeat: Infinity, delay: 0.4 }} />
+                  <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center overflow-hidden"
+                    style={{
+                      background: `linear-gradient(135deg,${botRef.current.avatarColor}cc 0%,#1e1b4b 100%)`,
+                      border: `3.5px solid ${botRef.current.avatarColor}`,
+                      boxShadow: `0 0 28px ${botRef.current.avatarColor}99, 0 0 56px ${botRef.current.avatarColor}33`,
+                    }}>
+                    <span className="font-black text-white" style={{ fontSize: 38, lineHeight: 1 }}>
+                      {botRef.current.initial}
+                    </span>
+                  </div>
+                  <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full"
+                    style={{ background: "#22c55e", border: "2.5px solid #06080f" }} />
+                </div>
+                <div className="text-center">
+                  <div className="font-black text-white text-base leading-tight">{botRef.current.name}</div>
+                  <div className="text-[11px] font-bold mt-0.5" style={{ color: "rgba(59,130,246,0.85)" }}>
+                    📍 {botRef.current.city}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
         </div>
 
@@ -935,7 +962,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
           <motion.p className="text-center text-[11px] font-bold"
             style={{ color: "rgba(255,255,255,0.3)" }}
             animate={{ opacity: [0.35, 1, 0.35] }} transition={{ duration: 1.1, repeat: Infinity }}>
-            🎮 Setting up the board…
+            {mmStage === "searching" ? "⏳ Scanning real players…" : "🎮 Setting up the board…"}
           </motion.p>
         </motion.div>
 
@@ -979,7 +1006,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
               <div className="text-[9px] font-bold mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>points</div>
             </div>
             <div className="flex-1 p-4 text-center" style={{ background: "rgba(59,130,246,0.1)" }}>
-              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(59,130,246,0.7)" }}>{botName.current.slice(0,8)}</div>
+              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(59,130,246,0.7)" }}>{botRef.current.name.slice(0,8)}</div>
               <div className="text-3xl font-black" style={{ color: "#3b82f6" }}>{bScore}</div>
               <div className="text-[9px] font-bold mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>points</div>
             </div>
@@ -1104,7 +1131,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         <Board pTokens={pTokens} bTokens={bTokens} validTokens={validToks}
           highlightKill={killFlash} onSelect={handleTokenSelect}
           pScore={pScore} bScore={bScore} pMoves={pMoves} bMoves={bMoves}
-          turn={turn} botName={botName.current} />
+          turn={turn} botName={botRef.current.name} />
       </div>
 
       {/* ── Bottom controls ── */}

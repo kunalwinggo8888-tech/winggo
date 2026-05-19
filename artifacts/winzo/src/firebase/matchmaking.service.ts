@@ -3,6 +3,7 @@
  * High-level matchmaking flow with bot fallback for all games
  */
 import { joinMatchmaking, botJoinRoom, subscribeRoom, leaveMatchmaking, MatchPlayer, MatchRoom } from "./rtdb.service";
+import { getRandomBot } from "../data/botDatabase";
 
 export type MatchStatus =
   | "idle"
@@ -36,7 +37,7 @@ export function startMatchmaking(
 ): { cancel: () => void; promise: Promise<MatchResult> } {
   const {
     gameType, entryFee, maxPlayers, player,
-    timeoutSec = 15,
+    timeoutSec = 4,
     onStatus = () => {},
     onPlayersUpdate = () => {},
   } = opts;
@@ -113,8 +114,10 @@ export function demoMatchmaking(
   let timer: ReturnType<typeof setTimeout> | null = null;
   let cancelled = false;
 
-  const BOT_NAMES = ["ArjunBot", "KaranBot", "RajaBot", "VijayBot"];
-  const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  const bot_db = getRandomBot();
+  const botName = bot_db.name;
+  const botCity = bot_db.city;
+  void botCity;
   const botUid  = `bot_${Date.now()}`;
 
   const roomId = `demo-room-${Date.now()}`;
