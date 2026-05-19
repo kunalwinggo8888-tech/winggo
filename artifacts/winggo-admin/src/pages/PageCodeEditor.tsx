@@ -5,7 +5,7 @@
  * - Virtual file system backed by Firestore
  * - Save to cloud + Deploy Live
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Editor from "@monaco-editor/react";
 import {
@@ -16,13 +16,14 @@ import {
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
 const T = {
-  blue:  "#00d4ff",
-  green: "#00ff88",
-  gold:  "#f59e0b",
-  red:   "#ff3366",
-  muted: "rgba(226,232,240,0.38)",
-  bg:    "#070b12",
-  card:  "#0a0f1a",
+  blue:   "#00d4ff",
+  green:  "#00ff88",
+  gold:   "#f59e0b",
+  red:    "#ff3366",
+  purple: "#a78bfa",
+  muted:  "rgba(226,232,240,0.38)",
+  bg:     "#070b12",
+  card:   "#0a0f1a",
 };
 
 // ─── FILE DEFINITIONS ─────────────────────────────────────────────────────────
@@ -161,6 +162,19 @@ console.log('[WINGGO] Custom JS loaded from Firebase');
   },
 ];
 
+// ─── FILES THAT FEED THE PREVIEW ──────────────────────────────────────────────
+const PREVIEWABLE = new Set(["index.html", "style.css", "game_logic.js"]);
+
+// ─── BUILD SELF-CONTAINED SRCDOC ──────────────────────────────────────────────
+function buildSrcdoc(contents: Record<string, string>): string {
+  const html = contents["index.html"] ?? FILES[0].template;
+  const css  = contents["style.css"]  ?? FILES[1].template;
+  const js   = contents["game_logic.js"] ?? FILES[2].template;
+  return html
+    .replace(/<link[^>]*href=["']style\.css["'][^>]*\/?>/gi,          `<style>\n${css}\n</style>`)
+    .replace(/<script[^>]*src=["']game_logic\.js["'][^>]*><\/script>/gi, `<script>\n${js}\n</script>`);
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function fmtAgo(ts: number | undefined): string {
@@ -174,8 +188,9 @@ function fmtAgo(ts: number | undefined): string {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 
-type SaveStatus  = "idle" | "saving"   | "saved"    | "error";
+type SaveStatus   = "idle" | "saving"    | "saved"    | "error";
 type DeployStatus = "idle" | "deploying" | "deployed" | "error";
+type MobileView   = "editor" | "preview";
 
 export default function PageCodeEditor() {
   const [activeFile, setActiveFile]     = useState<string>(FILES[0].name);
@@ -185,6 +200,13 @@ export default function PageCodeEditor() {
   const [saveStatus, setSaveStatus]     = useState<SaveStatus>("idle");
   const [deployStatus, setDeployStatus] = useState<DeployStatus>("idle");
   const [mobileFilePicker, setMFP]      = useState(false);
+
+  // ── Preview state ────────────────────────────────────────────────────────
+  const [previewSrc, setPreviewSrc]   = useState<string>("");
+  const [previewKey, setPreviewKey]   = useState(0);
+  const [showPreview, setShowPreview] = useState(true);
+  const [mobileView, setMobileView]   = useState<MobileView>("editor");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const fileDef = FILES.find((f) => f.name === activeFile) ?? FILES[0];
   const content = contents[activeFile] ?? fileDef.template;
@@ -241,6 +263,13 @@ export default function PageCodeEditor() {
     }
   }
 
+  // ── Refresh Preview ───────────────────────────────────────────────────────
+  function handleRefreshPreview() {
+    setPreviewSrc(buildSrcdoc(contents));
+    setPreviewKey((k) => k + 1);
+    setMobileView("preview");
+  }
+
   const fileMeta = metadata[activeFile];
 
   return (
@@ -281,6 +310,29 @@ export default function PageCodeEditor() {
             <span style={{ color: T.gold }}>⚠️ Demo mode — changes won't persist</span>
           )}
         </div>
+
+        {/* Refresh Preview */}
+        <motion.button whileTap={{ scale: 0.94 }} onClick={handleRefreshPreview}
+          title="Render HTML + CSS + JS in the preview panel"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer"
+          style={{
+            background: "rgba(167,139,250,0.1)",
+            color: T.purple,
+            border: "1px solid rgba(167,139,250,0.25)",
+          }}>
+          🔄 <span className="hidden sm:inline">Refresh Preview</span>
+        </motion.button>
+
+        {/* Toggle preview panel — desktop only */}
+        <button onClick={() => setShowPreview((v) => !v)}
+          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-black cursor-pointer"
+          style={{
+            background: showPreview ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${showPreview ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.08)"}`,
+            color: showPreview ? T.purple : T.muted,
+          }}>
+          {showPreview ? "◧" : "□"} <span>Preview</span>
+        </button>
 
         {/* Save */}
         <motion.button whileTap={{ scale: 0.94 }} onClick={handleSave}
@@ -323,6 +375,25 @@ export default function PageCodeEditor() {
         </motion.button>
       </div>
 
+      {/* ── Mobile tab bar: Code | Preview ─────────────────────────────────── */}
+      <div className="lg:hidden flex shrink-0"
+        style={{ background: "#080d18", borderBottom: "1px solid rgba(0,212,255,0.1)" }}>
+        {(["editor", "preview"] as MobileView[]).map((tab) => {
+          const active = mobileView === tab;
+          return (
+            <button key={tab} onClick={() => setMobileView(tab)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black cursor-pointer"
+              style={{
+                color: active ? (tab === "preview" ? T.purple : T.blue) : T.muted,
+                borderBottom: `2px solid ${active ? (tab === "preview" ? T.purple : T.blue) : "transparent"}`,
+                background: active ? "rgba(255,255,255,0.03)" : "transparent",
+              }}>
+              {tab === "editor" ? "📝 Code Editor" : "👁️ Live Preview"}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Main editor area ───────────────────────────────────────────────── */}
       <div className="flex flex-1 min-h-0">
 
@@ -358,8 +429,97 @@ export default function PageCodeEditor() {
           })}
         </div>
 
-        {/* Monaco Editor */}
-        <div className="flex-1 min-w-0 relative">
+        {/* ── DESKTOP: editor + optional preview side-by-side ──────────────── */}
+        <div className="hidden lg:flex flex-1 min-w-0">
+
+          {/* Editor panel */}
+          <div className="relative min-w-0"
+            style={{
+              width: showPreview ? "50%" : "100%",
+              transition: "width 0.22s ease",
+              borderRight: showPreview ? "1px solid rgba(167,139,250,0.15)" : "none",
+            }}>
+            {loading ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+                style={{ background: "#1e1e1e" }}>
+                <motion.div className="w-8 h-8 rounded-full border-2"
+                  style={{ borderColor: `${T.blue} transparent transparent transparent` }}
+                  animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }} />
+                <p className="text-xs font-bold" style={{ color: T.muted }}>Loading files from Firebase…</p>
+              </div>
+            ) : (
+              <Editor height="100%" language={fileDef.lang} theme="vs-dark" value={content}
+                onChange={handleEditorChange}
+                options={{
+                  minimap: { enabled: true, scale: 1 }, fontSize: 13, lineHeight: 22,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+                  fontLigatures: true, lineNumbers: "on", wordWrap: "on", automaticLayout: true,
+                  scrollBeyondLastLine: false, padding: { top: 12, bottom: 24 },
+                  renderLineHighlight: "all", smoothScrolling: true, cursorBlinking: "smooth",
+                  bracketPairColorization: { enabled: true }, guides: { bracketPairs: true }, tabSize: 2,
+                }} />
+            )}
+          </div>
+
+          {/* Preview panel */}
+          <AnimatePresence>
+            {showPreview && (
+              <motion.div key="preview"
+                initial={{ opacity: 0, x: 32 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 32 }} transition={{ duration: 0.18 }}
+                className="flex flex-col min-w-0" style={{ width: "50%" }}>
+                {/* Preview header */}
+                <div className="shrink-0 flex items-center gap-2 px-3 py-2"
+                  style={{ background: "#080d18", borderBottom: "1px solid rgba(167,139,250,0.15)" }}>
+                  <motion.div className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: previewSrc ? T.green : T.muted }}
+                    animate={previewSrc ? { opacity: [1, 0.3, 1] } : {}}
+                    transition={{ duration: 1.5, repeat: Infinity }} />
+                  <span className="text-xs font-black" style={{ color: T.purple }}>LIVE PREVIEW</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-black"
+                    style={{ background: "rgba(167,139,250,0.1)", color: T.purple, border: "1px solid rgba(167,139,250,0.2)" }}>
+                    HTML + CSS + JS
+                  </span>
+                  {previewSrc && (
+                    <span className="ml-auto text-[10px]" style={{ color: T.muted }}>sandbox · scripts only</span>
+                  )}
+                </div>
+                {/* iframe / placeholder */}
+                <div className="flex-1 relative min-h-0">
+                  {previewSrc ? (
+                    <iframe key={previewKey} ref={iframeRef} srcDoc={previewSrc}
+                      sandbox="allow-scripts" title="Live Preview"
+                      className="absolute inset-0 w-full h-full border-0"
+                      style={{ background: "#fff" }} />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center"
+                      style={{ background: "#080d18" }}>
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                        style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" }}>
+                        <span className="text-3xl">👁️</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white mb-1">Preview ready</p>
+                        <p className="text-xs leading-relaxed" style={{ color: T.muted }}>
+                          Click <span className="font-black" style={{ color: T.purple }}>Refresh Preview</span> to
+                          render your HTML, CSS and JS here safely — changes won't go live until you deploy.
+                        </p>
+                      </div>
+                      <motion.button whileTap={{ scale: 0.95 }} onClick={handleRefreshPreview}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black cursor-pointer"
+                        style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: T.purple }}>
+                        🔄 Refresh Preview
+                      </motion.button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ── MOBILE: Code tab ────────────────────────────────────────────────── */}
+        <div className={`lg:hidden relative flex-1 min-w-0 ${mobileView === "editor" ? "block" : "hidden"}`}>
           {loading ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
               style={{ background: "#1e1e1e" }}>
@@ -369,33 +529,44 @@ export default function PageCodeEditor() {
               <p className="text-xs font-bold" style={{ color: T.muted }}>Loading files from Firebase…</p>
             </div>
           ) : (
-            <Editor
-              height="100%"
-              language={fileDef.lang}
-              theme="vs-dark"
-              value={content}
+            <Editor height="100%" language={fileDef.lang} theme="vs-dark" value={content}
               onChange={handleEditorChange}
               options={{
-                minimap:              { enabled: true, scale: 1 },
-                fontSize:             13,
-                lineHeight:           22,
-                fontFamily:           "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-                fontLigatures:        true,
-                lineNumbers:          "on",
-                wordWrap:             "on",
-                automaticLayout:      true,
-                scrollBeyondLastLine: false,
-                padding:              { top: 12, bottom: 24 },
-                renderLineHighlight:  "all",
-                smoothScrolling:      true,
-                cursorBlinking:       "smooth",
-                bracketPairColorization: { enabled: true },
-                guides:               { bracketPairs: true },
-                tabSize:              2,
-              }}
-            />
+                minimap: { enabled: false }, fontSize: 13, lineHeight: 22,
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                lineNumbers: "on", wordWrap: "on", automaticLayout: true,
+                scrollBeyondLastLine: false, padding: { top: 12, bottom: 24 }, tabSize: 2,
+              }} />
           )}
         </div>
+
+        {/* ── MOBILE: Preview tab ──────────────────────────────────────────────── */}
+        <div className={`lg:hidden flex-1 min-w-0 min-h-0 flex-col ${mobileView === "preview" ? "flex" : "hidden"}`}>
+          <div className="shrink-0 flex items-center gap-2 px-3 py-2"
+            style={{ background: "#080d18", borderBottom: "1px solid rgba(167,139,250,0.15)" }}>
+            <motion.div className="w-1.5 h-1.5 rounded-full"
+              style={{ background: previewSrc ? T.green : T.muted }}
+              animate={previewSrc ? { opacity: [1, 0.3, 1] } : {}}
+              transition={{ duration: 1.5, repeat: Infinity }} />
+            <span className="text-xs font-black" style={{ color: T.purple }}>LIVE PREVIEW</span>
+          </div>
+          <div className="flex-1 relative min-h-0">
+            {previewSrc ? (
+              <iframe key={previewKey} srcDoc={previewSrc} sandbox="allow-scripts"
+                title="Live Preview (mobile)" className="absolute inset-0 w-full h-full border-0"
+                style={{ background: "#fff" }} />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center"
+                style={{ background: "#080d18" }}>
+                <span className="text-4xl">👁️</span>
+                <p className="text-xs" style={{ color: T.muted }}>
+                  Tap <span style={{ color: T.purple }}>🔄 Refresh Preview</span> in the toolbar to render your code.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
 
       {/* ── Status bar ─────────────────────────────────────────────────────── */}
@@ -409,6 +580,7 @@ export default function PageCodeEditor() {
           <span style={{ color: T.muted }}>{fileDef.desc}</span>
         </div>
         <div className="flex items-center gap-3" style={{ color: T.muted }}>
+          {previewSrc && <span style={{ color: T.purple }}>👁️ Preview active</span>}
           <span>{fileDef.lang.toUpperCase()}</span>
           <span>UTF-8</span>
           <span>LF</span>
