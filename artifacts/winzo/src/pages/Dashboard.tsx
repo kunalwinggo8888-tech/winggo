@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import SpinWheel from "@/pages/SpinWheel";
 import { useWallet } from "@/context/useWallet";
 import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
@@ -148,7 +147,6 @@ const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: s
 const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
 
 interface DashboardProps {
-  onSpin?: () => void;
   onLudo?: (fee?: number) => void;
   onLudoFast?: (fee?: number) => void;
   onSaanpSidi?: (fee?: number) => void;
@@ -205,10 +203,9 @@ interface DashboardProps {
 // Games that have a real implementation vs coming soon
 const IMPLEMENTED_GAMES = new Set(["ludo","5","saanpsidi","solitaire","11","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme","streetfight","shadowfighter","golfmaster","archeryking","tilematch3d","pipeconnect","jellyshift","goldminer3d"]);
 
-export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
-  const [showSpinModal, setShowSpinModal] = useState(false);
   const [liveGames, setLiveGames] = useState<GameConfig[]>([]);
   const [pendingGame, setPendingGame] = useState<SheetGame | null>(null);
   const bannerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -365,71 +362,6 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               className="absolute top-0 right-0 w-2 h-2 rounded-full"
               style={{ background: "#ff4e00" }}
             />
-          </motion.button>
-
-          {/* Daily Spin Icon */}
-          <motion.button
-            data-testid="button-daily-spin"
-            onClick={() => setShowSpinModal(true)}
-            whileTap={{ scale: 0.88 }}
-            className="relative w-8 h-8 flex items-center justify-center cursor-pointer rounded-full"
-            style={{
-              background: "rgba(139,92,246,0.15)",
-              border: "1px solid rgba(139,92,246,0.35)",
-            }}
-            animate={{
-              boxShadow: [
-                "0 0 6px rgba(139,92,246,0.5), 0 0 12px rgba(255,215,0,0.2)",
-                "0 0 12px rgba(255,215,0,0.7), 0 0 20px rgba(139,92,246,0.4)",
-                "0 0 6px rgba(139,92,246,0.5), 0 0 12px rgba(255,215,0,0.2)",
-              ],
-            }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          >
-            {/* SVG Fortune Wheel */}
-            <motion.svg
-              width="20" height="20" viewBox="0 0 20 20" fill="none"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-            >
-              {/* 8 pie segments */}
-              {[
-                { start: 0,   end: 45,  color: "#FFD700" },
-                { start: 45,  end: 90,  color: "#EF4444" },
-                { start: 90,  end: 135, color: "#3B82F6" },
-                { start: 135, end: 180, color: "#10B981" },
-                { start: 180, end: 225, color: "#8B5CF6" },
-                { start: 225, end: 270, color: "#F97316" },
-                { start: 270, end: 315, color: "#EC4899" },
-                { start: 315, end: 360, color: "#06B6D4" },
-              ].map((seg, i) => {
-                const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
-                const x1 = 10 + 9 * Math.cos(toRad(seg.start));
-                const y1 = 10 + 9 * Math.sin(toRad(seg.start));
-                const x2 = 10 + 9 * Math.cos(toRad(seg.end));
-                const y2 = 10 + 9 * Math.sin(toRad(seg.end));
-                return (
-                  <path
-                    key={i}
-                    d={`M10,10 L${x1},${y1} A9,9 0 0,1 ${x2},${y2} Z`}
-                    fill={seg.color}
-                    stroke="#07070d"
-                    strokeWidth="0.8"
-                  />
-                );
-              })}
-              {/* Center dot */}
-              <circle cx="10" cy="10" r="2.5" fill="#07070d" />
-              <circle cx="10" cy="10" r="1.5" fill="#FFD700" />
-            </motion.svg>
-
-            {/* "FREE" dot badge */}
-            <span
-              className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", fontSize: "5px", fontWeight: 900, color: "#000" }}
-            >
-              !
-            </span>
           </motion.button>
 
           {/* Wallet Pill — live balance */}
@@ -605,117 +537,6 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
             </motion.div>
           );
         })()}
-
-        {/* ─── SPIN WHEEL CENTER FEATURE ─── */}
-        <motion.button
-          data-testid="button-spin-promo"
-          onClick={() => setShowSpinModal(true)}
-          whileTap={{ scale: 0.97 }}
-          className="mx-4 mt-4 w-[calc(100%-2rem)] rounded-3xl overflow-hidden cursor-pointer relative"
-          style={{
-            background: "linear-gradient(135deg, #0f0524 0%, #1e0b4a 40%, #2d1060 70%, #1e0b4a 100%)",
-            border: "1.5px solid rgba(139,92,246,0.45)",
-          }}
-          animate={{
-            boxShadow: [
-              "0 0 24px rgba(139,92,246,0.25), 0 0 48px rgba(139,92,246,0.08)",
-              "0 0 40px rgba(255,215,0,0.35), 0 0 70px rgba(139,92,246,0.2)",
-              "0 0 24px rgba(139,92,246,0.25), 0 0 48px rgba(139,92,246,0.08)",
-            ],
-          }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        >
-          {/* Top shimmer */}
-          <motion.div className="absolute top-0 left-0 right-0 h-px"
-            style={{ background: "linear-gradient(90deg, transparent, #a78bfa, #FFD700, #a78bfa, transparent)" }}
-            animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} />
-
-          <div className="flex items-center justify-between px-5 py-5">
-            {/* Left: text info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <motion.div className="w-2 h-2 rounded-full"
-                  style={{ background: "#FFD700" }}
-                  animate={{ opacity: [1, 0.2, 1], scale: [1, 1.4, 1] }}
-                  transition={{ duration: 1, repeat: Infinity }} />
-                <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: "#a78bfa" }}>
-                  Free Daily Reward
-                </span>
-              </div>
-              <div className="text-white font-black text-2xl leading-tight mb-1">
-                Spin &amp; Win!
-              </div>
-              <div className="text-sm font-medium mb-3" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Win up to <span className="font-black" style={{ color: "#FFD700" }}>₹20 Cash</span> every day
-              </div>
-              {/* Reward chips */}
-              <div className="flex gap-1.5 flex-wrap">
-                {["₹5", "₹10", "₹20"].map((amt) => (
-                  <span key={amt} className="px-2.5 py-1 rounded-full text-xs font-black"
-                    style={{ background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700" }}>
-                    {amt}
-                  </span>
-                ))}
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)" }}>
-                  Bonus
-                </span>
-              </div>
-            </div>
-
-            {/* Right: spinning wheel SVG */}
-            <div className="shrink-0 ml-4 flex flex-col items-center gap-2">
-              {/* Pointer */}
-              <div className="w-3 h-3 relative">
-                <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-0 h-0"
-                  style={{ borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "12px solid #FFD700" }} />
-              </div>
-              {/* Wheel */}
-              <motion.svg
-                width="100" height="100" viewBox="0 0 100 100"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                style={{ filter: "drop-shadow(0 0 12px rgba(139,92,246,0.6))" }}
-              >
-                {[
-                  { start: 0,   end: 45,  color: "#FFD700", label: "₹5"  },
-                  { start: 45,  end: 90,  color: "#374151", label: "🍀"  },
-                  { start: 90,  end: 135, color: "#EF4444", label: "₹10" },
-                  { start: 135, end: 180, color: "#3B82F6", label: "🪙"  },
-                  { start: 180, end: 225, color: "#10B981", label: "₹2"  },
-                  { start: 225, end: 270, color: "#8B5CF6", label: "🎁"  },
-                  { start: 270, end: 315, color: "#F97316", label: "🪙"  },
-                  { start: 315, end: 360, color: "#EC4899", label: "₹20" },
-                ].map((seg, i) => {
-                  const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
-                  const cx = 50, cy = 50, r = 46, ir = 12;
-                  const x1 = cx + r * Math.cos(toRad(seg.start));
-                  const y1 = cy + r * Math.sin(toRad(seg.start));
-                  const x2 = cx + r * Math.cos(toRad(seg.end));
-                  const y2 = cy + r * Math.sin(toRad(seg.end));
-                  const ix1 = cx + ir * Math.cos(toRad(seg.start));
-                  const iy1 = cy + ir * Math.sin(toRad(seg.start));
-                  const ix2 = cx + ir * Math.cos(toRad(seg.end));
-                  const iy2 = cy + ir * Math.sin(toRad(seg.end));
-                  return (
-                    <path key={i}
-                      d={`M${ix1},${iy1} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} L${ix2},${iy2} A${ir},${ir} 0 0,0 ${ix1},${iy1} Z`}
-                      fill={seg.color} stroke="#0f0524" strokeWidth="1.2" />
-                  );
-                })}
-                <circle cx="50" cy="50" r="12" fill="#1a0a3e" stroke="#FFD700" strokeWidth="2" />
-                <circle cx="50" cy="50" r="5" fill="#FFD700" />
-              </motion.svg>
-
-              <motion.div
-                className="px-4 py-1.5 rounded-full font-black text-xs text-black"
-                style={{ background: "linear-gradient(90deg, #FFD700, #ff8c00)", boxShadow: "0 0 12px rgba(255,215,0,0.5)" }}
-                animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                SPIN NOW
-              </motion.div>
-            </div>
-          </div>
-        </motion.button>
 
         {/* ─── TOP 5 FEATURED GAMES ─── */}
         <div className="mt-5 px-4">
@@ -930,38 +751,6 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         onAddMoney={onWallet}
       />
 
-      {/* ─── SPIN WHEEL OVERLAY MODAL ─── */}
-      <AnimatePresence>
-        {showSpinModal && (
-          <>
-            {/* Blurred backdrop */}
-            <motion.div
-              className="fixed inset-0 z-[60]"
-              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowSpinModal(false)}
-            />
-
-            {/* Wheel panel — pops up from bottom */}
-            <motion.div
-              className="fixed inset-x-0 bottom-0 z-[70] overflow-y-auto"
-              style={{ maxWidth: "480px", margin: "0 auto", maxHeight: "96vh", borderRadius: "28px 28px 0 0" }}
-              initial={{ y: "100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "100%", opacity: 0 }}
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            >
-              {/* Drag handle */}
-              <div className="flex justify-center pt-3 pb-1" style={{ background: "#07070d", borderRadius: "28px 28px 0 0" }}>
-                <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
-              </div>
-              <SpinWheel onBack={() => setShowSpinModal(false)} />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
