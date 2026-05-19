@@ -320,7 +320,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         <AvatarUpload size={36} />
 
         {/* WINGGO Logo */}
-        <h1 className="font-black text-2xl tracking-tighter leading-none">
+        <h1 className="font-black tracking-tighter leading-none" style={{ fontSize: 19 }}>
           <span className="text-white">WIN</span>
           <span
             className="text-[#FFD700]"
@@ -333,7 +333,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         </h1>
 
         {/* Right: Bell + Spin + Wallet */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* History */}
           <motion.button
             data-testid="button-history"
