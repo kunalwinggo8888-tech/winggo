@@ -10,6 +10,7 @@ import { useAuth } from "@/context/useAuth";
 import type { BankDetails } from "@/context/WalletContext";
 import { useMatchHistory } from "@/context/useMatchHistory";
 import type { MatchRecord } from "@/context/MatchHistoryContext";
+import { subscribePaymentConfig, type PaymentConfig } from "@/firebase/firestore.service";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -169,8 +170,8 @@ function TxRow({ tx }: {
 
 // ─── ADD MONEY CONSTANTS ──────────────────────────────────────────────────────
 
-const OWNER_UPI  = "winggo@axl";
 const OWNER_NAME = "WINGGO Gaming";
+const DEFAULT_PAYMENT: PaymentConfig = { upiId: "winggo@axl", qrUrl: "" };
 
 // ─── ADD MONEY TAB ────────────────────────────────────────────────────────────
 
@@ -186,13 +187,22 @@ function AddMoneyTab({ onSubmit }: {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [utrRef, setUtrRef]           = useState("");
   const [loading, setLoading]         = useState(false);
+  const [qrOpen, setQrOpen]           = useState(false);
+  const [paymentCfg, setPaymentCfg]   = useState<PaymentConfig>(DEFAULT_PAYMENT);
   const fileInputRef                  = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return subscribePaymentConfig((cfg) => setPaymentCfg(cfg));
+  }, []);
 
   const finalAmt = custom ? (parseInt(custom, 10) || 0) : selected;
   const bonusPct = finalAmt >= 1000 ? 20 : finalAmt >= 500 ? 15 : finalAmt >= 200 ? 10 : 0;
   const bonusAmt = Math.round(finalAmt * bonusPct / 100);
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=${OWNER_UPI}&pn=${OWNER_NAME}&cu=INR`)}&color=FFD700&bgcolor=0a0a0f`;
+  // Use admin-uploaded QR if set; otherwise fall back to auto-generated one
+  const displayQrUrl = paymentCfg.qrUrl && paymentCfg.qrUrl.length > 0
+    ? paymentCfg.qrUrl
+    : `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=${paymentCfg.upiId}&pn=${OWNER_NAME}&cu=INR`)}&color=FFD700&bgcolor=0a0a0f`;
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -213,6 +223,64 @@ function AddMoneyTab({ onSubmit }: {
 
   // ── Step: Info (UPI + QR + Instructions) ─────────────────────────────────────
   if (step === "info") return (
+    <>
+      {/* ── QR Enlarge Modal ── */}
+      <AnimatePresence>
+        {qrOpen && (
+          <motion.div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
+            style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(14px)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setQrOpen(false)}>
+            <motion.div
+              className="relative rounded-3xl p-6 flex flex-col items-center"
+              style={{
+                background: "linear-gradient(145deg,#141008,#0a0a0f)",
+                border: "2px solid rgba(255,215,0,0.55)",
+                boxShadow: "0 0 60px rgba(255,215,0,0.2), 0 0 120px rgba(255,215,0,0.08)",
+                maxWidth: 340, width: "100%",
+              }}
+              initial={{ scale: 0.75, y: 24 }} animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.75, y: 24 }}
+              transition={{ type: "spring", stiffness: 280, damping: 24 }}
+              onClick={(e) => e.stopPropagation()}>
+
+              {/* Close button */}
+              <button
+                onClick={() => setQrOpen(false)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all"
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}>
+                ✕
+              </button>
+
+              <p className="text-[10px] font-black uppercase tracking-widest mb-1"
+                style={{ color: "rgba(255,215,0,0.5)" }}>Scan to Pay</p>
+              <p className="font-black text-white text-base mb-4">{OWNER_NAME}</p>
+
+              {/* Large QR */}
+              <div className="rounded-2xl overflow-hidden"
+                style={{ background: "#ffffff", padding: 12, border: "3px solid rgba(255,215,0,0.6)" }}>
+                <img src={displayQrUrl} alt="UPI QR Code" width={220} height={220} className="block" />
+              </div>
+
+              <div className="flex items-center gap-2 mt-4">
+                <p className="font-black text-lg" style={{ color: "#FFD700" }}>{paymentCfg.upiId}</p>
+                <button
+                  onClick={() => navigator.clipboard?.writeText(paymentCfg.upiId).catch(() => {})}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-black"
+                  style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.4)", color: "#FFD700" }}>
+                  COPY
+                </button>
+              </div>
+
+              <p className="text-[11px] mt-2 text-center" style={{ color: "rgba(255,255,255,0.35)" }}>
+                Tap anywhere outside to close
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     <div className="px-4 space-y-4">
 
       {/* UPI card */}
@@ -230,9 +298,9 @@ function AddMoneyTab({ onSubmit }: {
           <div className="flex-1">
             <p className="font-black text-lg text-white">{OWNER_NAME}</p>
             <div className="flex items-center gap-2 mt-1">
-              <p className="font-black text-base" style={{ color: "#FFD700" }}>{OWNER_UPI}</p>
+              <p className="font-black text-base" style={{ color: "#FFD700" }}>{paymentCfg.upiId}</p>
               <button
-                onClick={() => { navigator.clipboard?.writeText(OWNER_UPI).catch(() => {}); }}
+                onClick={() => { navigator.clipboard?.writeText(paymentCfg.upiId).catch(() => {}); }}
                 className="px-2 py-0.5 rounded-lg text-[10px] font-black"
                 style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.4)", color: "#FFD700" }}>
                 COPY
@@ -247,9 +315,19 @@ function AddMoneyTab({ onSubmit }: {
               ))}
             </div>
           </div>
-          <div className="rounded-xl overflow-hidden shrink-0" style={{ border: "2px solid rgba(255,215,0,0.5)", background: "#fff", padding: 4 }}>
-            <img src={qrUrl} alt="UPI QR" width={76} height={76} className="block" />
-          </div>
+          {/* QR thumbnail — tap to enlarge */}
+          <button
+            onClick={() => setQrOpen(true)}
+            className="rounded-xl overflow-hidden shrink-0 relative group"
+            style={{ border: "2px solid rgba(255,215,0,0.5)", background: "#fff", padding: 4 }}
+            title="Tap to enlarge QR">
+            <img src={displayQrUrl} alt="UPI QR" width={76} height={76} className="block" />
+            {/* Hover hint overlay */}
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: "rgba(0,0,0,0.55)" }}>
+              <span className="text-white text-xs font-black">🔍</span>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -372,6 +450,7 @@ function AddMoneyTab({ onSubmit }: {
         </div>
       </div>
     </div>
+    </>
   );
 
   // ── Step: Upload screenshot ─────────────────────────────────────────────────

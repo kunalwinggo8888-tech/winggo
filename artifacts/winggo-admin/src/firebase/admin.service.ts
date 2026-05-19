@@ -1008,6 +1008,48 @@ export async function deployCodeFile(filename: string, content: string): Promise
   );
 }
 
+// ─── PAYMENT CONFIG ───────────────────────────────────────────────────────────
+
+export interface PaymentConfig {
+  upiId: string;
+  qrUrl: string;
+}
+
+const PAYMENT_DOC_PATH = ["payment_details", "config"] as const;
+
+export function subscribePaymentConfig(cb: (cfg: PaymentConfig) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) {
+    cb({ upiId: "winggo@axl", qrUrl: "" });
+    return () => {};
+  }
+  return onSnapshot(
+    doc(adminDb, PAYMENT_DOC_PATH[0], PAYMENT_DOC_PATH[1]),
+    (snap) => cb(snap.exists() ? (snap.data() as PaymentConfig) : { upiId: "winggo@axl", qrUrl: "" }),
+    () => {},
+  );
+}
+
+export async function savePaymentConfig(upiId: string, qrUrl: string): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await setDoc(
+    doc(adminDb, PAYMENT_DOC_PATH[0], PAYMENT_DOC_PATH[1]),
+    { upiId, qrUrl, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
+}
+
+export async function uploadPaymentQR(file: File): Promise<string> {
+  if (!FIREBASE_ENABLED || !adminStorage) return "";
+  const ext  = file.name.split(".").pop() ?? "png";
+  const sRef = storageRef(adminStorage, `payment/qr_${Date.now()}.${ext}`);
+  const task = uploadBytesResumable(sRef, file);
+  return new Promise((resolve, reject) => {
+    task.on("state_changed", null, reject,
+      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
+    );
+  });
+}
+
 // suppress unused import warning
 function _noop(_: DocumentData) {}
 void _noop;

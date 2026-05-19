@@ -889,6 +889,25 @@ export async function submitScreenshotDeposit(
   return docRef.id;
 }
 
+// ─── PAYMENT CONFIG ───────────────────────────────────────────────────────────
+
+export interface PaymentConfig {
+  upiId: string;
+  qrUrl: string;
+}
+
+export function subscribePaymentConfig(cb: (cfg: PaymentConfig) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) {
+    cb({ upiId: "winggo@axl", qrUrl: "" });
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db, "payment_details", "config"),
+    (snap) => cb(snap.exists() ? (snap.data() as PaymentConfig) : { upiId: "winggo@axl", qrUrl: "" }),
+    () => {},
+  );
+}
+
 export function subscribeUserDepositRequests(
   uid: string,
   cb: (reqs: DepositRequest[]) => void,

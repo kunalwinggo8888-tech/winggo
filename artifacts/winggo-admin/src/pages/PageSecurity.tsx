@@ -1,8 +1,14 @@
 /**
- * PageSecurity — 3 tabs: Admin Profile · Activity Logs · Fraud Detection
+ * PageSecurity — 4 tabs: Admin Profile · Payment Config · Activity Logs · Fraud Detection
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  subscribePaymentConfig,
+  savePaymentConfig,
+  uploadPaymentQR,
+  type PaymentConfig,
+} from "@/firebase/admin.service";
 
 const T = {
   blue:"#00d4ff", green:"#00ff88", red:"#ff3366", gold:"#f59e0b",
@@ -10,9 +16,10 @@ const T = {
 };
 
 const TABS=[
-  {id:"profile", label:"👤 Admin Profile" },
-  {id:"actlogs", label:"📊 Activity Logs" },
-  {id:"fraud",   label:"🚨 Fraud Detection"},
+  {id:"profile", label:"👤 Admin Profile"   },
+  {id:"payment", label:"💳 Payment Config"  },
+  {id:"actlogs", label:"📊 Activity Logs"   },
+  {id:"fraud",   label:"🚨 Fraud Detection" },
 ];
 
 function TabBar({tab,setTab}:{tab:string;setTab:(t:string)=>void}) {
@@ -32,6 +39,157 @@ function TabBar({tab,setTab}:{tab:string;setTab:(t:string)=>void}) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Payment Config Tab ───────────────────────────────────────────────────────
+
+function PaymentConfigTab() {
+  const [cfg,        setCfg]        = useState<PaymentConfig>({ upiId: "winggo@axl", qrUrl: "" });
+  const [upiId,      setUpiId]      = useState("");
+  const [qrPreview,  setQrPreview]  = useState<string | null>(null);
+  const [qrFile,     setQrFile]     = useState<File | null>(null);
+  const [uploading,  setUploading]  = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [msg,        setMsg]        = useState<{ type:"ok"|"err"; text:string }|null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return subscribePaymentConfig((c) => {
+      setCfg(c);
+      setUpiId(c.upiId);
+    });
+  }, []);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setQrFile(f);
+    if (f) setQrPreview(URL.createObjectURL(f));
+  }
+
+  async function handleSave() {
+    if (!upiId.trim()) { setMsg({ type:"err", text:"UPI ID is required." }); return; }
+    setSaving(true);
+    try {
+      let finalUrl = cfg.qrUrl;
+      if (qrFile) {
+        setUploading(true);
+        finalUrl = await uploadPaymentQR(qrFile);
+        setUploading(false);
+      }
+      await savePaymentConfig(upiId.trim(), finalUrl);
+      setMsg({ type:"ok", text:"✅ Payment config saved and live!" });
+      setQrFile(null);
+      setTimeout(() => setMsg(null), 4000);
+    } catch {
+      setMsg({ type:"err", text:"Failed to save. Check Firebase connection." });
+    } finally {
+      setSaving(false);
+      setUploading(false);
+    }
+  }
+
+  const previewQrUrl = qrPreview ?? (cfg.qrUrl || null);
+
+  return (
+    <div className="p-4 space-y-4">
+
+      {/* Live status banner */}
+      <div className="rounded-xl px-4 py-2.5 flex items-center gap-2"
+        style={{ background:"rgba(0,255,136,0.06)", border:"1px solid rgba(0,255,136,0.2)" }}>
+        <div className="w-1.5 h-1.5 rounded-full" style={{ background:T.green }} />
+        <span className="text-[11px] font-black" style={{ color:T.green }}>
+          Changes save to <span className="font-mono">payment_details/config</span> and go live instantly in the app.
+        </span>
+      </div>
+
+      {/* UPI ID */}
+      <div className="rounded-2xl overflow-hidden" style={{ background:T.card, border:`1px solid ${T.bdr}` }}>
+        <div className="px-4 py-3" style={{ borderBottom:`1px solid ${T.bdr}` }}>
+          <p className="text-sm font-black text-white">💳 Admin UPI ID</p>
+          <p className="text-[10px] mt-0.5" style={{ color:T.muted }}>
+            Current live ID: <span className="font-mono text-white">{cfg.upiId}</span>
+          </p>
+        </div>
+        <div className="p-4">
+          <label className="text-[9px] font-black tracking-widest block mb-1.5" style={{ color:"rgba(0,212,255,0.45)" }}>
+            NEW UPI ID
+          </label>
+          <input
+            type="text"
+            value={upiId}
+            onChange={e => setUpiId(e.target.value)}
+            placeholder="e.g. winggo@axl"
+            className="w-full px-3 py-2.5 rounded-lg text-sm text-white outline-none font-mono"
+            style={{ background:"rgba(0,0,0,0.4)", border:"1px solid rgba(0,212,255,0.2)", caretColor:T.blue }}
+          />
+        </div>
+      </div>
+
+      {/* QR Code Upload */}
+      <div className="rounded-2xl overflow-hidden" style={{ background:T.card, border:`1px solid ${T.bdr}` }}>
+        <div className="px-4 py-3" style={{ borderBottom:`1px solid ${T.bdr}` }}>
+          <p className="text-sm font-black text-white">📷 Admin Payment QR Code</p>
+          <p className="text-[10px] mt-0.5" style={{ color:T.muted }}>
+            Upload a PNG/JPG QR code image. Will be stored in Firebase Storage.
+          </p>
+        </div>
+        <div className="p-4 space-y-3">
+          {/* Current / preview QR */}
+          {previewQrUrl && (
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl overflow-hidden shrink-0"
+                style={{ background:"#fff", padding:6, border:"1.5px solid rgba(0,212,255,0.3)", width:80, height:80 }}>
+                <img src={previewQrUrl} alt="QR preview" className="w-full h-full object-contain block" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-white">{qrFile ? qrFile.name : "Current QR"}</p>
+                <p className="text-[10px] mt-0.5" style={{ color:T.muted }}>
+                  {qrFile ? "Ready to upload" : "Uploaded · live in app"}
+                </p>
+                {qrFile && (
+                  <button onClick={() => { setQrFile(null); setQrPreview(null); if(fileRef.current) fileRef.current.value=""; }}
+                    className="text-[10px] font-black mt-1" style={{ color:T.red }}>
+                    ✕ Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="w-full py-2.5 rounded-xl text-sm font-black cursor-pointer"
+            style={{ background:"rgba(0,212,255,0.06)", color:T.blue, border:"1.5px dashed rgba(0,212,255,0.3)" }}>
+            {previewQrUrl ? "🔄 Replace QR Image" : "📤 Upload QR Image"}
+          </button>
+        </div>
+      </div>
+
+      {/* Feedback */}
+      <AnimatePresence>
+        {msg && (
+          <motion.div initial={{ opacity:0, y:-4 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
+            className="px-3 py-2.5 rounded-xl text-xs font-black"
+            style={{
+              background:msg.type==="ok"?"rgba(0,255,136,0.1)":"rgba(255,51,102,0.1)",
+              color:msg.type==="ok"?T.green:T.red,
+              border:`1px solid ${msg.type==="ok"?"rgba(0,255,136,0.25)":"rgba(255,51,102,0.25)"}`,
+            }}>
+            {msg.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Save button */}
+      <motion.button whileTap={{ scale:0.97 }} onClick={handleSave}
+        disabled={saving || uploading}
+        className="w-full py-3 rounded-xl text-sm font-black cursor-pointer"
+        style={{ background:"rgba(0,212,255,0.1)", color:T.blue, border:"1px solid rgba(0,212,255,0.28)" }}>
+        {uploading ? "⏫ Uploading QR…" : saving ? "Saving…" : "💾 Save & Go Live"}
+      </motion.button>
     </div>
   );
 }
@@ -317,6 +475,7 @@ export default function PageSecurity({ jumpTab="" }:{jumpTab?:string}) {
         <motion.div key={tab} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
           exit={{opacity:0,y:-4}} transition={{duration:0.15}}>
           {tab==="profile" && <ProfileTab />}
+          {tab==="payment" && <PaymentConfigTab />}
           {tab==="actlogs" && <ActivityLogsTab />}
           {tab==="fraud"   && <FraudTab />}
         </motion.div>
