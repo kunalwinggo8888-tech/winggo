@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WINGGO Gaming</string>
+    <string name="title_activity_main">WINGGO Gaming</string>
+    <string name="package_name">com.winggo.gaming</string>
+    <string name="custom_url_scheme">com.winggo.gaming</string>
+</resources>

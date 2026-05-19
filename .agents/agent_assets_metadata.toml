@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "ejmzRIdNMlzczkrgHRU4L"
+uri = "file://WINGGO-Android-Studio-Project.tar.gz"
+type = "unspecified"
+title = "WINGGO Android Studio Project"
