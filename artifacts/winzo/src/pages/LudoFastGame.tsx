@@ -570,6 +570,9 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const [mmStage,    setMmStage]    = useState<"searching" | "found">("searching");
   const [emote,      setEmote]      = useState("");
   const [killFlash,  setKillFlash]  = useState(false);
+  const [turnTimer,  setTurnTimer]  = useState(15);
+  const missedTurns                 = useRef(0);
+  const forfeited                   = useRef(false);
 
   const pushLog = (msg: string) => setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
   const flashKill = () => { setKillFlash(true); setTimeout(() => setKillFlash(false), 600); };
@@ -581,6 +584,78 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     const t2 = setTimeout(() => setPhase("playing"),   4000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
+
+  // ── Turn timer: reset to 15 when it becomes the player's turn ───────────────
+  useEffect(() => {
+    if (phase !== "playing" || turn !== "player") return;
+    setTurnTimer(15);
+  }, [turn, phase]);
+
+  // ── Turn timer: 1-second countdown (pauses while dice is rolling) ─────────
+  useEffect(() => {
+    if (phase !== "playing" || turn !== "player" || rolling || turnTimer <= 0) return;
+    const id = setInterval(() => setTurnTimer(prev => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(id);
+  }, [phase, turn, rolling, turnTimer]);
+
+  // ── Turn timer: auto-act at 0 + 3-strike forfeit ─────────────────────────
+  useEffect(() => {
+    if (phase !== "playing" || turn !== "player" || turnTimer !== 0 || rolling || scored.current) return;
+
+    if (validToks.length > 0) {
+      // Player rolled but didn't pick a token — auto-pick best, no penalty
+      const best = validToks.reduce((a, b) => (pTokens[a] > pTokens[b] ? a : b));
+      pushLog(`⏱️ Time's up! Auto-picking token ${best + 1}…`);
+      movePlayerToken(best, dice);
+      return;
+    }
+
+    // Player didn't roll at all — count the miss
+    missedTurns.current += 1;
+
+    if (missedTurns.current >= 3) {
+      // 3-strike forfeit
+      scored.current = true;
+      forfeited.current = true;
+      pushLog("🚨 3 missed turns — FORFEITED! Game over.");
+      addMatch({
+        gameId: "ludofast",
+        gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast",
+        gameIcon: "🎲",
+        result: "loss",
+        entryFee: initialFee,
+        prize: 0,
+        userScore: pScore,
+        opponentScore: bScore,
+        opponentName: botRef.current.name,
+      });
+      setPhase("result");
+      return;
+    }
+
+    // Auto-roll
+    pushLog(`⏱️ Auto-roll! (Miss ${missedTurns.current}/3)`);
+    const val = rollDiceVal(false);
+    setDice(val);
+    setRolling(true);
+    setTimeout(() => {
+      setRolling(false);
+      const valid = pTokens
+        .map((s, ti) => ({ s, ti }))
+        .filter(({ s }) => canMoveTok(s, val))
+        .map(({ ti }) => ti);
+      if (valid.length === 0) {
+        pushLog(`Auto-roll ${val} — no valid move. Skipped!`);
+        setPMoves(m => m + 1);
+        setExtraTurn(false);
+        setTurn("bot");
+        return;
+      }
+      const best = valid.reduce((a, b) => (pTokens[a] > pTokens[b] ? a : b));
+      setTimeout(() => movePlayerToken(best, val), 200);
+    }, 700);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnTimer, phase, turn]);
 
   // ── End condition ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -687,6 +762,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   // ── Player roll ───────────────────────────────────────────────────────────────
   const handleRoll = useCallback(() => {
     if (rolling || turn !== "player" || pMoves >= MAX_MOVES || validToks.length > 0) return;
+    missedTurns.current = 0;
     const val = rollDiceVal(false);
     setDice(val);
     setRolling(true);
@@ -767,6 +843,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
 
   const handleTokenSelect = (ti: number) => {
     if (!validToks.includes(ti)) return;
+    missedTurns.current = 0;
     movePlayerToken(ti, dice);
   };
 
@@ -972,7 +1049,9 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
 
   // ─── RESULT SCREEN ────────────────────────────────────────────────────────────
   if (phase === "result") {
-    const won = pScore > bScore;
+    const won        = !forfeited.current && pScore > bScore;
+    const resultIcon = forfeited.current ? "🏳️" : won ? "🏆" : "😔";
+    const resultText = forfeited.current ? "FORFEITED" : won ? "VICTORY!" : "DEFEATED";
     return (
       <div className="flex flex-col min-h-screen items-center justify-center gap-5 px-5"
         style={{ background: won ? "linear-gradient(180deg,#052010,#0a3520,#052010)" : "linear-gradient(180deg,#1a0510,#2d0a18,#1a0510)", maxWidth: 480, margin: "0 auto" }}>
@@ -980,13 +1059,13 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 200 }} className="text-8xl"
           style={{ filter: `drop-shadow(0 0 30px ${won ? "rgba(255,215,0,0.9)" : "rgba(239,68,68,0.7)"})` }}>
-          {won ? "🏆" : "😔"}
+          {resultIcon}
         </motion.div>
 
         <div className="text-center">
           <motion.h2 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
             className="text-4xl font-black" style={{ color: won ? "#FFD700" : "#ef4444" }}>
-            {won ? "VICTORY!" : "DEFEATED"}
+            {resultText}
           </motion.h2>
           {won && !isFreeMode && prize > 0 && (
             <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
@@ -1067,6 +1146,35 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             animate={turn === "player" ? { scale: [1, 1.35, 1] } : { scale: 1 }}
             transition={{ duration: 0.7, repeat: Infinity }} />
           <span className="text-[10px] font-black" style={{ color: turn === "player" ? "#ef4444" : "rgba(255,255,255,0.3)" }}>YOU</span>
+
+          {/* ── Turn countdown ring (player's turn only) ── */}
+          {turn === "player" && phase === "playing" && (
+            <motion.div
+              style={{ position: "relative", width: 22, height: 22, flexShrink: 0 }}
+              animate={turnTimer <= 5 ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+              transition={{ duration: 0.35, repeat: turnTimer <= 5 ? Infinity : 0 }}>
+              <svg width="22" height="22" viewBox="0 0 22 22"
+                style={{ display: "block", transform: "rotate(-90deg)" }}>
+                <circle cx="11" cy="11" r="8" fill="none"
+                  stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                <circle cx="11" cy="11" r="8" fill="none"
+                  stroke={turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444"}
+                  strokeWidth="2.5"
+                  strokeDasharray={`${(2 * Math.PI * 8).toFixed(2)}`}
+                  strokeDashoffset={`${(2 * Math.PI * 8 * (1 - turnTimer / 15)).toFixed(2)}`}
+                  strokeLinecap="round"
+                  style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.3s" }} />
+              </svg>
+              <span style={{
+                position: "absolute", inset: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 7, fontWeight: 900,
+                color: turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444",
+              }}>
+                {turnTimer}
+              </span>
+            </motion.div>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {/* Tier badge */}
@@ -1091,6 +1199,33 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             transition={{ duration: 0.7, repeat: Infinity }} />
         </div>
       </div>
+
+      {/* ── Turn timer bar (below turn strip, player's turn only) ── */}
+      {phase === "playing" && turn === "player" && (
+        <div className="px-3 pb-1 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-[3px] rounded-full overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.07)" }}>
+              <div className="h-full rounded-full"
+                style={{
+                  width: `${(turnTimer / 15) * 100}%`,
+                  background: turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444",
+                  transition: "width 0.9s linear, background 0.3s",
+                }} />
+            </div>
+            <span className="text-[9px] font-black flex-shrink-0"
+              style={{ color: turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444", minWidth: 20 }}>
+              {turnTimer}s
+            </span>
+          </div>
+          {missedTurns.current > 0 && (
+            <p className="text-[8px] font-bold text-center mt-0.5"
+              style={{ color: "rgba(239,68,68,0.6)" }}>
+              ⚠️ {missedTurns.current}/3 missed — auto-forfeit on 3rd
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── Extra turn banner ── */}
       <AnimatePresence>
