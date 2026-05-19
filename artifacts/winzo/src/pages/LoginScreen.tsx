@@ -6,7 +6,29 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FIREBASE_ENABLED } from "@/firebase/config";
-import { signInWithEmail, signUpWithEmail, resetPassword, isDemoMode } from "@/firebase/auth.service";
+import { signInWithEmail, signUpWithEmail, resetPassword, signInWithGoogle, signInWithFacebook, isDemoMode } from "@/firebase/auth.service";
+
+// ── Official social-provider SVG icons ────────────────────────────────────────
+
+function GoogleSVG() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Google">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  );
+}
+
+function FacebookSVG() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Facebook">
+      <circle cx="12" cy="12" r="12" fill="#1877F2"/>
+      <path d="M16.67 15.47l.44-2.85h-2.73v-1.85c0-.78.38-1.54 1.6-1.54h1.24V6.73s-1.12-.19-2.2-.19c-2.24 0-3.71 1.36-3.71 3.82v2.26H8.69v2.85h2.62V22.9a10.15 10.15 0 003.14 0v-7.43h2.22z" fill="white"/>
+    </svg>
+  );
+}
 
 interface LoginScreenProps {
   onLogin?: (uid: string, email: string, isNewUser?: boolean) => void;
@@ -23,6 +45,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [resetSent, setResetSent]   = useState(false);
   const [inDemoMode, setInDemoMode] = useState(!FIREBASE_ENABLED);
+  const [socialLoading, setSocialLoading] = useState<"google" | "facebook" | null>(null);
 
   // Login fields
   const [loginEmail, setLoginEmail]   = useState("");
@@ -76,6 +99,34 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       setTimeout(() => onLogin?.(res.uid!, signupEmail.trim(), true), 800);
     } else {
       setError(res.error ?? "Sign up failed. Try again.");
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setSocialLoading("google");
+    setError("");
+    const res = await signInWithGoogle();
+    setSocialLoading(null);
+    if (res.demo) setInDemoMode(true);
+    if (res.success && res.uid) {
+      setSuccess(true);
+      setTimeout(() => onLogin?.(res.uid!, "", res.isNewUser), 800);
+    } else if (res.error) {
+      setError(res.error);
+    }
+  }
+
+  async function handleFacebookLogin() {
+    setSocialLoading("facebook");
+    setError("");
+    const res = await signInWithFacebook();
+    setSocialLoading(null);
+    if (res.demo) setInDemoMode(true);
+    if (res.success && res.uid) {
+      setSuccess(true);
+      setTimeout(() => onLogin?.(res.uid!, "", res.isNewUser), 800);
+    } else if (res.error) {
+      setError(res.error);
     }
   }
 
@@ -275,6 +326,52 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   Create Account →
                 </button>
               </p>
+
+              {/* ─── Social Login ─── */}
+              <div className="relative flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+                <span className="text-[10px] font-bold tracking-[0.14em] uppercase whitespace-nowrap"
+                  style={{ color: "rgba(255,255,255,0.22)" }}>or continue with</span>
+                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+              </div>
+
+              <div className="flex items-center justify-center gap-6 pb-1">
+                <motion.button type="button" onClick={handleGoogleLogin}
+                  disabled={socialLoading !== null}
+                  whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(66,133,244,0.4)" }}
+                  whileTap={{ scale: 0.92 }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    boxShadow: socialLoading === "google" ? "0 0 22px rgba(66,133,244,0.5)" : "none",
+                    opacity: socialLoading !== null && socialLoading !== "google" ? 0.45 : 1,
+                  }}>
+                  {socialLoading === "google"
+                    ? <motion.span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent inline-block"
+                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
+                    : <GoogleSVG />
+                  }
+                </motion.button>
+
+                <motion.button type="button" onClick={handleFacebookLogin}
+                  disabled={socialLoading !== null}
+                  whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(24,119,242,0.4)" }}
+                  whileTap={{ scale: 0.92 }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    boxShadow: socialLoading === "facebook" ? "0 0 22px rgba(24,119,242,0.5)" : "none",
+                    opacity: socialLoading !== null && socialLoading !== "facebook" ? 0.45 : 1,
+                  }}>
+                  {socialLoading === "facebook"
+                    ? <motion.span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent inline-block"
+                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
+                    : <FacebookSVG />
+                  }
+                </motion.button>
+              </div>
             </motion.form>
           )}
 
@@ -380,6 +477,52 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   Login →
                 </button>
               </p>
+
+              {/* ─── Social Login ─── */}
+              <div className="relative flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+                <span className="text-[10px] font-bold tracking-[0.14em] uppercase whitespace-nowrap"
+                  style={{ color: "rgba(255,255,255,0.22)" }}>or continue with</span>
+                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+              </div>
+
+              <div className="flex items-center justify-center gap-6 pb-1">
+                <motion.button type="button" onClick={handleGoogleLogin}
+                  disabled={socialLoading !== null}
+                  whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(66,133,244,0.4)" }}
+                  whileTap={{ scale: 0.92 }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    boxShadow: socialLoading === "google" ? "0 0 22px rgba(66,133,244,0.5)" : "none",
+                    opacity: socialLoading !== null && socialLoading !== "google" ? 0.45 : 1,
+                  }}>
+                  {socialLoading === "google"
+                    ? <motion.span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent inline-block"
+                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
+                    : <GoogleSVG />
+                  }
+                </motion.button>
+
+                <motion.button type="button" onClick={handleFacebookLogin}
+                  disabled={socialLoading !== null}
+                  whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(24,119,242,0.4)" }}
+                  whileTap={{ scale: 0.92 }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    boxShadow: socialLoading === "facebook" ? "0 0 22px rgba(24,119,242,0.5)" : "none",
+                    opacity: socialLoading !== null && socialLoading !== "facebook" ? 0.45 : 1,
+                  }}>
+                  {socialLoading === "facebook"
+                    ? <motion.span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent inline-block"
+                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
+                    : <FacebookSVG />
+                  }
+                </motion.button>
+              </div>
             </motion.form>
           )}
 
