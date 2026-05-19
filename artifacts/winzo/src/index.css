@@ -245,6 +245,32 @@
  * Even without handling focused or not, this is six possible combinations that
  * need to be distinguished from eachother visually.
  */
+/* ── WINGGO Performance Utilities ─────────────────────────────────────────── */
+/* GPU compositing layer — eliminates paint jank on scrollable/animated els    */
+.gpu {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* iOS momentum scrolling for all overflow containers                           */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth banner + card animations — force GPU compositing                      */
+.motion-div-gpu {
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Content-visibility: skip layout/paint for sections fully below viewport      */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 320px;
+}
+
 @layer utilities {
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */

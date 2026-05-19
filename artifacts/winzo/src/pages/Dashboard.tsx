@@ -477,7 +477,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
       </header>
 
       {/* ─── SCROLLABLE CONTENT ─── */}
-      <main className="flex-1 overflow-y-auto pb-24 pt-16">
+      <main className="flex-1 overflow-y-auto pb-24 pt-16 gpu">
 
         {/* ─── BANNER SLIDER ─── */}
         <div className="relative mx-4 mt-4 rounded-2xl overflow-hidden" style={{ height: "180px" }}>
@@ -723,7 +723,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
             <h3 className="text-white font-bold text-base">🔥 Popular Games</h3>
             <span className="text-xs font-bold" style={{ color: "#FFD700" }}>5 Games Live</span>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar gpu">
             {[
               { id: "ludo",      name: "Ludo ⚡ Fast",   icon: "🎲", gradient: "linear-gradient(135deg, #ff6e00, #ffe000)", minFee: "₹2" },
               { id: "saanpsidi", name: "Snake & Ladder", icon: "🐍", gradient: "linear-gradient(135deg, #134e5e, #71b280)", minFee: "₹2" },
@@ -778,7 +778,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         </div>
 
         {/* ─── QUICK STATS STRIP ─── */}
-        <div className="flex gap-3 mx-4 mt-4 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex gap-3 mx-4 mt-4 overflow-x-auto pb-1 no-scrollbar gpu">
           {[
             { label: "Winners Today", value: "4.7L+", icon: "🏆" },
             { label: "Prize Pool", value: "₹50L", icon: "💎" },
@@ -806,7 +806,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         {CATEGORY_SECTIONS.map((section) => {
           const sectionGames = GAME_CATALOG.filter((g) => g.category === section.key);
           return (
-            <div key={section.key} className="mt-7">
+            <div key={section.key} className="mt-7 cv-auto">
               {/* Section header */}
               <div className="flex items-center justify-between px-4 mb-3">
                 <h3 className="text-white font-bold text-base">{section.label}</h3>
@@ -819,7 +819,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               </div>
 
               {/* Horizontal scroll strip */}
-              <div className="flex gap-3 px-4 overflow-x-auto pb-3 no-scrollbar">
+              <div className="flex gap-3 px-4 overflow-x-auto pb-3 no-scrollbar gpu">
                 {sectionGames.map((game) => {
                   const implemented = IMPLEMENTED_GAMES.has(game.id);
                   return (
