@@ -1,11 +1,20 @@
 /**
  * PageCodeEditor — WINGGO Admin
- * Module 2: Master Code Editor (All-in-One)
- * - Monaco Editor with dark theme
- * - Virtual file system backed by Firestore
- * - Save to cloud + Deploy Live
+ * Master Code Editor with Live Preview (Split-Screen)
+ *
+ * Layout strategy
+ * ──────────────────────────────────────────────────────────────
+ *  Desktop (lg+) : file-sidebar | editor (50%) | preview (50%)
+ *  Mobile        : top tab bar → [📝 Code] / [👁️ Preview]
+ *
+ * Live Preview
+ * ──────────────────────────────────────────────────────────────
+ *  "Refresh Preview" builds a self-contained srcdoc by inlining
+ *  style.css and game_logic.js into index.html, then sets it on
+ *  the iframe. sandbox="allow-scripts" keeps it safe — no network
+ *  requests, no top-level navigation.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Editor from "@monaco-editor/react";
 import {
@@ -14,19 +23,18 @@ import {
 } from "@/firebase/admin.service";
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
-
 const T = {
   blue:  "#00d4ff",
   green: "#00ff88",
   gold:  "#f59e0b",
   red:   "#ff3366",
+  purple:"#a78bfa",
   muted: "rgba(226,232,240,0.38)",
   bg:    "#070b12",
   card:  "#0a0f1a",
 };
 
 // ─── FILE DEFINITIONS ─────────────────────────────────────────────────────────
-
 interface FileDef { name: string; lang: string; icon: string; desc: string; template: string }
 
 const FILES: FileDef[] = [
@@ -51,9 +59,7 @@ const FILES: FileDef[] = [
   {
     name: "style.css", lang: "css", icon: "🎨", desc: "Game styles & theme",
     template: `/* WINGGO Game Styles */
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 body {
   background: #070b12;
   color: #e2e8f0;
@@ -63,7 +69,6 @@ body {
   justify-content: center;
   min-height: 100vh;
 }
-
 #game-container {
   width: 100%;
   max-width: 480px;
@@ -74,45 +79,21 @@ body {
   {
     name: "game_logic.js", lang: "javascript", icon: "⚡", desc: "Game logic & behavior",
     template: `// WINGGO Game Logic
-// This file controls the game mechanics
-
-const GAME_CONFIG = {
-  name: 'WINGGO Game',
-  version: '1.0.0',
-  fps: 60,
-};
+const GAME_CONFIG = { name: 'WINGGO Game', version: '1.0.0', fps: 60 };
 
 class Game {
   constructor() {
     this.container = document.getElementById('game-container');
     this.init();
   }
-
   init() {
     console.log(\`\${GAME_CONFIG.name} v\${GAME_CONFIG.version} loaded!\`);
-    // Initialize game state here
   }
-
-  start() {
-    // Start game loop
-    requestAnimationFrame(() => this.loop());
-  }
-
-  loop() {
-    this.update();
-    this.render();
-    requestAnimationFrame(() => this.loop());
-  }
-
-  update() {
-    // Update game state
-  }
-
-  render() {
-    // Render frame
-  }
+  start() { requestAnimationFrame(() => this.loop()); }
+  loop()   { this.update(); this.render(); requestAnimationFrame(() => this.loop()); }
+  update() {}
+  render() {}
 }
-
 const game = new Game();`,
   },
   {
@@ -134,35 +115,20 @@ const game = new Game();`,
   {
     name: "custom.css", lang: "css", icon: "🖌️", desc: "Live CSS override — injected globally",
     template: `/* Custom CSS — injected into the live app */
-/* Changes here affect the admin panel and app appearance */
-
-/* Example: override primary accent color */
 /* :root { --primary: #00d4ff; } */
-
-/* Example: hide an element */
 /* .some-class { display: none !important; } */`,
   },
   {
     name: "custom.js", lang: "javascript", icon: "🔥", desc: "Live JS override — runs on deploy",
     template: `// Custom JavaScript — executed on deploy
-// Use this to patch live app behavior without redeploying
-
-console.log('[WINGGO] Custom JS loaded from Firebase');
-
-// Example: log all navigation events
-// document.addEventListener('click', (e) => console.log('Clicked:', e.target));
-
-// Example: override a global function
-// window.originalFn = window.myFn;
-// window.myFn = function(...args) {
-//   console.log('Patched:', args);
-//   return window.originalFn(...args);
-// };`,
+console.log('[WINGGO] Custom JS loaded from Firebase');`,
   },
 ];
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
+// ─── FILES THAT CAN BE PREVIEWED ──────────────────────────────────────────────
+const PREVIEWABLE = new Set(["index.html", "style.css", "game_logic.js"]);
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 function fmtAgo(ts: number | undefined): string {
   if (!ts) return "never";
   const diff = Math.floor((Date.now() - ts) / 1000);
@@ -172,11 +138,33 @@ function fmtAgo(ts: number | undefined): string {
   return `${Math.floor(diff / 3600)}h ago`;
 }
 
-// ─── COMPONENT ────────────────────────────────────────────────────────────────
+/**
+ * Merge index.html + style.css + game_logic.js into a single
+ * self-contained HTML document suitable for iframe srcdoc.
+ */
+function buildSrcdoc(contents: Record<string, string>): string {
+  const html = contents["index.html"] ?? FILES[0].template;
+  const css  = contents["style.css"]  ?? FILES[1].template;
+  const js   = contents["game_logic.js"] ?? FILES[2].template;
 
-type SaveStatus  = "idle" | "saving"   | "saved"    | "error";
+  // Replace external link/script references with inlined equivalents
+  return html
+    .replace(
+      /<link[^>]*href=["']style\.css["'][^>]*\/?>/gi,
+      `<style>\n${css}\n</style>`,
+    )
+    .replace(
+      /<script[^>]*src=["']game_logic\.js["'][^>]*><\/script>/gi,
+      `<script>\n${js}\n</script>`,
+    );
+}
+
+// ─── STATUS TYPES ─────────────────────────────────────────────────────────────
+type SaveStatus   = "idle" | "saving"    | "saved"    | "error";
 type DeployStatus = "idle" | "deploying" | "deployed" | "error";
+type MobileView   = "editor" | "preview";
 
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function PageCodeEditor() {
   const [activeFile, setActiveFile]     = useState<string>(FILES[0].name);
   const [contents, setContents]         = useState<Record<string, string>>({});
@@ -186,6 +174,13 @@ export default function PageCodeEditor() {
   const [deployStatus, setDeployStatus] = useState<DeployStatus>("idle");
   const [mobileFilePicker, setMFP]      = useState(false);
 
+  // ── Preview state ────────────────────────────────────────────────────────
+  const [previewSrc, setPreviewSrc]     = useState<string>("");
+  const [previewKey, setPreviewKey]     = useState(0);          // bump to force full iframe reload
+  const [showPreview, setShowPreview]   = useState(true);       // desktop: toggle panel visibility
+  const [mobileView, setMobileView]     = useState<MobileView>("editor");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   const fileDef = FILES.find((f) => f.name === activeFile) ?? FILES[0];
   const content = contents[activeFile] ?? fileDef.template;
 
@@ -193,9 +188,7 @@ export default function PageCodeEditor() {
   useEffect(() => {
     loadCodeFiles().then((map) => {
       const newContents: Record<string, string> = {};
-      FILES.forEach((f) => {
-        newContents[f.name] = map[f.name]?.content ?? f.template;
-      });
+      FILES.forEach((f) => { newContents[f.name] = map[f.name]?.content ?? f.template; });
       setContents(newContents);
       setMetadata(map);
       setLoading(false);
@@ -203,8 +196,7 @@ export default function PageCodeEditor() {
   }, []);
 
   const handleEditorChange = useCallback((val: string | undefined) => {
-    const v = val ?? "";
-    setContents((prev) => ({ ...prev, [activeFile]: v }));
+    setContents((prev) => ({ ...prev, [activeFile]: val ?? "" }));
     setSaveStatus("idle");
     setDeployStatus("idle");
   }, [activeFile]);
@@ -220,9 +212,7 @@ export default function PageCodeEditor() {
       }));
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 3000);
-    } catch {
-      setSaveStatus("error");
-    }
+    } catch { setSaveStatus("error"); }
   }
 
   // ── Deploy Live ───────────────────────────────────────────────────────────
@@ -236,18 +226,125 @@ export default function PageCodeEditor() {
       }));
       setDeployStatus("deployed");
       setTimeout(() => setDeployStatus("idle"), 4000);
-    } catch {
-      setDeployStatus("error");
-    }
+    } catch { setDeployStatus("error"); }
   }
 
-  const fileMeta = metadata[activeFile];
+  // ── Refresh Preview ───────────────────────────────────────────────────────
+  function handleRefreshPreview() {
+    const doc = buildSrcdoc(contents);
+    setPreviewSrc(doc);
+    setPreviewKey((k) => k + 1);
+    // On mobile, switch to preview tab automatically
+    if (mobileView === "editor") setMobileView("preview");
+  }
+
+  const fileMeta   = metadata[activeFile];
+  const canPreview = PREVIEWABLE.has(activeFile);
+
+  // ─── SHARED EDITOR ELEMENT (rendered once, hidden/shown with CSS) ──────────
+  const editorEl = loading ? (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+      style={{ background: "#1e1e1e" }}>
+      <motion.div className="w-8 h-8 rounded-full border-2"
+        style={{ borderColor: `${T.blue} transparent transparent transparent` }}
+        animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }} />
+      <p className="text-xs font-bold" style={{ color: T.muted }}>Loading files from Firebase…</p>
+    </div>
+  ) : (
+    <Editor
+      height="100%"
+      language={fileDef.lang}
+      theme="vs-dark"
+      value={content}
+      onChange={handleEditorChange}
+      options={{
+        minimap:              { enabled: true, scale: 1 },
+        fontSize:             13,
+        lineHeight:           22,
+        fontFamily:           "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+        fontLigatures:        true,
+        lineNumbers:          "on",
+        wordWrap:             "on",
+        automaticLayout:      true,
+        scrollBeyondLastLine: false,
+        padding:              { top: 12, bottom: 24 },
+        renderLineHighlight:  "all",
+        smoothScrolling:      true,
+        cursorBlinking:       "smooth",
+        bracketPairColorization: { enabled: true },
+        guides:               { bracketPairs: true },
+        tabSize:              2,
+      }}
+    />
+  );
+
+  // ─── PREVIEW PANEL CONTENT ────────────────────────────────────────────────
+  const previewPanel = (
+    <div className="flex flex-col h-full min-h-0">
+      {/* Preview header */}
+      <div className="shrink-0 flex items-center gap-2 px-3 py-2"
+        style={{ background: "#080d18", borderBottom: "1px solid rgba(167,139,250,0.15)" }}>
+        <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: previewSrc ? T.green : T.muted }}
+          animate={previewSrc ? { opacity: [1, 0.3, 1] } : {}} transition={{ duration: 1.5, repeat: Infinity }} />
+        <span className="text-xs font-black" style={{ color: T.purple }}>LIVE PREVIEW</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded font-black"
+          style={{ background: "rgba(167,139,250,0.1)", color: T.purple, border: "1px solid rgba(167,139,250,0.2)" }}>
+          HTML + CSS + JS
+        </span>
+        {previewSrc && (
+          <span className="ml-auto text-[10px]" style={{ color: T.muted }}>sandbox: scripts only</span>
+        )}
+      </div>
+
+      {/* iframe / placeholder */}
+      <div className="flex-1 relative min-h-0" style={{ background: "#fff" }}>
+        {previewSrc ? (
+          <iframe
+            key={previewKey}
+            ref={iframeRef}
+            srcDoc={previewSrc}
+            sandbox="allow-scripts"
+            title="Live Preview"
+            className="absolute inset-0 w-full h-full border-0"
+            style={{ background: "#fff" }}
+          />
+        ) : (
+          /* Placeholder shown before first refresh */
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center"
+            style={{ background: "#080d18" }}>
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" }}>
+              <span className="text-3xl">👁️</span>
+            </div>
+            <div>
+              <p className="text-sm font-black text-white mb-1">Preview is ready</p>
+              <p className="text-xs leading-relaxed" style={{ color: T.muted }}>
+                Click <span className="font-black" style={{ color: T.purple }}>Refresh Preview</span> to render
+                your HTML, CSS and JS code here safely — changes won't go live until you deploy.
+              </p>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleRefreshPreview}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black cursor-pointer"
+              style={{
+                background: "rgba(167,139,250,0.12)",
+                border: "1px solid rgba(167,139,250,0.3)",
+                color: T.purple,
+              }}>
+              🔄 Refresh Preview
+            </motion.button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 57px)" }}>
 
-      {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2 shrink-0"
+      {/* ── Top bar ──────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1.5 px-3 py-2 shrink-0 flex-wrap gap-y-1.5"
         style={{ background: "#0a0f1a", borderBottom: "1px solid rgba(0,212,255,0.1)" }}>
 
         {/* Mobile: file picker trigger */}
@@ -259,7 +356,7 @@ export default function PageCodeEditor() {
           <span className="text-xs" style={{ color: T.muted }}>▾</span>
         </button>
 
-        {/* Filename on desktop */}
+        {/* Filename — desktop */}
         <div className="hidden lg:flex items-center gap-2">
           <span className="text-lg">{fileDef.icon}</span>
           <span className="text-sm font-black text-white">{activeFile}</span>
@@ -269,18 +366,40 @@ export default function PageCodeEditor() {
 
         <div className="flex-1" />
 
-        {/* Meta: saved / deployed timestamps */}
+        {/* Timestamps — desktop */}
         <div className="hidden sm:flex items-center gap-3 text-[10px]" style={{ color: T.muted }}>
-          {fileMeta?.savedAt && (
-            <span>💾 Saved {fmtAgo(fileMeta.savedAt)}</span>
-          )}
-          {fileMeta?.deployedAt && (
-            <span style={{ color: T.green }}>🚀 Deployed {fmtAgo(fileMeta.deployedAt)}</span>
-          )}
-          {!FIREBASE_ENABLED && (
-            <span style={{ color: T.gold }}>⚠️ Demo mode — changes won't persist</span>
-          )}
+          {fileMeta?.savedAt && <span>💾 Saved {fmtAgo(fileMeta.savedAt)}</span>}
+          {fileMeta?.deployedAt && <span style={{ color: T.green }}>🚀 Deployed {fmtAgo(fileMeta.deployedAt)}</span>}
+          {!FIREBASE_ENABLED && <span style={{ color: T.gold }}>⚠️ Demo mode</span>}
         </div>
+
+        {/* ── Refresh Preview button ─────────────────────────────────────────── */}
+        <motion.button
+          whileTap={{ scale: 0.94 }}
+          onClick={handleRefreshPreview}
+          title={canPreview ? "Render HTML+CSS+JS in the preview panel" : "Switch to index.html, style.css or game_logic.js to preview"}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer"
+          style={{
+            background: "rgba(167,139,250,0.1)",
+            color: T.purple,
+            border: "1px solid rgba(167,139,250,0.25)",
+            opacity: 1,
+          }}>
+          🔄 <span className="hidden sm:inline">Refresh Preview</span>
+        </motion.button>
+
+        {/* ── Toggle preview panel (desktop only) ────────────────────────────── */}
+        <button
+          onClick={() => setShowPreview((v) => !v)}
+          title={showPreview ? "Hide preview panel" : "Show preview panel"}
+          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-black cursor-pointer"
+          style={{
+            background: showPreview ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${showPreview ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.08)"}`,
+            color: showPreview ? T.purple : T.muted,
+          }}>
+          {showPreview ? "◧" : "□"} <span>Preview</span>
+        </button>
 
         {/* Save */}
         <motion.button whileTap={{ scale: 0.94 }} onClick={handleSave}
@@ -291,11 +410,10 @@ export default function PageCodeEditor() {
                         saveStatus === "error"   ? "rgba(255,51,102,0.1)" :
                         "rgba(0,212,255,0.08)",
             color:      saveStatus === "saved"  ? T.green :
-                        saveStatus === "error"   ? T.red   :
-                        T.blue,
+                        saveStatus === "error"   ? T.red   : T.blue,
             border: `1px solid ${saveStatus === "saved" ? "rgba(0,255,136,0.25)" : saveStatus === "error" ? "rgba(255,51,102,0.25)" : "rgba(0,212,255,0.2)"}`,
           }}>
-          {saveStatus === "saving"  ? "⏳" : saveStatus === "saved" ? "✓" : saveStatus === "error" ? "✕" : "💾"}
+          {saveStatus === "saving" ? "⏳" : saveStatus === "saved" ? "✓" : saveStatus === "error" ? "✕" : "💾"}
           <span className="hidden sm:inline">
             {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved!" : saveStatus === "error" ? "Failed" : "Save"}
           </span>
@@ -310,11 +428,9 @@ export default function PageCodeEditor() {
                         deployStatus === "error"    ? "rgba(255,51,102,0.1)"  :
                         "linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,85,255,0.2))",
             color:      deployStatus === "deployed" ? T.green :
-                        deployStatus === "error"    ? T.red   :
-                        T.blue,
+                        deployStatus === "error"    ? T.red   : T.blue,
             border: `1px solid ${deployStatus === "deployed" ? "rgba(0,255,136,0.3)" : deployStatus === "error" ? "rgba(255,51,102,0.25)" : "rgba(0,212,255,0.3)"}`,
-            boxShadow: deployStatus === "deployed" ? "0 0 16px rgba(0,255,136,0.12)" :
-                       deployStatus !== "error" && deployStatus !== "deploying" ? "0 0 16px rgba(0,212,255,0.1)" : "none",
+            boxShadow: deployStatus === "idle" ? "0 0 16px rgba(0,212,255,0.1)" : "none",
           }}>
           {deployStatus === "deploying" ? "⏳" : deployStatus === "deployed" ? "✅" : deployStatus === "error" ? "✕" : "🚀"}
           <span className="hidden sm:inline">
@@ -323,10 +439,30 @@ export default function PageCodeEditor() {
         </motion.button>
       </div>
 
-      {/* ── Main editor area ───────────────────────────────────────────────── */}
+      {/* ── Mobile tab bar: Code | Preview ────────────────────────────────────── */}
+      <div className="lg:hidden flex shrink-0"
+        style={{ background: "#080d18", borderBottom: "1px solid rgba(0,212,255,0.1)" }}>
+        {(["editor", "preview"] as MobileView[]).map((tab) => {
+          const active = mobileView === tab;
+          return (
+            <button key={tab} onClick={() => setMobileView(tab)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black cursor-pointer"
+              style={{
+                color: active ? (tab === "preview" ? T.purple : T.blue) : T.muted,
+                borderBottom: `2px solid ${active ? (tab === "preview" ? T.purple : T.blue) : "transparent"}`,
+                background: active ? "rgba(255,255,255,0.03)" : "transparent",
+              }}>
+              {tab === "editor" ? "📝" : "👁️"}
+              {tab === "editor" ? "Code Editor" : "Live Preview"}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Main area ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-1 min-h-0">
 
-        {/* File sidebar — desktop */}
+        {/* File sidebar — desktop only */}
         <div className="hidden lg:flex flex-col w-44 shrink-0 overflow-y-auto"
           style={{ background: "#080d18", borderRight: "1px solid rgba(0,212,255,0.1)" }}>
           <div className="px-3 pt-3 pb-2">
@@ -352,53 +488,59 @@ export default function PageCodeEditor() {
                   {meta?.deployedAt && (
                     <p className="text-[9px] leading-tight" style={{ color: "rgba(0,255,136,0.5)" }}>🚀 live</p>
                   )}
+                  {PREVIEWABLE.has(f.name) && (
+                    <p className="text-[9px] leading-tight" style={{ color: "rgba(167,139,250,0.5)" }}>👁️ previewable</p>
+                  )}
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Monaco Editor */}
-        <div className="flex-1 min-w-0 relative">
-          {loading ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
-              style={{ background: "#1e1e1e" }}>
-              <motion.div className="w-8 h-8 rounded-full border-2"
-                style={{ borderColor: `${T.blue} transparent transparent transparent` }}
-                animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }} />
-              <p className="text-xs font-bold" style={{ color: T.muted }}>Loading files from Firebase…</p>
-            </div>
-          ) : (
-            <Editor
-              height="100%"
-              language={fileDef.lang}
-              theme="vs-dark"
-              value={content}
-              onChange={handleEditorChange}
-              options={{
-                minimap:              { enabled: true, scale: 1 },
-                fontSize:             13,
-                lineHeight:           22,
-                fontFamily:           "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-                fontLigatures:        true,
-                lineNumbers:          "on",
-                wordWrap:             "on",
-                automaticLayout:      true,
-                scrollBeyondLastLine: false,
-                padding:              { top: 12, bottom: 24 },
-                renderLineHighlight:  "all",
-                smoothScrolling:      true,
-                cursorBlinking:       "smooth",
-                bracketPairColorization: { enabled: true },
-                guides:               { bracketPairs: true },
-                tabSize:              2,
-              }}
-            />
-          )}
+        {/* ── DESKTOP: Editor + optional Preview side-by-side ────────────────── */}
+        <div className="hidden lg:flex flex-1 min-w-0">
+
+          {/* Editor panel */}
+          <div
+            className="relative min-w-0"
+            style={{
+              width: showPreview ? "50%" : "100%",
+              transition: "width 0.25s ease",
+              borderRight: showPreview ? "1px solid rgba(167,139,250,0.15)" : "none",
+            }}>
+            {editorEl}
+          </div>
+
+          {/* Preview panel */}
+          <AnimatePresence>
+            {showPreview && (
+              <motion.div
+                key="preview-panel"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 40 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 min-w-0 overflow-hidden"
+                style={{ width: "50%" }}>
+                {previewPanel}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
+        {/* ── MOBILE: Code tab ──────────────────────────────────────────────── */}
+        <div className={`lg:hidden relative flex-1 min-w-0 ${mobileView === "editor" ? "block" : "hidden"}`}>
+          {editorEl}
+        </div>
+
+        {/* ── MOBILE: Preview tab ──────────────────────────────────────────────*/}
+        <div className={`lg:hidden flex-1 min-w-0 min-h-0 ${mobileView === "preview" ? "flex flex-col" : "hidden"}`}>
+          {previewPanel}
+        </div>
+
       </div>
 
-      {/* ── Status bar ─────────────────────────────────────────────────────── */}
+      {/* ── Status bar ─────────────────────────────────────────────────────────── */}
       <div className="shrink-0 flex items-center justify-between px-4 py-1.5 text-[10px]"
         style={{ background: "rgba(0,212,255,0.06)", borderTop: "1px solid rgba(0,212,255,0.1)" }}>
         <div className="flex items-center gap-3">
@@ -409,13 +551,14 @@ export default function PageCodeEditor() {
           <span style={{ color: T.muted }}>{fileDef.desc}</span>
         </div>
         <div className="flex items-center gap-3" style={{ color: T.muted }}>
+          {previewSrc && <span style={{ color: T.purple }}>👁️ Preview active</span>}
           <span>{fileDef.lang.toUpperCase()}</span>
           <span>UTF-8</span>
           <span>LF</span>
         </div>
       </div>
 
-      {/* ── Mobile file picker overlay ─────────────────────────────────────── */}
+      {/* ── Mobile file picker overlay ─────────────────────────────────────────── */}
       <AnimatePresence>
         {mobileFilePicker && (
           <>
@@ -445,7 +588,10 @@ export default function PageCodeEditor() {
                         <p className="text-sm font-black truncate" style={{ color: isActive ? T.blue : "#e2e8f0" }}>{f.name}</p>
                         <p className="text-[10px]" style={{ color: T.muted }}>{f.desc}</p>
                       </div>
-                      {isActive && <span style={{ color: T.blue }}>●</span>}
+                      <div className="flex flex-col items-end gap-0.5">
+                        {isActive && <span style={{ color: T.blue }}>●</span>}
+                        {PREVIEWABLE.has(f.name) && <span className="text-[9px]" style={{ color: "rgba(167,139,250,0.5)" }}>👁️</span>}
+                      </div>
                     </button>
                   );
                 })}
