@@ -20,7 +20,7 @@ import { useAuth } from "@/context/useAuth";
 import {
   subscribeWallet, subscribeTransactions,
   firestoreDeposit, firestoreWithdraw, firestoreAddWinning,
-  firestoreDeductFee, firestoreAddBonus,
+  firestoreDeductEntryFee, firestoreAddBonus,
   uploadDepositScreenshot, submitScreenshotDeposit,
   WalletBalance, FirestoreTransaction, BankDetails,
 } from "@/firebase/firestore.service";
@@ -227,26 +227,37 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [uid, pushLocalTx]);
 
   const deductFee = useCallback((amount: number, title = "Entry Fee", roomId?: string) => {
-    // Drain deposit first → winning next → bonus last (priority order)
-    function drainBuckets(w: WalletData): WalletData {
-      let rem = amount;
+    /**
+     * 90% Real Cash + 10% Bonus Cash split:
+     *   bonusPart = min(bonus, floor(amount × 10%))
+     *   realPart  = amount − bonusPart
+     *   Real is drained: deposit first → winning second
+     *   If bonus = 0 → entire amount from real cash only
+     */
+    function calcSplit(w: WalletData): WalletData {
+      const bonusCut  = Math.floor(amount * 0.10);
+      const bonusPart = Math.min(w.bonus, bonusCut);
+      const realPart  = amount - bonusPart;
+
+      let rem = realPart;
       const newDeposit = Math.max(0, w.deposit - rem);
       rem -= (w.deposit - newDeposit);
       const newWinning = Math.max(0, w.winning - rem);
-      rem -= (w.winning - newWinning);
-      const newBonus = Math.max(0, w.bonus - rem);
+      const newBonus   = Math.max(0, w.bonus - bonusPart);
+
       return { deposit: newDeposit, winning: newWinning, bonus: newBonus };
     }
+
     if (!FIREBASE_ENABLED || !uid) {
-      setWallet((w) => drainBuckets(w));
+      setWallet((w) => calcSplit(w));
       pushLocalTx({ type: "fee", title, rawAmount: -amount, display: `-₹${amount}`, color: "#e74c3c", status: "completed", roomId });
     } else {
       setWallet((w) => {
-        const updated = drainBuckets(w);
+        const updated = calcSplit(w);
         saveWalletCache(uid, updated);
         return updated;
       });
-      firestoreDeductFee(uid, amount, title, roomId).catch(console.error);
+      firestoreDeductEntryFee(uid, amount, title, roomId).catch(console.error);
     }
   }, [uid, pushLocalTx]);
 

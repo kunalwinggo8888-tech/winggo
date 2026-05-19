@@ -15,7 +15,7 @@ import {
   doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, orderBy, limit, onSnapshot,
   serverTimestamp, increment, Timestamp,
-  getDocs, where, writeBatch,
+  getDocs, where, writeBatch, runTransaction,
   DocumentData,
 } from "firebase/firestore";
 import { db, storage, FIREBASE_ENABLED } from "./config";
@@ -431,7 +431,7 @@ export async function firestoreAddWinning(uid: string, amount: number, title: st
   });
 }
 
-/** Deduct entry fee */
+/** Deduct entry fee (legacy — full amount from deposit only) */
 export async function firestoreDeductFee(uid: string, amount: number, title: string, roomId?: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   await updateDoc(doc(db, "wallets", uid), {
@@ -442,6 +442,57 @@ export async function firestoreDeductFee(uid: string, amount: number, title: str
     type: "fee", title,
     rawAmount: -amount, display: `-₹${amount}`,
     color: "#e74c3c", status: "completed",
+    roomId,
+  });
+}
+
+/**
+ * Deduct entry fee with 90% Real Cash + 10% Bonus Cash split.
+ *   - Bonus part = min(bonusBalance, floor(amount × 10%))
+ *   - Real part  = amount − bonusPart  (drained: deposit first → winning)
+ *   - If bonus = 0 → entire amount comes from real cash only
+ * Uses a Firestore transaction so the read-compute-write is atomic.
+ */
+export async function firestoreDeductEntryFee(
+  uid: string,
+  amount: number,
+  title: string,
+  roomId?: string,
+): Promise<void> {
+  if (!FIREBASE_ENABLED || !db) return;
+  const _db = db;   // capture non-null for use inside async callback
+
+  await runTransaction(_db, async (txn) => {
+    const walletRef = doc(_db, "wallets", uid);
+    const snap = await txn.get(walletRef);
+    const w = snap.exists()
+      ? (snap.data() as WalletBalance)
+      : ({ winning: 0, deposit: 0, bonus: 0 } as WalletBalance);
+
+    // ── 90 / 10 split ────────────────────────────────────────────────────────
+    const bonusCut  = Math.floor(amount * 0.10);
+    const bonusPart = Math.min(w.bonus ?? 0, bonusCut);
+    const realPart  = amount - bonusPart;
+
+    // Drain real part: deposit bucket first, then winning bucket
+    const realFromDeposit = Math.min(w.deposit ?? 0, realPart);
+    const realFromWinning = realPart - realFromDeposit;
+
+    const updates: Record<string, unknown> = { updatedAt: serverTimestamp() };
+    if (realFromDeposit > 0) updates.deposit = increment(-realFromDeposit);
+    if (realFromWinning > 0) updates.winning  = increment(-realFromWinning);
+    if (bonusPart       > 0) updates.bonus    = increment(-bonusPart);
+
+    txn.update(walletRef, updates);
+  });
+
+  // Record consolidated transaction (shows in wallet history)
+  await pushTransaction(uid, {
+    type: "fee", title,
+    rawAmount: -amount,
+    display: `-₹${amount}`,
+    color: "#e74c3c",
+    status: "completed",
     roomId,
   });
 }
