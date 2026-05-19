@@ -23,7 +23,8 @@ const SZ         = 15 * C;       // board size px
 const MAX_MOVES  = 50;
 const HOME_SCORE = 25;
 const KILL_BONUS = 15;
-const BOT_NAMES  = ["ArjunBot","RajBot","VikramBot","PriyaBot","DevBot","KiranBot"];
+const BOT_NAMES  = ["Rohan","Priya","Arjun","Sneha","Vikram","Ananya","Rahul","Pooja","Dev","Kiran"];
+const BOT_CITIES = ["Mumbai","Delhi","Bangalore","Pune","Chennai","Hyderabad","Kolkata","Jaipur","Surat","Ahmedabad"];
 const EMOTES     = ["😂","👍","😤","🔥","🎉","💪","😱","🤙","👑","😎"];
 
 // Player indices
@@ -550,7 +551,9 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const isFreeMode = initialFee === 0;
   const tier: BotTier = isFreeMode || initialFee < 5 ? "easy" : initialFee < 20 ? "medium" : "god";
 
-  const botName = useRef(BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]);
+  const botIdx  = useRef(Math.floor(Math.random() * BOT_NAMES.length));
+  const botName = useRef(BOT_NAMES[botIdx.current]);
+  const botCity = useRef(BOT_CITIES[botIdx.current]);
   const scored  = useRef(false);
 
   // All 4 tokens start at step 1 (deployed on board, no yard wait)
@@ -776,75 +779,166 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   if (phase === "matchmaking") {
     const tierColor = tier === "god" ? "#ff3b5c" : tier === "medium" ? "#f97316" : "#4ade80";
     const tierLabel = tier === "god" ? "⚡ GOD MODE" : tier === "medium" ? "🔶 MEDIUM" : "🟢 EASY";
+    const prize     = isFreeMode ? null : Math.floor(initialFee * 2 * 0.9);
+
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center gap-6 px-6"
-        style={{ background: "linear-gradient(180deg,#060b18 0%,#0d1a2e 60%,#060b18 100%)", maxWidth: 480, margin: "0 auto" }}>
+      <div className="flex flex-col min-h-screen items-center justify-center px-5"
+        style={{ background: "linear-gradient(180deg,#06080f 0%,#0c1220 50%,#06080f 100%)", maxWidth: 480, margin: "0 auto" }}>
 
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 180 }}
-          className="text-8xl" style={{ filter: "drop-shadow(0 0 30px rgba(255,215,0,0.8))" }}>🎲</motion.div>
-
-        <div className="text-center">
-          <h2 className="text-4xl font-black text-white tracking-tight">FAST LUDO</h2>
-          <p className="text-sm mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>
-            50 Moves Each · Score-Based Winner
-          </p>
-          <div className="flex items-center justify-center gap-3 mt-3 flex-wrap">
-            <span className="text-xs font-black px-3 py-1.5 rounded-full"
-              style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}>
-              🔴 All Tokens Deployed
+        {/* ── HEADER ── */}
+        <motion.div initial={{ opacity: 0, y: -18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+          className="mb-10 text-center">
+          <p className="text-[10px] font-black tracking-[0.25em] mb-2.5"
+            style={{ color: "rgba(255,215,0,0.45)" }}>FAST LUDO · MATCH FOUND</p>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {!isFreeMode && (
+              <span className="px-3 py-1.5 rounded-full text-xs font-black"
+                style={{ background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.28)", color: "#FFD700" }}>
+                💰 Entry ₹{initialFee}
+              </span>
+            )}
+            <span className="px-3 py-1.5 rounded-full text-xs font-black"
+              style={{ background: `${tierColor}18`, border: `1px solid ${tierColor}40`, color: tierColor }}>
+              {tierLabel}
             </span>
-            <span className="text-xs font-black px-3 py-1.5 rounded-full"
-              style={{ background: "rgba(255,215,0,0.12)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.3)" }}>
-              ⭐ +56 Home Bonus
-            </span>
+            {prize !== null && (
+              <span className="px-3 py-1.5 rounded-full text-xs font-black"
+                style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e" }}>
+                🏆 Win ₹{prize}
+              </span>
+            )}
           </div>
-        </div>
+        </motion.div>
 
-        {/* Bot card */}
-        <div className="w-full rounded-2xl p-4 flex items-center gap-3"
-          style={{ background: "rgba(59,130,246,0.1)", border: "1.5px solid rgba(59,130,246,0.3)" }}>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-            style={{ background: "rgba(59,130,246,0.2)" }}>🤖</div>
-          <div className="flex-1">
-            <div className="font-black text-white text-sm">{botName.current}</div>
-            <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Opponent matched
+        {/* ── PLAYER  VS  OPPONENT ── */}
+        <div className="w-full flex items-center justify-center gap-3 mb-10">
+
+          {/* ── YOU ── */}
+          <motion.div
+            initial={{ opacity: 0, x: -48 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 220, damping: 22, delay: 0.1 }}
+            className="flex flex-col items-center gap-3 flex-1">
+
+            <div className="relative">
+              {/* Pulse ring */}
+              <motion.div className="absolute rounded-full pointer-events-none"
+                style={{ inset: -7, border: "2.5px solid #ef4444", borderRadius: "50%" }}
+                animate={{ scale: [1, 1.14, 1], opacity: [0.75, 0.2, 0.75] }}
+                transition={{ duration: 1.9, repeat: Infinity }} />
+
+              {/* Avatar */}
+              <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center text-3xl"
+                style={{
+                  background: "linear-gradient(135deg,#ef4444 0%,#7f1d1d 100%)",
+                  border: "3.5px solid #ef4444",
+                  boxShadow: "0 0 28px rgba(239,68,68,0.6), 0 0 56px rgba(239,68,68,0.2)",
+                }}>
+                🎮
+              </div>
+
+              {/* Online badge */}
+              <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full flex items-center justify-center"
+                style={{ background: "#22c55e", border: "2.5px solid #06080f" }} />
             </div>
-          </div>
-          <span className="text-xs font-black px-2.5 py-1.5 rounded-full"
-            style={{ background: `${tierColor}18`, color: tierColor, border: `1px solid ${tierColor}40` }}>
-            {tierLabel}
-          </span>
+
+            <div className="text-center">
+              <div className="font-black text-white text-base leading-tight">YOU</div>
+              <div className="text-[11px] font-bold mt-0.5" style={{ color: "rgba(239,68,68,0.85)" }}>🔴 Red</div>
+            </div>
+          </motion.div>
+
+          {/* ── VS BADGE ── */}
+          <motion.div
+            initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 340, damping: 18, delay: 0.28 }}
+            className="shrink-0 flex flex-col items-center gap-1">
+            <div className="w-[58px] h-[58px] rounded-full flex items-center justify-center font-black text-lg"
+              style={{
+                background: "linear-gradient(135deg,#FFD700,#ff8c00)",
+                boxShadow: "0 0 22px rgba(255,215,0,0.65), 0 0 44px rgba(255,215,0,0.25)",
+                color: "#000",
+                letterSpacing: "-0.02em",
+              }}>
+              VS
+            </div>
+            <div className="w-px h-6" style={{ background: "linear-gradient(to bottom,rgba(255,215,0,0.5),transparent)" }} />
+          </motion.div>
+
+          {/* ── OPPONENT ── */}
+          <motion.div
+            initial={{ opacity: 0, x: 48 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 220, damping: 22, delay: 0.1 }}
+            className="flex flex-col items-center gap-3 flex-1">
+
+            <div className="relative">
+              {/* Pulse ring */}
+              <motion.div className="absolute rounded-full pointer-events-none"
+                style={{ inset: -7, border: "2.5px solid #3b82f6", borderRadius: "50%" }}
+                animate={{ scale: [1, 1.14, 1], opacity: [0.75, 0.2, 0.75] }}
+                transition={{ duration: 1.9, repeat: Infinity, delay: 0.4 }} />
+
+              {/* Profile circle — initial + gradient */}
+              <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg,#1d4ed8 0%,#1e1b4b 100%)",
+                  border: "3.5px solid #3b82f6",
+                  boxShadow: "0 0 28px rgba(59,130,246,0.6), 0 0 56px rgba(59,130,246,0.2)",
+                }}>
+                <span className="font-black text-white" style={{ fontSize: 38, lineHeight: 1 }}>
+                  {botName.current.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              {/* Online badge */}
+              <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full flex items-center justify-center"
+                style={{ background: "#22c55e", border: "2.5px solid #06080f" }} />
+            </div>
+
+            <div className="text-center">
+              <div className="font-black text-white text-base leading-tight">{botName.current}</div>
+              <div className="text-[11px] font-bold mt-0.5" style={{ color: "rgba(59,130,246,0.85)" }}>
+                📍 {botCity.current}
+              </div>
+            </div>
+          </motion.div>
+
         </div>
 
-        {/* Scoring breakdown */}
-        <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+        {/* ── MATCH STATS STRIP ── */}
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
+          className="w-full rounded-2xl px-4 py-3.5 mb-8 flex items-center justify-around"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
           {[
-            ["🎲", "Every step moved", "+1 pt"],
-            ["🏠", "Token reaches Home", "+25 pts bonus"],
-            ["💀", "Kill opponent token", "+15 pts"],
-            ["6️⃣", "Rolling 6 or kill", "Extra Turn"],
-          ].map(([icon, label, val]) => (
-            <div key={label} className="flex items-center gap-3 px-4 py-2.5"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}>
-              <span className="text-base">{icon}</span>
-              <span className="flex-1 text-xs font-bold" style={{ color: "rgba(255,255,255,0.55)" }}>{label}</span>
-              <span className="text-xs font-black" style={{ color: "#FFD700" }}>{val}</span>
+            { label: "Moves", value: "50 Each" },
+            { label: "Kill Bonus", value: "+15 pts" },
+            { label: "Home Bonus", value: "+25 pts" },
+            { label: "Winner", value: "Top Score" },
+          ].map(({ label, value }) => (
+            <div key={label} className="flex flex-col items-center gap-0.5">
+              <div className="text-[9px] font-black tracking-widest uppercase"
+                style={{ color: "rgba(255,255,255,0.28)" }}>{label}</div>
+              <div className="text-xs font-black" style={{ color: "#FFD700" }}>{value}</div>
             </div>
           ))}
-        </div>
+        </motion.div>
 
-        {/* Loading bar */}
-        <div className="w-full">
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+        {/* ── LOADING BAR ── */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+          className="w-full">
+          <div className="h-[5px] rounded-full overflow-hidden mb-2.5"
+            style={{ background: "rgba(255,255,255,0.07)" }}>
             <motion.div className="h-full rounded-full"
-              style={{ background: "linear-gradient(90deg,#ef4444,#FFD700,#3b82f6)" }}
-              initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2.8, ease: "linear" }} />
+              style={{ background: "linear-gradient(90deg,#ef4444 0%,#FFD700 50%,#3b82f6 100%)" }}
+              initial={{ width: "0%" }} animate={{ width: "100%" }}
+              transition={{ duration: 2.8, ease: "linear" }} />
           </div>
-          <p className="text-center text-xs mt-2" style={{ color: "rgba(255,255,255,0.3)" }}>
-            Setting up the board…
-          </p>
-        </div>
+          <motion.p className="text-center text-[11px] font-bold"
+            style={{ color: "rgba(255,255,255,0.3)" }}
+            animate={{ opacity: [0.35, 1, 0.35] }} transition={{ duration: 1.1, repeat: Infinity }}>
+            🎮 Setting up the board…
+          </motion.p>
+        </motion.div>
+
       </div>
     );
   }
