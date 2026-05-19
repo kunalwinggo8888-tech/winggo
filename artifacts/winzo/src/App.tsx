@@ -36,6 +36,7 @@ import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG } from "@/firebase/fi
 import { FIREBASE_ENABLED } from "@/firebase/config";
 
 // ── Lazy (split into individual chunks) ───────────────────────────────────────
+const SpinWheel           = lazy(() => import("@/pages/SpinWheel"));
 const LudoFastGame        = lazy(() => import("@/pages/LudoFastGame"));
 const SaanpSidiGame       = lazy(() => import("@/pages/SaanpSidiGame"));
 const WorldWarGame        = lazy(() => import("@/pages/WorldWarGame"));
@@ -91,7 +92,7 @@ const LeaderboardScreen   = lazy(() => import("@/pages/LeaderboardScreen"));
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
-  | "ludo" | "saanpsidi" | "worldwar" | "carrom" | "bubble" | "candy"
+  | "spinwheel" | "ludo" | "saanpsidi" | "worldwar" | "carrom" | "bubble" | "candy"
   | "chess" | "discfootball" | "rummy" | "callbreak" | "poker" | "solitaire" | "twenty1"
   | "axemaster" | "mrracer" | "bricksbreaker" | "slapfest" | "fruitchop"
   | "alienfusion" | "pool3d" | "crickettd20" | "sheepbattle" | "hexa2048"
@@ -260,6 +261,7 @@ function AppInner() {
           <Dashboard
             key="dashboard"
             appConfig={appConfig}
+            onSpin={() => setScreen("spinwheel")}
             onLudo={(f) => go("ludo",         "ludo",         f, 2)}
             onLudoFast={(f) => go("ludo",     "ludo",         f, 2)}
             onSaanpSidi={(f) => go("saanpsidi","saanpsidi",  f, 2)}
@@ -329,6 +331,7 @@ function AppInner() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
           >
+            {screen === "spinwheel"     && <SpinWheel key="spinwheel" onBack={back} />}
             {screen === "ludo"          && <LudoFastGame key="ludo" onBack={back} initialFee={fee("ludo",2)} />}
             {screen === "saanpsidi"     && <SaanpSidiGame key="saanpsidi" onBack={back} initialFee={fee("saanpsidi",2)} />}
             {screen === "worldwar"      && <WorldWarGame key="worldwar" onBack={back} initialFee={fee("worldwar")} />}
