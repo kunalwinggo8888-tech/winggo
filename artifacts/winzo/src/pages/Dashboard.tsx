@@ -5,6 +5,7 @@ import { useWallet } from "@/context/useWallet";
 import { subscribeGames, seedGamesIfEmpty, GameConfig } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 import GameEntrySheet, { SheetGame } from "@/components/GameEntrySheet";
+import AvatarUpload from "@/components/AvatarUpload";
 
 const CATEGORY_SECTIONS = [
   { key: "Popular", label: "🔥 Popular Games",   accent: "#ff4e00" },
@@ -316,17 +317,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         }}
       >
         {/* Profile Avatar */}
-        <motion.button
-          data-testid="button-profile-avatar"
-          whileTap={{ scale: 0.93 }}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer"
-          style={{
-            background: "linear-gradient(135deg, #FFD700, #ff8c00)",
-            boxShadow: "0 0 10px rgba(255,215,0,0.4)",
-          }}
-        >
-          A
-        </motion.button>
+        <AvatarUpload size={36} />
 
         {/* WINGGO Logo */}
         <h1 className="font-black text-2xl tracking-tighter leading-none">

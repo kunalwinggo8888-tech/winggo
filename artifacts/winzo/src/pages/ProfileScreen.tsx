@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
+import { useAuth } from "@/context/useAuth";
+import AvatarUpload from "@/components/AvatarUpload";
 
 interface ProfileScreenProps {
   onKYC?: () => void;
@@ -43,11 +45,13 @@ const MENU_ITEMS = [
 
 export default function ProfileScreen({ onKYC, onRefer, onWallet, onLogout }: ProfileScreenProps) {
   const { wallet, total } = useWallet();
+  const { user } = useAuth();
   const kycStatus = getKycStatus();
   const kycCfg = KYC_STATUS_CONFIG[kycStatus];
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [editName, setEditName] = useState(false);
-  const [username, setUsername] = useState("Rahul_Pro");
+  const displayName = user?.displayName || "Player";
+  const [username, setUsername] = useState(displayName);
   const [tempName, setTempName] = useState(username);
 
   function handleMenu(id: string) {
@@ -108,15 +112,7 @@ export default function ProfileScreen({ onKYC, onRefer, onWallet, onLogout }: Pr
               transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
               style={{ borderRadius: "999px" }}
             >
-              <div
-                className="w-24 h-24 rounded-full flex items-center justify-center text-4xl"
-                style={{
-                  background: "linear-gradient(135deg, #7c3aed, #FFD700)",
-                  border: "3px solid rgba(255,215,0,0.6)",
-                }}
-              >
-                👑
-              </div>
+              <AvatarUpload size={96} showEditHint />
               {/* VIP badge */}
               <div
                 className="absolute -bottom-1 -right-1 px-2 py-0.5 rounded-full text-[9px] font-black"
@@ -124,6 +120,7 @@ export default function ProfileScreen({ onKYC, onRefer, onWallet, onLogout }: Pr
                   background: "linear-gradient(135deg, #FFD700, #ff8c00)",
                   color: "#000",
                   border: "2px solid #07050f",
+                  marginBottom: "8px",
                 }}
               >
                 VIP
