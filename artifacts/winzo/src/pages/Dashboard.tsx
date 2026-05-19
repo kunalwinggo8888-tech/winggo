@@ -300,8 +300,8 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
 
   return (
     <div
-      className="min-h-screen flex flex-col relative"
-      style={{ background: "#0a0a0f", maxWidth: "480px", margin: "0 auto", overflowX: "hidden" }}
+      className="min-h-screen flex flex-col relative overflow-hidden"
+      style={{ background: "#0a0a0f", maxWidth: "480px", margin: "0 auto" }}
     >
       {/* ─── HEADER ─── */}
       <header
@@ -392,6 +392,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               animate={{ rotate: 360 }}
               transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
             >
+              {/* 8 pie segments */}
               {[
                 { start: 0,   end: 45,  color: "#FFD700" },
                 { start: 45,  end: 90,  color: "#EF4444" },
@@ -417,6 +418,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
                   />
                 );
               })}
+              {/* Center dot */}
               <circle cx="10" cy="10" r="2.5" fill="#07070d" />
               <circle cx="10" cy="10" r="1.5" fill="#FFD700" />
             </motion.svg>
@@ -475,8 +477,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
       </header>
 
       {/* ─── SCROLLABLE CONTENT ─── */}
-      <main className="flex-1 overflow-y-auto pb-24 pt-16"
-        style={{ WebkitOverflowScrolling: "touch" }}>
+      <main className="flex-1 overflow-y-auto pb-24 pt-16">
 
         {/* ─── BANNER SLIDER ─── */}
         <div className="relative mx-4 mt-4 rounded-2xl overflow-hidden" style={{ height: "180px" }}>
@@ -624,11 +625,13 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
           }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
+          {/* Top shimmer */}
           <motion.div className="absolute top-0 left-0 right-0 h-px"
             style={{ background: "linear-gradient(90deg, transparent, #a78bfa, #FFD700, #a78bfa, transparent)" }}
             animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} />
 
           <div className="flex items-center justify-between px-5 py-5">
+            {/* Left: text info */}
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <motion.div className="w-2 h-2 rounded-full"
@@ -645,6 +648,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               <div className="text-sm font-medium mb-3" style={{ color: "rgba(255,255,255,0.5)" }}>
                 Win up to <span className="font-black" style={{ color: "#FFD700" }}>₹20 Cash</span> every day
               </div>
+              {/* Reward chips */}
               <div className="flex gap-1.5 flex-wrap">
                 {["₹5", "₹10", "₹20"].map((amt) => (
                   <span key={amt} className="px-2.5 py-1 rounded-full text-xs font-black"
@@ -659,11 +663,14 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               </div>
             </div>
 
+            {/* Right: spinning wheel SVG */}
             <div className="shrink-0 ml-4 flex flex-col items-center gap-2">
+              {/* Pointer */}
               <div className="w-3 h-3 relative">
                 <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-0 h-0"
                   style={{ borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "12px solid #FFD700" }} />
               </div>
+              {/* Wheel */}
               <motion.svg
                 width="100" height="100" viewBox="0 0 100 100"
                 animate={{ rotate: 360 }}
@@ -671,14 +678,14 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
                 style={{ filter: "drop-shadow(0 0 12px rgba(139,92,246,0.6))" }}
               >
                 {[
-                  { start: 0,   end: 45,  color: "#FFD700" },
-                  { start: 45,  end: 90,  color: "#374151" },
-                  { start: 90,  end: 135, color: "#EF4444" },
-                  { start: 135, end: 180, color: "#3B82F6" },
-                  { start: 180, end: 225, color: "#10B981" },
-                  { start: 225, end: 270, color: "#8B5CF6" },
-                  { start: 270, end: 315, color: "#F97316" },
-                  { start: 315, end: 360, color: "#EC4899" },
+                  { start: 0,   end: 45,  color: "#FFD700", label: "₹5"  },
+                  { start: 45,  end: 90,  color: "#374151", label: "🍀"  },
+                  { start: 90,  end: 135, color: "#EF4444", label: "₹10" },
+                  { start: 135, end: 180, color: "#3B82F6", label: "🪙"  },
+                  { start: 180, end: 225, color: "#10B981", label: "₹2"  },
+                  { start: 225, end: 270, color: "#8B5CF6", label: "🎁"  },
+                  { start: 270, end: 315, color: "#F97316", label: "🪙"  },
+                  { start: 315, end: 360, color: "#EC4899", label: "₹20" },
                 ].map((seg, i) => {
                   const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
                   const cx = 50, cy = 50, r = 46, ir = 12;
@@ -927,6 +934,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
       <AnimatePresence>
         {showSpinModal && (
           <>
+            {/* Blurred backdrop */}
             <motion.div
               className="fixed inset-0 z-[60]"
               style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
@@ -935,6 +943,8 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               exit={{ opacity: 0 }}
               onClick={() => setShowSpinModal(false)}
             />
+
+            {/* Wheel panel — pops up from bottom */}
             <motion.div
               className="fixed inset-x-0 bottom-0 z-[70] overflow-y-auto"
               style={{ maxWidth: "480px", margin: "0 auto", maxHeight: "96vh", borderRadius: "28px 28px 0 0" }}
@@ -943,6 +953,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}
             >
+              {/* Drag handle */}
               <div className="flex justify-center pt-3 pb-1" style={{ background: "#07070d", borderRadius: "28px 28px 0 0" }}>
                 <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
               </div>
