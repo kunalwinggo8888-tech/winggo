@@ -11,7 +11,7 @@ import {
   ArrowUpFromLine, ScrollText, Gift, Image, Tag,
   Star, RotateCcw, BellRing, Newspaper, MessageSquare,
   Percent, Trophy, UploadCloud, UserCog, Activity,
-  AlertTriangle, ChevronDown,
+  AlertTriangle, ChevronDown, KeyRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,9 +91,10 @@ const NAV: NavGroup[] = [
     ],
   },
   { id: "security",      icon: Shield,          label: "Security & Logs",       items: [
-      { tab: "profile",  icon: UserCog,         label: "Admin Profile"       },
-      { tab: "actlogs",  icon: Activity,        label: "Activity Logs"       },
-      { tab: "fraud",    icon: AlertTriangle,   label: "Fraud Detection"     },
+      { tab: "profile",   icon: UserCog,        label: "Admin Profile"              },
+      { tab: "actlogs",   icon: Activity,       label: "Activity Logs"              },
+      { tab: "fraud",     icon: AlertTriangle,  label: "Fraud Detection"            },
+      { tab: "recovery",  icon: KeyRound,       label: "Emergency Recovery Config"  },
     ],
   },
   { id: "editor",        icon: Code2,           label: "Master Code Editor",    badge: "LIVE" },

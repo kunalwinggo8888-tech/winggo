@@ -9,6 +9,11 @@ import {
   uploadPaymentQR,
   type PaymentConfig,
 } from "@/firebase/admin.service";
+import {
+  isRecoveryConfigured,
+  getBackupEmail,
+  maskEmail,
+} from "@/firebase/recovery.service";
 
 const T = {
   blue:"#00d4ff", green:"#00ff88", red:"#ff3366", gold:"#f59e0b",
@@ -16,10 +21,11 @@ const T = {
 };
 
 const TABS=[
-  {id:"profile", label:"👤 Admin Profile"   },
-  {id:"payment", label:"💳 Payment Config"  },
-  {id:"actlogs", label:"📊 Activity Logs"   },
-  {id:"fraud",   label:"🚨 Fraud Detection" },
+  {id:"profile",   label:"👤 Admin Profile"   },
+  {id:"payment",   label:"💳 Payment Config"  },
+  {id:"actlogs",   label:"📊 Activity Logs"   },
+  {id:"fraud",     label:"🚨 Fraud Detection" },
+  {id:"recovery",  label:"🔑 Emergency Recovery" },
 ];
 
 function TabBar({tab,setTab}:{tab:string;setTab:(t:string)=>void}) {
@@ -462,22 +468,162 @@ function FraudTab() {
   );
 }
 
+// ─── Emergency Recovery Config Tab ────────────────────────────────────────────
+
+function RecoveryConfigTab({ onOpen }: { onOpen?: () => void }) {
+  const configured   = isRecoveryConfigured();
+  const backupEmail  = getBackupEmail();
+  const masterHash   = import.meta.env.VITE_ADMIN_MASTER_KEY_HASH ?? "";
+
+  return (
+    <div className="p-4 space-y-4 max-w-2xl">
+
+      {/* Status banner */}
+      <div className="px-4 py-3 rounded-2xl" style={{
+        background: configured ? "rgba(0,255,136,0.04)" : "rgba(255,200,0,0.04)",
+        border: `1px solid ${configured ? "rgba(0,255,136,0.2)" : "rgba(255,200,0,0.25)"}`,
+      }}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <motion.div className="w-2 h-2 rounded-full shrink-0"
+            style={{ background: configured ? "#00ff88" : "#f59e0b" }}
+            animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.6, repeat: Infinity }} />
+          <span className="text-xs font-black"
+            style={{ color: configured ? "#00ff88" : "#f59e0b" }}>
+            {configured ? "✅ RECOVERY SYSTEM ACTIVE" : "⚠️ RECOVERY NOT CONFIGURED"}
+          </span>
+        </div>
+        <p className="text-xs leading-relaxed" style={{ color: "rgba(226,232,240,0.4)" }}>
+          {configured
+            ? "Emergency recovery is ready. If you ever lose admin access, use your master key + backup Gmail to restore it instantly."
+            : "Add VITE_ADMIN_MASTER_KEY_HASH and VITE_ADMIN_BACKUP_EMAIL to Replit Secrets to activate this system."
+          }
+        </p>
+      </div>
+
+      {/* Config status cards */}
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { label: "MASTER KEY HASH", value: masterHash ? masterHash.slice(0, 14) + "…" : "Not configured", set: !!masterHash },
+          { label: "BACKUP EMAIL",    value: backupEmail ? maskEmail(backupEmail) : "Not configured",           set: !!backupEmail },
+        ].map(({ label, value, set }) => (
+          <div key={label} className="px-3 py-3 rounded-xl"
+            style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <p className="text-[9px] font-black tracking-[0.16em] mb-1.5"
+              style={{ color: "rgba(255,80,0,0.5)" }}>{label}</p>
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: set ? "#00ff88" : "#ff4444" }} />
+              <p className="text-xs font-mono truncate"
+                style={{ color: set ? "rgba(0,255,136,0.8)" : "rgba(255,100,100,0.7)" }}>
+                {value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main CTA */}
+      <motion.button
+        onClick={onOpen}
+        whileHover={{ scale: 1.015 }}
+        whileTap={{ scale: 0.97 }}
+        className="relative w-full py-4 rounded-2xl font-black text-sm cursor-pointer overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, rgba(255,60,0,0.14) 0%, rgba(180,0,0,0.22) 100%)",
+          color: "#ff6633",
+          border: "1px solid rgba(255,60,0,0.32)",
+          boxShadow: "0 0 32px rgba(255,60,0,0.07), inset 0 0 0 1px rgba(255,255,255,0.015)",
+          letterSpacing: "0.06em",
+        }}>
+        {/* Shimmer */}
+        <motion.div className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,80,0,0.08) 50%, transparent 65%)" }}
+          animate={{ x: ["-100%", "200%"] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 2.5 }} />
+        🔑 OPEN EMERGENCY RECOVERY PANEL
+      </motion.button>
+
+      {/* How it works */}
+      <div className="px-4 py-4 rounded-2xl" style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)" }}>
+        <p className="text-xs font-black mb-3" style={{ color: "rgba(226,232,240,0.65)" }}>
+          🛡️ How 2-Factor Recovery Works
+        </p>
+        <div className="space-y-2.5">
+          {[
+            "Enter your Master Recovery Key → validated against the SHA-256 hash stored in Replit Secrets.",
+            "Firebase sends a one-time sign-in link to the pre-registered backup Gmail.",
+            "Clicking the link proves inbox ownership — the page auto-redirects here to continue.",
+            "Set a new Admin ID + password → written to Firestore and active immediately.",
+          ].map((text, i) => (
+            <div key={i} className="flex gap-3 items-start">
+              <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[9px] font-black mt-0.5"
+                style={{ background: "rgba(255,80,0,0.1)", border: "1px solid rgba(255,80,0,0.22)", color: "rgba(255,80,0,0.75)" }}>
+                {i + 1}
+              </div>
+              <p className="text-[11px] leading-relaxed flex-1" style={{ color: "rgba(226,232,240,0.38)" }}>{text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Setup checklist */}
+      <div className="px-4 py-4 rounded-2xl" style={{ background: "rgba(255,200,0,0.03)", border: "1px solid rgba(255,200,0,0.1)" }}>
+        <p className="text-xs font-black mb-3" style={{ color: "rgba(255,200,0,0.65)" }}>
+          ⚙️ One-Time Setup Checklist
+        </p>
+        <div className="space-y-2">
+          {[
+            { done: false,         text: 'Choose a strong master key, e.g. "WINGGO-MASTER-RECOVER-2026-XYZ9Q4"' },
+            { done: false,         text: "Compute its SHA-256 at emn178.github.io/online-tools/sha256.html" },
+            { done: !!masterHash,  text: "Add VITE_ADMIN_MASTER_KEY_HASH = <hash> in Replit Secrets" },
+            { done: !!backupEmail, text: "Add VITE_ADMIN_BACKUP_EMAIL = <backup-gmail> in Replit Secrets" },
+            { done: false,         text: "In Firebase Console → Auth → Authorized domains → add your .replit.app domain" },
+          ].map(({ done, text }, i) => (
+            <div key={i} className="flex gap-2.5 items-start">
+              <div className="w-4 h-4 rounded shrink-0 flex items-center justify-center text-[8px] mt-0.5"
+                style={{
+                  background: done ? "rgba(0,255,136,0.1)"   : "rgba(255,255,255,0.04)",
+                  border:     `1px solid ${done ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.08)"}`,
+                  color:      done ? "#00ff88" : "rgba(255,255,255,0.2)",
+                }}>
+                {done ? "✓" : ""}
+              </div>
+              <p className="text-[11px] leading-relaxed flex-1"
+                style={{ color: done ? "rgba(0,255,136,0.65)" : "rgba(226,232,240,0.35)" }}>
+                {text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function PageSecurity({ jumpTab="" }:{jumpTab?:string}) {
-  const [tab, setTab] = useState(jumpTab||"profile");
-  useEffect(()=>{ if (jumpTab) setTab(jumpTab); },[jumpTab]);
+export default function PageSecurity({
+  jumpTab = "",
+  onOpenRecovery,
+}: {
+  jumpTab?: string;
+  onOpenRecovery?: () => void;
+}) {
+  const [tab, setTab] = useState(jumpTab || "profile");
+  useEffect(() => { if (jumpTab) setTab(jumpTab); }, [jumpTab]);
 
   return (
     <div className="flex flex-col min-h-full">
       <TabBar tab={tab} setTab={setTab} />
       <AnimatePresence mode="wait">
-        <motion.div key={tab} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
-          exit={{opacity:0,y:-4}} transition={{duration:0.15}}>
-          {tab==="profile" && <ProfileTab />}
-          {tab==="payment" && <PaymentConfigTab />}
-          {tab==="actlogs" && <ActivityLogsTab />}
-          {tab==="fraud"   && <FraudTab />}
+        <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}>
+          {tab === "profile"  && <ProfileTab />}
+          {tab === "payment"  && <PaymentConfigTab />}
+          {tab === "actlogs"  && <ActivityLogsTab />}
+          {tab === "fraud"    && <FraudTab />}
+          {tab === "recovery" && <RecoveryConfigTab onOpen={onOpenRecovery} />}
         </motion.div>
       </AnimatePresence>
     </div>

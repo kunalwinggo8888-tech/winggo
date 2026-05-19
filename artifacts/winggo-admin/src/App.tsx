@@ -171,7 +171,7 @@ export default function App() {
               {page === "marketing"     && <PageMarketing jumpTab={pageTab} />}
               {page === "notifications" && <PageNotifications jumpTab={pageTab} />}
               {page === "referral"      && <PageReferral jumpTab={pageTab} />}
-              {page === "security"      && <PageSecurity jumpTab={pageTab} />}
+              {page === "security"      && <PageSecurity jumpTab={pageTab} onOpenRecovery={() => setShowRecovery(true)} />}
               {page === "editor"        && <PageCodeEditor />}
               {page === "versions"      && <PageVersions />}
               {page === "staff"         && <PageStaff />}
