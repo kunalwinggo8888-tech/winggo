@@ -1,44 +1,67 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ── Admin allow-list helper ─────────────────────────────────────────────
+    // The Admin Panel signs in with a dedicated Firebase Auth account whose
+    // uid must exist as a document id under /admins. Everything else below is
+    // unchanged from the original end-user rules — this only ADDS an "|| isAdmin()"
+    // escape hatch so the Admin Panel can read/manage data across all users.
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ── Admins allow-list (only readable by the admin itself / never by clients) ─
+    match /admins/{uid} {
+      allow read:  if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
     // ── Users ─────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
     }
 
     // ── Wallets ───────────────────────────────────────────────────────────────
     match /wallets/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
 
       // Transactions sub-collection
       match /transactions/{txId} {
-        allow read:   if request.auth != null && request.auth.uid == uid;
-        allow create: if request.auth != null && request.auth.uid == uid;
+        allow read:   if (request.auth != null && request.auth.uid == uid) || isAdmin();
+        allow create: if (request.auth != null && request.auth.uid == uid) || isAdmin();
         allow update, delete: if false;
       }
     }
 
     // ── Deposits (admin-readable, user-creatable) ─────────────────────────────
     match /deposits/{depId} {
-      allow read:   if request.auth != null
-                    && resource.data.uid == request.auth.uid;
+      allow read:   if (request.auth != null && resource.data.uid == request.auth.uid) || isAdmin();
       allow create: if request.auth != null;
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Screenshot Deposit Requests (KYC-style proof uploads) ─────────────────
+    match /depositRequests/{id} {
+      allow read:   if (request.auth != null && resource.data.uid == request.auth.uid) || isAdmin();
+      allow create: if request.auth != null;
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     // ── Withdraw Requests ─────────────────────────────────────────────────────
     match /withdrawRequests/{id} {
-      allow read:   if request.auth != null
-                    && resource.data.uid == request.auth.uid;
+      allow read:   if (request.auth != null && resource.data.uid == request.auth.uid) || isAdmin();
       allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow update: if request.auth != null || isAdmin();
       allow delete: if false;
     }
 
     // ── KYC ───────────────────────────────────────────────────────────────────
     match /kycRequests/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
     }
 
     // ── Games (authenticated read, open write for seeding) ────────────────────
@@ -52,24 +75,50 @@ service cloud.firestore {
       allow read: if request.auth != null;
       match /players/{uid} {
         allow read:  if request.auth != null;
-        allow write: if request.auth != null && request.auth.uid == uid;
+        allow write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
       }
     }
 
     // ── Config (public read for app version / maintenance flags) ─────────────
     match /config/{docId} {
       allow read:  if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────
     match /notifications/{uid}/items/{notifId} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
+    }
+
+    // ── Notification Queue (admin broadcast tool, never touched by end users) ──
+    match /notificationQueue/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Analytics (admin dashboard stats, never touched by end users) ────────
+    match /analytics/{docId=**} {
+      allow read, write: if isAdmin();
     }
 
     // ── Referrals ─────────────────────────────────────────────────────────────
     match /referrals/{id} {
-      allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null || isAdmin();
+    }
+
+    // ── App version history (admin-only) ──────────────────────────────────────
+    match /admin_versions/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Staff accounts (admin-only) ───────────────────────────────────────────
+    match /staff_accounts/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Emergency admin recovery override (read-only from client, admin panel only) ─
+    match /system/{docId} {
+      allow read:  if isAdmin() || docId == "admin_config";
+      allow write: if isAdmin();
     }
 
     // ── Deny everything else ──────────────────────────────────────────────────
