@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar, { AdminPage, NavDest } from "@/components/AdminSidebar";
 import AdminLogin         from "@/pages/AdminLogin";
@@ -20,6 +20,7 @@ import { isRecoveryEmailLink } from "@/firebase/recovery.service";
 import {
   hasAdminSession, clearAdminSession,
   hasStaffSession, clearStaffSession,
+  bridgeToFirebaseAuth,
 } from "@/firebase/config";
 
 type AppMode   = "admin" | "staff" | "none";
@@ -54,6 +55,16 @@ export default function App() {
   const [page,        setPage]       = useState<AdminPage>("dashboard");
   const [pageTab,     setPageTab]    = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // On page refresh, an admin session may already exist in sessionStorage but
+  // Firebase Auth needs to be (re)established for Firestore/RTDB security
+  // rules to allow reads. This is a no-op if already signed in.
+  useEffect(() => {
+    if (mode === "admin") {
+      bridgeToFirebaseAuth();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleNav({ page: p, tab }: NavDest) {
     setPage(p);
