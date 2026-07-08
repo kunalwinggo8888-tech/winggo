@@ -62,7 +62,7 @@ export function clearStaffSession(): void { sessionStorage.removeItem(STAFF_SESS
  */
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore, doc, getDoc } from "firebase/firestore";
-import { getAuth, Auth } from "firebase/auth";
+import { getAuth, Auth, signInWithEmailAndPassword, signOut as fbSignOut } from "firebase/auth";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getDatabase, Database } from "firebase/database";
 
@@ -173,6 +173,34 @@ export function hasAdminSession(): boolean {
 /** Clear the admin session (logout) */
 export function clearAdminSession(): void {
   sessionStorage.removeItem(SESSION_KEY);
+  if (_auth) fbSignOut(_auth).catch(() => {});
+}
+
+/**
+ * Silently sign the Admin Panel into Firebase Auth using a dedicated admin
+ * account (VITE_ADMIN_FIREBASE_EMAIL / VITE_ADMIN_FIREBASE_PASSWORD).
+ *
+ * WHY THIS EXISTS:
+ * Firestore/Realtime Database security rules require `request.auth != null`
+ * before any data is returned. The Admin Panel's login is a custom check
+ * against env vars — it never calls a Firebase Auth method, so every admin
+ * dashboard query was being silently rejected by the security rules. This
+ * does NOT change the existing Admin ID / password login UX — it just
+ * additionally authenticates the already-verified admin against Firebase.
+ *
+ * Requires a Firestore `admins/{uid}` doc (uid of this Firebase Auth account).
+ */
+export async function bridgeToFirebaseAuth(): Promise<void> {
+  if (!FIREBASE_ENABLED || !_auth) return;
+  const email    = import.meta.env.VITE_ADMIN_FIREBASE_EMAIL    ?? "";
+  const password = import.meta.env.VITE_ADMIN_FIREBASE_PASSWORD ?? "";
+  if (!email || !password) return;
+  if (_auth.currentUser) return;
+  try {
+    await signInWithEmailAndPassword(_auth, email, password);
+  } catch {
+    // Non-fatal
+  }
 }
 
 /**
@@ -230,6 +258,7 @@ export async function adminSignIn(
       ) {
         const token = await generateSessionToken(adminId, enteredHash);
         saveSession(token);
+        await bridgeToFirebaseAuth();
         return { success: true };
       }
       // Override exists but creds don't match → fall through to env vars
@@ -250,6 +279,7 @@ export async function adminSignIn(
       }
       const token = await generateSessionToken(adminId, enteredHash);
       saveSession(token);
+      await bridgeToFirebaseAuth();
       return { success: true };
     }
 
@@ -257,6 +287,7 @@ export async function adminSignIn(
     if (adminId === "kunalwinggo" && password === "winggokunal") {
       const token = await generateSessionToken(adminId, "demo");
       saveSession(token);
+      await bridgeToFirebaseAuth();
       return { success: true };
     }
     return { success: false, error: "❌ Invalid Admin ID or password." };
