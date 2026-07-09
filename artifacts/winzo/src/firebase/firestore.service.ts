@@ -18,8 +18,7 @@ import {
   getDocs, where, writeBatch, runTransaction,
   DocumentData,
 } from "firebase/firestore";
-import { db, storage, FIREBASE_ENABLED } from "./config";
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, FIREBASE_ENABLED } from "./config";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -912,13 +911,22 @@ export interface DepositRequest {
 }
 
 export async function uploadDepositScreenshot(uid: string, file: File): Promise<string> {
-  if (!FIREBASE_ENABLED || !storage) {
+  const cloudName   = (typeof import.meta !== "undefined" ? import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    : "") ?? "";
+  const uploadPreset = (typeof import.meta !== "undefined" ? import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET : "") ?? "";
+  if (!cloudName || !uploadPreset) {
     return "https://placehold.co/400x300/0a0a0f/FFD700?text=Screenshot";
   }
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const sRef = storageRef(storage, `depositScreenshots/${uid}/${Date.now()}.${ext}`);
-  await uploadBytes(sRef, file);
-  return getDownloadURL(sRef);
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+  formData.append("folder", `winggo/deposits/${uid}`);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) return "https://placehold.co/400x300/0a0a0f/FFD700?text=Screenshot";
+  const data = await res.json() as { secure_url: string };
+  return data.secure_url;
 }
 
 export async function submitScreenshotDeposit(

@@ -63,7 +63,6 @@ export function clearStaffSession(): void { sessionStorage.removeItem(STAFF_SESS
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore, doc, getDoc } from "firebase/firestore";
 import { getAuth, Auth, signInWithEmailAndPassword, signOut as fbSignOut } from "firebase/auth";
-import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getDatabase, Database } from "firebase/database";
 
 /** Strip any child path — Firebase RTDB requires the root URL only */
@@ -95,7 +94,6 @@ export const FIREBASE_ENABLED =
 let app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
-let _storage: FirebaseStorage | null = null;
 let _rtdb: Database | null = null;
 
 if (FIREBASE_ENABLED) {
@@ -104,7 +102,6 @@ if (FIREBASE_ENABLED) {
     : getApps()[0];
   _auth    = getAuth(app);
   _db      = getFirestore(app);
-  _storage = getStorage(app);
   if (firebaseConfig.databaseURL) {
     _rtdb = getDatabase(app);
   }
@@ -112,7 +109,6 @@ if (FIREBASE_ENABLED) {
 
 export const adminAuth    = _auth;
 export const adminDb      = _db;
-export const adminStorage = _storage;
 export const adminRtdb    = _rtdb;
 export { app };
 

@@ -21,7 +21,6 @@ import {
   initializeFirestore, getFirestore, Firestore,
 } from "firebase/firestore";
 import { getDatabase, Database } from "firebase/database";
-import { getStorage, FirebaseStorage } from "firebase/storage";
 
 /** Strip any child path from the RTDB URL — Firebase requires the root only */
 function sanitizeDbUrl(raw: string): string {
@@ -61,7 +60,6 @@ let app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 let _rtdb: Database | null = null;
-let _storage: FirebaseStorage | null = null;
 
 if (FIREBASE_ENABLED) {
   app      = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -84,7 +82,6 @@ if (FIREBASE_ENABLED) {
     _db = getFirestore(app);
   }
 
-  _storage = getStorage(app);
 
   if (firebaseConfig.databaseURL) {
     try {
@@ -98,5 +95,4 @@ if (FIREBASE_ENABLED) {
 export const auth    = _auth;
 export const db      = _db;
 export const rtdb    = _rtdb;
-export const storage = _storage;
 export { app };

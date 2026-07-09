@@ -8,12 +8,55 @@ import {
   onSnapshot, serverTimestamp, increment,
   doc, writeBatch, Timestamp, DocumentData, deleteDoc,
 } from "firebase/firestore";
-import { adminDb, adminRtdb, adminStorage, FIREBASE_ENABLED } from "./config";
+import { adminDb, adminRtdb, FIREBASE_ENABLED } from "./config";
 import type { StaffPermissions } from "./config";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   ref as rtdbRef, onValue, off, DataSnapshot,
 } from "firebase/database";
+
+
+// ─── Cloudinary Upload Helper (replaces Firebase Storage) ────────────────────
+const _CLD_NAME   = typeof import.meta !== "undefined" ? (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    ?? "") : "";
+const _CLD_PRESET = typeof import.meta !== "undefined" ? (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET ?? "") : "";
+
+type UploadProgressCb = (pct: number) => void;
+
+async function _cldUpload(
+  file: File,
+  folder: string,
+  resourceType: "image" | "raw" | "auto" = "auto",
+  onProgress?: UploadProgressCb,
+): Promise<string> {
+  if (!_CLD_NAME || !_CLD_PRESET) {
+    throw new Error("Cloudinary not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.");
+  }
+  const url = `https://api.cloudinary.com/v1_1/${_CLD_NAME}/${resourceType}/upload`;
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const data = JSON.parse(xhr.responseText) as { secure_url: string };
+        resolve(data.secure_url);
+      } else {
+        let msg = xhr.statusText;
+        try { msg = (JSON.parse(xhr.responseText) as { error?: { message?: string } }).error?.message ?? msg; } catch { /* ignore */ }
+        reject(new Error(`Cloudinary upload failed (${xhr.status}): ${msg}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Cloudinary upload: network error"));
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", _CLD_PRESET);
+    fd.append("folder", folder);
+    xhr.send(fd);
+  });
+}
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -929,7 +972,6 @@ export { FIREBASE_ENABLED };
 
 // ─── STORAGE: Game ZIP Upload ─────────────────────────────────────────────────
 
-export type UploadProgressCb = (pct: number) => void;
 
 /**
  * Upload a .zip game bundle to Firebase Storage at `games/{gameId}/{fileName}`.
@@ -941,18 +983,7 @@ export async function uploadGameZip(
   gameId: string,
   onProgress?: UploadProgressCb,
 ): Promise<string> {
-  if (!adminStorage) throw new Error("Firebase Storage is not configured. Add VITE_FIREBASE_STORAGE_BUCKET.");
-  const path = `games/${gameId}/${file.name}`;
-  const sRef = storageRef(adminStorage, path);
-  return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(sRef, file);
-    task.on(
-      "state_changed",
-      (snap) => onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-      reject,
-      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
-    );
-  });
+  return _cldUpload(file, `winggo/games/${gameId}`, "raw", onProgress);
 }
 
 // ─── CODE EDITOR: Virtual File System in Firestore ────────────────────────────
@@ -1040,15 +1071,7 @@ export async function savePaymentConfig(upiId: string, qrUrl: string): Promise<v
 }
 
 export async function uploadPaymentQR(file: File): Promise<string> {
-  if (!FIREBASE_ENABLED || !adminStorage) return "";
-  const ext  = file.name.split(".").pop() ?? "png";
-  const sRef = storageRef(adminStorage, `payment/qr_${Date.now()}.${ext}`);
-  const task = uploadBytesResumable(sRef, file);
-  return new Promise((resolve, reject) => {
-    task.on("state_changed", null, reject,
-      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
-    );
-  });
+  return _cldUpload(file, "winggo/payment/qr", "image");
 }
 
 // ─── VERSION SNAPSHOTS — Viras System ────────────────────────────────────────
@@ -1220,13 +1243,5 @@ export async function saveAppBanner(cfg: Partial<AppBannerConfig>): Promise<void
 }
 
 export async function uploadBannerImage(file: File): Promise<string> {
-  if (!FIREBASE_ENABLED || !adminStorage) return "";
-  const ext  = file.name.split(".").pop() ?? "png";
-  const sRef = storageRef(adminStorage, `banners/app_open_${Date.now()}.${ext}`);
-  const task = uploadBytesResumable(sRef, file);
-  return new Promise((resolve, reject) => {
-    task.on("state_changed", null, reject,
-      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
-    );
-  });
+  return _cldUpload(file, "winggo/banners", "image");
 }
