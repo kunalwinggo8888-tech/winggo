@@ -1172,6 +1172,17 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         </div>
       </div>
 
+      {/* ── Score header with 2-minute match countdown ── */}
+      <div className="px-3 pb-2 flex-shrink-0">
+        <ScoreHeader
+          pScore={pScore} bScore={bScore}
+          pMoves={pMoves} bMoves={bMoves}
+          turn={turn} tier={tier}
+          botName={botRef.current.name}
+          matchTimer={matchTimer}
+        />
+      </div>
+
       {/* ── Compact turn / fee strip ── */}
       <div className="flex items-center justify-between px-3 pb-1 flex-shrink-0">
         <div className="flex items-center gap-1.5">
@@ -1299,7 +1310,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
 
         <Board pTokens={pTokens} bTokens={bTokens} validTokens={validToks}
           highlightKill={killFlash} onSelect={handleTokenSelect}
-          pScore={pScore} bScore={bScore} pMoves={pMoves} bMoves={bMoves} matchTimer={matchTimer}
+          pScore={pScore} bScore={bScore} pMoves={pMoves} bMoves={bMoves}
           turn={turn} botName={botRef.current.name} />
       </div>
 
