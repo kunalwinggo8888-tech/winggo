@@ -203,8 +203,8 @@ interface DashboardProps {
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
-// Games that have a real implementation vs coming soon
-const IMPLEMENTED_GAMES = new Set(["ludo","5","saanpsidi","solitaire","11","carrom","3","bubble","1","candy","9","chess","rummy","callbreak","poker","discfootball","twenty1","axemaster","mrracer","bricksbreaker","slapfest","fruitchop","alienfusion","pool3d","crickettd20","sheepbattle","hexa2048","metrosurfer","knifeup","angrymonsters","bearrun","archery","basketball","penalty","stumpit","bikeracing","gearup","hillclimber","liquidsort","bottleshoot","flyme","streetfight","shadowfighter","golfmaster","archeryking","tilematch3d","pipeconnect","jellyshift","goldminer3d"]);
+// Only Ludo and Saanp Sidi are active — all other games show "Coming Soon"
+const IMPLEMENTED_GAMES = new Set(["ludo", "saanpsidi"]);
 
 export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, appConfig }: DashboardProps) {
   const { total } = useWallet();

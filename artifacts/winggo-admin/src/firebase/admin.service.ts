@@ -1245,3 +1245,43 @@ export async function saveAppBanner(cfg: Partial<AppBannerConfig>): Promise<void
 export async function uploadBannerImage(file: File): Promise<string> {
   return _cldUpload(file, "winggo/banners", "image");
 }
+
+
+// ─── MATCH HISTORY ────────────────────────────────────────────────────────────
+
+export interface MatchHistoryRecord {
+  id: string;
+  uid: string;
+  gameId: string;
+  gameName: string;
+  gameIcon: string;
+  date: string;
+  result: "win" | "loss";
+  entryFee: number;
+  prize: number;
+  userScore?: number;
+  opponentScore?: number;
+  opponentName?: string;
+  savedAt?: import("firebase/firestore").Timestamp;
+}
+
+/**
+ * Fetch all match records from Firestore for admin panel display.
+ * Returns up to 200 most recent matches.
+ */
+export async function getMatchHistoryAdmin(): Promise<MatchHistoryRecord[]> {
+  if (!FIREBASE_ENABLED || !adminDb) return [];
+  try {
+    const { getDocs, query, collection, orderBy, limit } = await import("firebase/firestore");
+    const q = query(
+      collection(adminDb, "matches"),
+      orderBy("savedAt", "desc"),
+      limit(200),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as MatchHistoryRecord));
+  } catch (err) {
+    console.warn("[getMatchHistoryAdmin]", err);
+    return [];
+  }
+}

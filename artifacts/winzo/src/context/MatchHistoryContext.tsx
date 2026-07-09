@@ -4,6 +4,7 @@
  * Provides addMatch() so any game screen can record outcomes.
  */
 import { createContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { saveMatchToFirestore } from "@/firebase/firestore.service";
 import { useAuth } from "@/context/useAuth";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -85,6 +86,8 @@ export function MatchHistoryProvider({ children }: { children: ReactNode }) {
       if (uid) saveMatches(uid, next);
       return next;
     });
+    // Also save to Firestore so admin panel can read match history
+    if (uid) saveMatchToFirestore(uid, record).catch(() => {/* non-fatal */});
   }, [uid]);
 
   const clearHistory = useCallback(() => {

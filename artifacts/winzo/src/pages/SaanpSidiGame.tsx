@@ -458,6 +458,7 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
   const [evKey,   setEvKey]   = useState(0);
   const [evType,  setEvType]  = useState<EvType>("none");
   const [floaters, setFloaters] = useState<Floater[]>([]);
+  const [matchTimer, setMatchTimer] = useState(120);  // 2-minute match clock
 
   // ── Spawn floating text ────────────────────────────────────────────────────
   const spawnFloats = useCallback((list: { text: string; color: string }[]) => {
@@ -482,6 +483,37 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
     const t = setTimeout(() => setPhase("playing"), 3000);
     return () => clearTimeout(t);
   }, [phase]);
+
+  // ── 2-minute match countdown ────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const id = setInterval(() => setMatchTimer(prev => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  // ── Timer end — auto-finish match when 2 minutes elapse ────────────────────
+  useEffect(() => {
+    if (matchTimer !== 0 || phase !== "playing" || scored.current) return;
+    scored.current = true;
+    setTimeout(() => {
+      setPhase("result");
+      const won   = pScore >= bScore;
+      const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
+      if (!isFreeMode && won) addWinning(prize);
+      addMatch({
+        gameId: "saanpsidi",
+        gameName: isFreeMode ? "Saanp Sidi (Practice)" : "Saanp Sidi",
+        gameIcon: "🐍",
+        result: won ? "win" : "loss",
+        entryFee: initialFee,
+        prize,
+        userScore: pScore,
+        opponentScore: bScore,
+        opponentName: botName.current,
+      });
+    }, 300);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchTimer, phase]);
 
   // ── End condition (moves-based only) ──────────────────────────────────────
   useEffect(() => {
@@ -772,13 +804,20 @@ export default function SaanpSidiGame({ onBack, initialFee = 10 }: Props) {
           style={{ background: "rgba(0,0,0,.6)", border: "1px solid rgba(255,255,255,.08)",
             backdropFilter: "blur(14px)" }}>
 
-          {/* Header row */}
+          {/* Header row with live countdown timer */}
           <div className="flex items-center justify-between px-3 py-1.5 border-b"
             style={{ borderColor: "rgba(255,255,255,.06)" }}>
             <span className="text-[9px] font-black uppercase tracking-widest"
               style={{ color: "rgba(255,255,255,.28)" }}>LIVE LEADERBOARD</span>
-            <span className="text-[9px] font-black uppercase tracking-widest"
-              style={{ color: "rgba(17,200,160,.55)" }}>POINTS BATTLE</span>
+            <div className="flex flex-col items-center">
+              <span className="text-base font-black tabular-nums leading-none"
+                style={{ color: matchTimer <= 30 ? "#ef4444" : matchTimer <= 60 ? "#f97316" : "#FFD700",
+                  textShadow: matchTimer <= 30 ? "0 0 10px rgba(239,68,68,0.7)" : "0 0 8px rgba(255,215,0,0.4)" }}>
+                {String(Math.floor(matchTimer / 60)).padStart(2,"0")}:{String(matchTimer % 60).padStart(2,"0")}
+              </span>
+              <span className="text-[7px] font-black uppercase tracking-wider"
+                style={{ color: "rgba(255,255,255,.25)" }}>TIME LEFT</span>
+            </div>
             <span className="text-[9px] font-black uppercase tracking-widest"
               style={{ color: "rgba(255,255,255,.28)" }}>{MAX_MOVES} MOVES</span>
           </div>

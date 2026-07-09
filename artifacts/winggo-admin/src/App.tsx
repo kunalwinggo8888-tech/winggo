@@ -16,6 +16,7 @@ import PageCodeEditor     from "@/pages/PageCodeEditor";
 import PageVersions       from "@/pages/PageVersions";
 import PageStaff          from "@/pages/PageStaff";
 import RecoveryPanel from "@/pages/RecoveryPanel";
+import PageMatchHistory from "@/pages/PageMatchHistory";
 import { isRecoveryEmailLink } from "@/firebase/recovery.service";
 import {
   hasAdminSession, clearAdminSession,
@@ -41,6 +42,7 @@ const PAGE_META: Record<AdminPage, { icon: string; title: string }> = {
   editor:        { icon: "💻", title: "Master Code Editor"           },
   versions:      { icon: "⏱️", title: "Viras Version Control"        },
   staff:         { icon: "👥", title: "Staff Management"             },
+  matchhistory:  { icon: "📋", title: "Match History"                },
 };
 
 export default function App() {
@@ -186,6 +188,7 @@ export default function App() {
               {page === "editor"        && <PageCodeEditor />}
               {page === "versions"      && <PageVersions />}
               {page === "staff"         && <PageStaff />}
+              {page === "matchhistory"  && <PageMatchHistory />}
             </motion.div>
           </AnimatePresence>
         </main>

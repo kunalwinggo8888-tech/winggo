@@ -464,10 +464,10 @@ function chooseBotToken(
 // ─── SCORE HEADER ─────────────────────────────────────────────────────────────
 
 function ScoreHeader({
-  pScore, bScore, pMoves, bMoves, turn, tier, botName,
+  pScore, bScore, pMoves, bMoves, turn, tier, botName, matchTimer,
 }: {
   pScore: number; bScore: number; pMoves: number; bMoves: number;
-  turn: "player" | "bot"; tier: BotTier; botName: string;
+  turn: "player" | "bot"; tier: BotTier; botName: string; matchTimer: number;
 }) {
   const pLeft = MAX_MOVES - pMoves;
   const bLeft = MAX_MOVES - bMoves;
@@ -502,10 +502,14 @@ function ScoreHeader({
         <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.35)" }}>{pLeft} moves left</div>
       </motion.div>
 
-      {/* Center — VS + moves */}
+      {/* Center — Countdown timer */}
       <div className="flex flex-col items-center gap-1 px-1">
         <div className="text-[10px] font-black tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>VS</div>
-        <div className="text-[9px] font-bold text-center" style={{ color: "rgba(255,255,255,0.2)" }}>50 moves</div>
+        <div className="text-base font-black tabular-nums"
+          style={{ color: matchTimer <= 30 ? "#ef4444" : matchTimer <= 60 ? "#f97316" : "#FFD700",
+            textShadow: matchTimer <= 30 ? "0 0 10px rgba(239,68,68,0.7)" : "0 0 8px rgba(255,215,0,0.5)" }}>
+          {String(Math.floor(matchTimer / 60)).padStart(2,"0")}:{String(matchTimer % 60).padStart(2,"0")}
+        </div>
         <div className="text-[8px] font-black px-1.5 py-0.5 rounded-full"
           style={{ background: `${tierColor}18`, color: tierColor, border: `1px solid ${tierColor}40` }}>
           {tierLabel}
@@ -573,6 +577,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const [turnTimer,  setTurnTimer]  = useState(15);
   const missedTurns                 = useRef(0);
   const forfeited                   = useRef(false);
+  const [matchTimer, setMatchTimer]  = useState(120);  // 2-minute match clock
 
   const pushLog = (msg: string) => setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
   const flashKill = () => { setKillFlash(true); setTimeout(() => setKillFlash(false), 600); };
@@ -584,6 +589,35 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     const t2 = setTimeout(() => setPhase("playing"),   4000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
+
+  // ── 2-minute match countdown ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const id = setInterval(() => setMatchTimer(prev => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  // ── Match timer end — freeze game + auto-score when 2 minutes elapse ─────────
+  useEffect(() => {
+    if (matchTimer !== 0 || phase !== "playing" || scored.current) return;
+    scored.current = true;
+    setPhase("result");
+    const won   = pScore > bScore;
+    const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
+    if (!isFreeMode && won) addWinning(prize);
+    addMatch({
+      gameId: "ludofast",
+      gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast",
+      gameIcon: "🎲",
+      result: won ? "win" : "loss",
+      entryFee: initialFee,
+      prize,
+      userScore: pScore,
+      opponentScore: bScore,
+      opponentName: botRef.current.name,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchTimer, phase]);
 
   // ── Turn timer: reset to 15 when it becomes the player's turn ───────────────
   useEffect(() => {
@@ -1265,7 +1299,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
 
         <Board pTokens={pTokens} bTokens={bTokens} validTokens={validToks}
           highlightKill={killFlash} onSelect={handleTokenSelect}
-          pScore={pScore} bScore={bScore} pMoves={pMoves} bMoves={bMoves}
+          pScore={pScore} bScore={bScore} pMoves={pMoves} bMoves={bMoves} matchTimer={matchTimer}
           turn={turn} botName={botRef.current.name} />
       </div>
 

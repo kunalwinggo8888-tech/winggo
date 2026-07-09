@@ -4,7 +4,7 @@
  * Dark black + gold glow — WinZO-style cinematic reveal.
  *
  * Shown only when the user is brand-new (isNewUser=true from signup).
- * The ₹50 bonus is already written to Firestore (signupBonusClaimed=true)
+ * The ₹25 bonus is already written to Firestore (signupBonusClaimed=true)
  * by createUserProfile → initWallet — this popup is purely celebratory.
  */
 import { useEffect, useRef, useState } from "react";
@@ -266,7 +266,7 @@ export default function WelcomeBonusModal({ visible, onClose, displayName }: Pro
                 </p>
               </motion.div>
 
-              {/* ₹50 amount — centrepiece */}
+              {/* ₹25 amount — centrepiece */}
               <motion.div
                 className="relative flex items-center justify-center my-3 w-full"
                 initial={{ scale: 0.35, opacity: 0 }}
@@ -292,7 +292,7 @@ export default function WelcomeBonusModal({ visible, onClose, displayName }: Pro
                       "0 0 20px rgba(255,215,0,0.5), 0 0 40px rgba(255,215,0,0.2)",
                     ] }}
                     transition={{ duration: 1.6, repeat: Infinity }}>
-                    ₹50
+                    ₹25
                   </motion.div>
                   <motion.div
                     className="flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full"
@@ -359,14 +359,14 @@ export default function WelcomeBonusModal({ visible, onClose, displayName }: Pro
                         animate={{ x: ["-120%", "220%"] }}
                         transition={{ duration: 1.7, repeat: Infinity, repeatDelay: 0.8 }}
                       />
-                      🎉 CLAIM ₹50 BONUS
+                      🎉 CLAIM ₹25 BONUS
                     </motion.button>
                   ) : (
                     <motion.div key="claimed"
                       className="w-full py-4 rounded-2xl font-black text-lg text-center"
                       style={{ background: "rgba(34,197,94,0.15)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.4)" }}
                       initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                      ✅ ₹50 Bonus Credited to Wallet!
+                      ✅ ₹25 Bonus Credited to Wallet!
                     </motion.div>
                   )}
                 </AnimatePresence>

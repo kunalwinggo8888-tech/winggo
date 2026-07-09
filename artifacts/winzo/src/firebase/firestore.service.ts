@@ -278,12 +278,12 @@ export function subscribeReferralStats(
 
 // ─── WALLET ───────────────────────────────────────────────────────────────────
 
-const INITIAL_BALANCE: WalletBalance = { winning: 0, deposit: 0, bonus: 50 };
+const INITIAL_BALANCE: WalletBalance = { winning: 0, deposit: 0, bonus: 25 };
 
 /**
  * Create wallet for a brand-new user.
  * Protected: if wallet already exists (e.g. network retry), we do NOT overwrite it.
- * This guarantees the ₹50 signup bonus is given exactly once.
+ * This guarantees the ₹25 signup bonus is given exactly once.
  */
 async function initWallet(uid: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
@@ -299,8 +299,8 @@ async function initWallet(uid: string): Promise<void> {
   await pushTransaction(uid, {
     type: "bonus",
     title: "🎁 Welcome Bonus",
-    rawAmount: 50,
-    display: "+₹50",
+    rawAmount: 25,
+    display: "+₹25",
     color: "#FFD700",
     status: "completed",
   });
@@ -989,4 +989,62 @@ export function subscribeUserDepositRequests(
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DepositRequest)));
   }, () => cb([]));
+}
+
+// ─── MATCH HISTORY (Firestore) ────────────────────────────────────────────────
+
+export interface FirestoreMatchRecord {
+  id: string;
+  uid: string;
+  gameId: string;
+  gameName: string;
+  gameIcon: string;
+  date: string;
+  result: "win" | "loss";
+  entryFee: number;
+  prize: number;
+  userScore?: number;
+  opponentScore?: number;
+  opponentName?: string;
+  matchDuration?: number;
+}
+
+/**
+ * Save a match result to Firestore (matches/{matchId}).
+ * Non-fatal — silently skips if Firebase is not configured or write fails.
+ * Used by admin panel to show match history across all users.
+ */
+export async function saveMatchToFirestore(
+  uid: string,
+  match: Omit<FirestoreMatchRecord, "uid">,
+): Promise<void> {
+  if (!FIREBASE_ENABLED || !db) return;
+  try {
+    await setDoc(doc(db, "matches", match.id), {
+      ...match,
+      uid,
+      savedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn("[saveMatchToFirestore] non-fatal:", err);
+  }
+}
+
+/**
+ * Fetch all matches from Firestore for admin panel.
+ * Returns latest 200 matches ordered by date descending.
+ */
+export async function getMatchHistoryAdmin(): Promise<FirestoreMatchRecord[]> {
+  if (!FIREBASE_ENABLED || !db) return [];
+  try {
+    const q = query(
+      collection(db, "matches"),
+      orderBy("savedAt", "desc"),
+      limit(200),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreMatchRecord));
+  } catch {
+    return [];
+  }
 }
