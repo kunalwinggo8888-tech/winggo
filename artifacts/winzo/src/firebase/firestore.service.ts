@@ -284,8 +284,9 @@ const INITIAL_BALANCE: WalletBalance = { winning: 0, deposit: 0, bonus: 25 };
  * Create wallet for a brand-new user.
  * Protected: if wallet already exists (e.g. network retry), we do NOT overwrite it.
  * This guarantees the ₹25 signup bonus is given exactly once.
+ * Exported so that social-login flows (Google, Facebook) can call it directly.
  */
-async function initWallet(uid: string): Promise<void> {
+export async function initWallet(uid: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   const walletRef = doc(db, "wallets", uid);
   const existing = await getDoc(walletRef);
@@ -295,7 +296,7 @@ async function initWallet(uid: string): Promise<void> {
     signupBonusClaimed: true,
     updatedAt: serverTimestamp(),
   });
-  // Record the ₹50 welcome bonus transaction so it shows in history
+  // Record the ₹25 welcome bonus transaction so it shows in history
   await pushTransaction(uid, {
     type: "bonus",
     title: "🎁 Welcome Bonus",
@@ -469,20 +470,8 @@ export async function firestoreAddWinning(uid: string, amount: number, title: st
   });
 }
 
-/** Deduct entry fee (legacy — full amount from deposit only) */
-export async function firestoreDeductFee(uid: string, amount: number, title: string, roomId?: string): Promise<void> {
-  if (!FIREBASE_ENABLED || !db) return;
-  await updateDoc(doc(db, "wallets", uid), {
-    deposit: increment(-amount),
-    updatedAt: serverTimestamp(),
-  });
-  await pushTransaction(uid, {
-    type: "fee", title,
-    rawAmount: -amount, display: `-₹${amount}`,
-    color: "#e74c3c", status: "completed",
-    roomId,
-  });
-}
+// NOTE: firestoreDeductFee (legacy deposit-only deduction) has been removed.
+// Use firestoreDeductEntryFee which implements the correct 90% Real + 10% Bonus split.
 
 /**
  * Deduct entry fee with 90% Real Cash + 10% Bonus Cash split.

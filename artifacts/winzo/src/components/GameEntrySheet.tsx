@@ -371,10 +371,23 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
   // Reset selection when game changes
   useMemo(() => { setSelected(defaultFee); }, [defaultFee]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * 90% Real + 10% Bonus split: calculate how much REAL money (deposit + winning)
+   * is required for a given fee. Bonus covers at most floor(fee × 10%).
+   * If bonus < 10% of fee, available bonus is used and real money covers the rest.
+   * If real money is insufficient → match cannot start.
+   */
+  const realBalance = wallet.deposit + wallet.winning;
+  function requiredReal(fee: number): number {
+    const bonusCut  = Math.floor(fee * 0.10);
+    const bonusPart = Math.min(bonus, bonusCut);
+    return fee - bonusPart;
+  }
+
   const minFee = Math.min(...tiers);
-  const insufficient = total < minFee;
+  const insufficient = realBalance < requiredReal(minFee);
   const isFreeMode = selected === 0;
-  const canPlaySelected = isFreeMode || total >= selected;
+  const canPlaySelected = isFreeMode || realBalance >= requiredReal(selected);
   const difficulty = getBotDifficulty(selected === 0 ? 1 : selected);
 
   function handlePlay() {
@@ -515,12 +528,18 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                 </div>
                 <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
                   <div className="flex justify-between px-4 py-3" style={{ background: "rgba(239,68,68,0.08)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                    <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>Your Balance</span>
-                    <span className="text-base font-black" style={{ color: "#ef4444" }}>₹{total.toFixed(2)}</span>
+                    <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>Real Money (Deposit+Win)</span>
+                    <span className="text-base font-black" style={{ color: "#ef4444" }}>₹{realBalance.toFixed(2)}</span>
                   </div>
+                  {bonus > 0 && (
+                    <div className="flex justify-between px-4 py-3" style={{ background: "rgba(255,215,0,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>Bonus (covers 10% of fee)</span>
+                      <span className="text-base font-black" style={{ color: "#FFD700" }}>₹{bonus.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between px-4 py-3" style={{ background: "rgba(255,215,0,0.05)" }}>
-                    <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>Minimum Entry</span>
-                    <span className="text-base font-black" style={{ color: "#FFD700" }}>₹{minFee}</span>
+                    <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>Real Money Needed</span>
+                    <span className="text-base font-black" style={{ color: "#FFD700" }}>₹{requiredReal(minFee).toFixed(2)}</span>
                   </div>
                 </div>
                 {/* Play FREE button */}
@@ -694,7 +713,7 @@ export default function GameEntrySheet({ game, onClose, onPlay, onAddMoney }: Pr
                           key={fee}
                           fee={fee}
                           isSelected={selected === fee}
-                          canAfford={total >= fee}
+                          canAfford={realBalance >= requiredReal(fee)}
                           isBest={i === bestIdx}
                           accent={cfg.accent}
                           onClick={() => setSelected(fee)}

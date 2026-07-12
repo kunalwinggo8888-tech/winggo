@@ -139,7 +139,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Demo mode or not logged in — show real balance from cache, empty history
       const cached = loadCachedWallet(uid);
       setWallet(cached.winning === 0 && cached.deposit === 0 && cached.bonus === 0
-        ? { winning: 0, deposit: 0, bonus: 50 }   // new demo user gets the ₹50 bonus display
+        ? { winning: 0, deposit: 0, bonus: 25 }   // new demo user gets the ₹25 bonus display
         : cached
       );
       setTx([]);

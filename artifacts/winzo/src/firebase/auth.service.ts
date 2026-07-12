@@ -36,7 +36,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db, FIREBASE_ENABLED } from "./config";
-import { createUserProfile } from "./firestore.service";
+import { createUserProfile, initWallet } from "./firestore.service";
 
 let _demoFallback = false;
 
@@ -105,8 +105,11 @@ async function upsertSocialProfile(user: User, isNewUser: boolean): Promise<void
       referralCode:       generateReferralCode(),
       referredBy:         null,
       deviceInfo:         navigator.userAgent,
-      signupBonusClaimed: false,
+      signupBonusClaimed: true,
     }, { merge: true });
+    // Initialize wallet — ₹25 signup bonus goes to wallet.bonus ONLY (deposit = 0)
+    // initWallet is idempotent: if wallet already exists it does nothing.
+    initWallet(user.uid).catch(() => {});
   } else {
     // Only refresh the fields the social provider owns for returning users
     await setDoc(doc(db, "users", user.uid), baseFields, { merge: true });
