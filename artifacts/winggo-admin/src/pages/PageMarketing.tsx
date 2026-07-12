@@ -85,7 +85,7 @@ function AppBannerAdTab() {
       await saveAppBanner({ imageUrl, link, enabled: cfg.enabled });
       flash("ok", "✅ Banner saved successfully!");
     } catch {
-      flash("err", "❌ Save failed. Check Firebase Storage rules.");
+      flash("err", "❌ Save failed. Check Cloudinary configuration (VITE_CLOUDINARY_CLOUD_NAME / VITE_CLOUDINARY_UPLOAD_PRESET).");
     }
     setSaving(false);
   }

@@ -259,7 +259,7 @@ function CloudUploaderTab() {
     <div className="p-4 md:p-6">
       <div className="mb-4">
         <h2 className="text-base font-black text-white">Upload New Game</h2>
-        <p className="text-[11px] mt-0.5" style={{color:T.muted}}>ZIP → Firebase Storage → Firestore games collection · goes live instantly</p>
+        <p className="text-[11px] mt-0.5" style={{color:T.muted}}>ZIP → Cloudinary → Firestore games collection · goes live instantly</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-2xl p-4 md:p-5"
         style={{background:T.card,border:`1px solid ${T.bdr}`}}>

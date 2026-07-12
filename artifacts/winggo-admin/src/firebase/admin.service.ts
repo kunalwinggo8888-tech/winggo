@@ -974,7 +974,7 @@ export { FIREBASE_ENABLED };
 
 
 /**
- * Upload a .zip game bundle to Firebase Storage at `games/{gameId}/{fileName}`.
+ * Upload a .zip game bundle to Cloudinary at `winggo/games/{gameId}`.
  * Calls `onProgress(0–100)` as bytes transfer.
  * Returns the public download URL on completion.
  */

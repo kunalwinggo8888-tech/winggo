@@ -120,6 +120,27 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Payment Config (UPI ID + QR Code) — admin read/write only ────────────
+    // ROOT CAUSE FIX: This collection was missing from rules, causing
+    // "Failed to save. Check Firebase connection." on Payment Config tab.
+    match /payment_details/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Match History (user-create, admin-read) ───────────────────────────────
+    // FIX: Missing rule caused getMatchHistoryAdmin() to fail with permission error.
+    match /matches/{matchId} {
+      allow read:   if isAdmin();
+      allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Code Editor (virtual file system — admin panel only) ─────────────────
+    // FIX: Missing rule caused Save & Go Live to fail with permission error.
+    match /codeEditor/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // ── Deny everything else ──────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

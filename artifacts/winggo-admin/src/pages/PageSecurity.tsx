@@ -138,7 +138,7 @@ function PaymentConfigTab() {
         <div className="px-4 py-3" style={{ borderBottom:`1px solid ${T.bdr}` }}>
           <p className="text-sm font-black text-white">📷 Admin Payment QR Code</p>
           <p className="text-[10px] mt-0.5" style={{ color:T.muted }}>
-            Upload a PNG/JPG QR code image. Will be stored in Firebase Storage.
+            Upload a PNG/JPG QR code image. Will be stored on Cloudinary.
           </p>
         </div>
         <div className="p-4 space-y-3">
