@@ -120,11 +120,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ── Payment Config (UPI ID + QR Code) — admin read/write only ────────────
-    // ROOT CAUSE FIX: This collection was missing from rules, causing
-    // "Failed to save. Check Firebase connection." on Payment Config tab.
+    // ── Payment Config (UPI ID + QR Code) ────────────────────────────────────
+    // Player app reads this to display UPI ID and QR code on the Add Money screen.
+    // Admin panel writes this via the Payment Settings tab.
+    // FIX: was "isAdmin()" for read, blocking player reads → UPI/QR never loaded.
     match /payment_details/{docId} {
-      allow read, write: if isAdmin();
+      allow read:  if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // ── Match History (user-create, admin-read) ───────────────────────────────

@@ -118,6 +118,7 @@ export interface KYCRequest {
   frontURL?: string;
   backURL?: string;
   selfieURL?: string;
+  panURL?: string;
   status: "pending" | "approved" | "rejected";
   submittedAt: Timestamp;
   reviewedAt?: Timestamp;
@@ -413,7 +414,7 @@ export async function firestoreDeposit(
   });
 }
 
-/** Withdraw — deducts from winning, creates pending request */
+/** Withdraw — deducts from winning, creates pending request (atomic batch) */
 export async function firestoreWithdraw(
   uid: string,
   amount: number,
@@ -423,12 +424,6 @@ export async function firestoreWithdraw(
   displayName: string,
 ): Promise<string> {
   if (!FIREBASE_ENABLED || !db) return "";
-  const batch = writeBatch(db);
-  batch.update(doc(db, "wallets", uid), {
-    winning: increment(-amount),
-    updatedAt: serverTimestamp(),
-  });
-  await batch.commit();
 
   const reqData: Omit<WithdrawRequest, "id"> = {
     uid, email, displayName, amount, method,
@@ -438,20 +433,32 @@ export async function firestoreWithdraw(
   if (method === "upi" && paymentDetails.upiId) reqData.upiId = paymentDetails.upiId;
   if (method === "bank" && paymentDetails.bankDetails) reqData.bankDetails = paymentDetails.bankDetails;
 
-  const reqRef = await addDoc(collection(db, "withdrawRequests"), reqData);
+  // Atomic batch: wallet deduction + withdrawRequest creation in a single write.
+  // Previously these were separate writes; if the addDoc failed after batch.commit()
+  // the user's balance was already deducted with no record in admin panel.
+  const reqRef = doc(collection(db, "withdrawRequests"));
+  const batch  = writeBatch(db);
+  batch.update(doc(db, "wallets", uid), {
+    winning: increment(-amount),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(reqRef, reqData);
+  await batch.commit();
 
   const methodLabel = method === "upi"
     ? `UPI: ${paymentDetails.upiId}`
     : `Bank: ${paymentDetails.bankDetails?.bankName ?? "Account"}`;
 
-  await pushTransaction(uid, {
+  // Transaction history is non-critical; fire-and-forget is acceptable here.
+  pushTransaction(uid, {
     type: "withdraw",
     title: `Withdrawal — ${methodLabel}`,
     rawAmount: -amount,
     display: `-₹${amount}`,
     color: "#f39c12",
     status: "pending",
-  });
+  }).catch((err) => console.error("[Wallet] pushTransaction (withdraw) failed:", err?.code ?? err));
+
   return reqRef.id;
 }
 

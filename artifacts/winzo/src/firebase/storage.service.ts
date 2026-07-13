@@ -76,11 +76,11 @@ async function uploadToCloudinary(
 
 // ─── Public API — same signatures as the old Firebase Storage service ─────────
 
-/** Upload a KYC document (front / back / selfie) for a user */
+/** Upload a KYC document (front / back / selfie / pan) for a user */
 export async function uploadKYCDocument(
   uid: string,
   file: File,
-  docType: "front" | "back" | "selfie",
+  docType: "front" | "back" | "selfie" | "pan",
 ): Promise<UploadResult | null> {
   return uploadToCloudinary(file, `winggo/kyc/${uid}/${docType}`, "image");
 }

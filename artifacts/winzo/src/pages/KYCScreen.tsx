@@ -1,6 +1,9 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
+import { useAuth } from "@/context/useAuth";
+import { uploadKYCDocument } from "@/firebase/storage.service";
+import { submitKYC } from "@/firebase/firestore.service";
 
 interface KYCScreenProps {
   onBack?: () => void;
@@ -59,9 +62,13 @@ const STATUS_CFG = {
   rejected: { label: "KYC Rejected",          color: "#f87171", bg: "rgba(248,113,113,0.12)", icon: "❌", desc: "Verification failed. Please re-submit correct documents." },
 };
 
+// UploadBox now passes both the File object (for Cloudinary upload) and a
+// base64 data URL (for the preview image). Previously only passed a data URL,
+// meaning the file was never actually uploaded to Cloudinary or Firestore.
 function UploadBox({ label, sublabel, value, onChange }: {
   label: string; sublabel: string;
-  value: string | null; onChange: (v: string) => void;
+  value: string | null;
+  onChange: (file: File, preview: string) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -73,7 +80,7 @@ function UploadBox({ label, sublabel, value, onChange }: {
     const reader = new FileReader();
     reader.onload = () => {
       setLoading(false);
-      onChange(reader.result as string);
+      onChange(file, reader.result as string);
     };
     reader.readAsDataURL(file);
   }
@@ -175,11 +182,24 @@ function SelectField({ label, value, onChange, options }: {
 }
 
 export default function KYCScreen({ onBack }: KYCScreenProps) {
+  const { user } = useAuth();
+  const uid = user?.uid ?? null;
+
   const [form, setForm] = useState<KYCData>(loadKYC);
-  const [aadhaarFront, setAadhaarFront] = useState<string | null>(null);
-  const [aadhaarBack,  setAadhaarBack]  = useState<string | null>(null);
-  const [selfie,       setSelfie]       = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+
+  // Each upload stores both the File (for Cloudinary) and a preview data URL (for display).
+  // Previously only the data URL was stored, so files were never sent to Cloudinary.
+  const [aadhaarFrontFile, setAadhaarFrontFile]     = useState<File | null>(null);
+  const [aadhaarFrontPreview, setAadhaarFrontPreview] = useState<string | null>(null);
+  const [aadhaarBackFile, setAadhaarBackFile]       = useState<File | null>(null);
+  const [aadhaarBackPreview, setAadhaarBackPreview]   = useState<string | null>(null);
+  const [selfieFile, setSelfieFile]                 = useState<File | null>(null);
+  const [selfiePreview, setSelfiePreview]             = useState<string | null>(null);
+  const [panImgFile, setPanImgFile]                 = useState<File | null>(null);
+  const [panImgPreview, setPanImgPreview]             = useState<string | null>(null);
+
+  const [submitted,  setSubmitted]  = useState(false);
+  const [uploading,  setUploading]  = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const set = (key: keyof KYCData) => (val: string) =>
@@ -199,19 +219,56 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
     if (!form.city.trim()) e.city = "Required";
     if (!form.pan.match(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)) e.pan = "Invalid PAN (e.g. ABCDE1234F)";
     if (!form.aadhaar.match(/^\d{12}$/)) e.aadhaar = "Aadhaar must be 12 digits";
-    if (!aadhaarFront) e.aadhaarFront = "Upload Aadhaar front";
-    if (!aadhaarBack)  e.aadhaarBack  = "Upload Aadhaar back";
-    if (!selfie)       e.selfie       = "Upload selfie";
+    if (!aadhaarFrontFile) e.aadhaarFront = "Upload Aadhaar front";
+    if (!aadhaarBackFile)  e.aadhaarBack  = "Upload Aadhaar back";
+    if (!selfieFile)       e.selfie       = "Upload selfie";
+    if (!panImgFile)       e.panImg       = "Upload PAN card photo";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validate()) return;
-    const updated = { ...form, status: "pending" as KYCStatus };
-    localStorage.setItem("winggo_kyc", JSON.stringify(updated));
-    setForm(updated);
-    setSubmitted(true);
+    if (!uid) {
+      setErrors({ submit: "Please log in first to submit KYC." });
+      return;
+    }
+    setUploading(true);
+    setErrors({});
+    try {
+      // Upload all 4 documents to Cloudinary in parallel
+      const [frontRes, backRes, selfieRes, panRes] = await Promise.all([
+        uploadKYCDocument(uid, aadhaarFrontFile!, "front"),
+        uploadKYCDocument(uid, aadhaarBackFile!,  "back"),
+        uploadKYCDocument(uid, selfieFile!,        "selfie"),
+        uploadKYCDocument(uid, panImgFile!,        "pan"),
+      ]);
+
+      // Write KYC request to Firestore (kycRequests/{uid})
+      await submitKYC(uid, {
+        displayName: `${form.firstName.trim()} ${form.lastName.trim()}`,
+        email:       form.email.trim(),
+        docType:     "aadhaar",
+        docNumber:   form.aadhaar.trim(),
+        frontURL:    frontRes?.url  ?? "",
+        backURL:     backRes?.url   ?? "",
+        selfieURL:   selfieRes?.url ?? "",
+        panURL:      panRes?.url    ?? "",
+      });
+
+      const updated = { ...form, status: "pending" as KYCStatus };
+      localStorage.setItem("winggo_kyc", JSON.stringify(updated));
+      setForm(updated);
+      setSubmitted(true);
+    } catch (err) {
+      setErrors({
+        submit: err instanceof Error
+          ? err.message
+          : "Submission failed. Check your internet connection and try again.",
+      });
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -337,17 +394,25 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
             {errors.aadhaar && <p className="text-[10px] mt-1" style={{ color: "#f87171" }}>{errors.aadhaar}</p>}
           </div>
 
-          {/* Uploads */}
+          {/* Uploads — 4 required documents */}
           <div>
-            <UploadBox label="Aadhaar Front *" sublabel="Upload front side" value={aadhaarFront} onChange={setAadhaarFront} />
+            <UploadBox label="Aadhaar Front *" sublabel="Upload front side" value={aadhaarFrontPreview}
+              onChange={(f, p) => { setAadhaarFrontFile(f); setAadhaarFrontPreview(p); }} />
             {errors.aadhaarFront && <p className="text-[10px] mt-1" style={{ color: "#f87171" }}>{errors.aadhaarFront}</p>}
           </div>
           <div>
-            <UploadBox label="Aadhaar Back *" sublabel="Upload back side" value={aadhaarBack} onChange={setAadhaarBack} />
+            <UploadBox label="Aadhaar Back *" sublabel="Upload back side" value={aadhaarBackPreview}
+              onChange={(f, p) => { setAadhaarBackFile(f); setAadhaarBackPreview(p); }} />
             {errors.aadhaarBack && <p className="text-[10px] mt-1" style={{ color: "#f87171" }}>{errors.aadhaarBack}</p>}
           </div>
           <div>
-            <UploadBox label="Selfie with Aadhaar *" sublabel="Take a clear selfie" value={selfie} onChange={setSelfie} />
+            <UploadBox label="PAN Card Photo *" sublabel="Upload PAN card image" value={panImgPreview}
+              onChange={(f, p) => { setPanImgFile(f); setPanImgPreview(p); }} />
+            {errors.panImg && <p className="text-[10px] mt-1" style={{ color: "#f87171" }}>{errors.panImg}</p>}
+          </div>
+          <div>
+            <UploadBox label="Selfie with Aadhaar *" sublabel="Take a clear selfie" value={selfiePreview}
+              onChange={(f, p) => { setSelfieFile(f); setSelfiePreview(p); }} />
             {errors.selfie && <p className="text-[10px] mt-1" style={{ color: "#f87171" }}>{errors.selfie}</p>}
           </div>
         </Section>
@@ -364,18 +429,30 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
 
         {/* ── SUBMIT BUTTONS ── */}
         <div className="px-4 mt-4 mb-28 flex flex-col gap-3">
+
+          {/* Submission error */}
+          {errors.submit && (
+            <div className="px-4 py-3 rounded-xl text-xs font-bold text-center"
+              style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}>
+              ⚠️ {errors.submit}
+            </div>
+          )}
+
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={handleSubmit}
+            disabled={uploading}
             className="w-full py-4 rounded-2xl font-black text-base cursor-pointer"
             style={{
-              background: "linear-gradient(135deg, #FFD700, #ff8c00)",
-              color: "#000",
-              boxShadow: "0 0 24px rgba(255,215,0,0.35)",
+              background: uploading
+                ? "rgba(255,255,255,0.08)"
+                : "linear-gradient(135deg, #FFD700, #ff8c00)",
+              color: uploading ? "rgba(255,255,255,0.4)" : "#000",
+              boxShadow: uploading ? "none" : "0 0 24px rgba(255,215,0,0.35)",
               letterSpacing: "0.04em",
             }}
           >
-            🪪 Verify KYC
+            {uploading ? "⏳ Uploading Documents…" : "🪪 Verify KYC"}
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.97 }}

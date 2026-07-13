@@ -105,6 +105,7 @@ export interface KYCRequest {
   frontURL?: string;
   backURL?: string;
   selfieURL?: string;
+  panURL?: string;
   status: "pending" | "approved" | "rejected";
   submittedAt: Timestamp;
   reviewedAt?: Timestamp;
@@ -257,6 +258,9 @@ export function subscribeKYCRequests(cb: (reqs: KYCRequest[]) => void): () => vo
   );
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => d.data() as KYCRequest));
+  }, (err) => {
+    console.error("[Admin] subscribeKYCRequests error:", err.code, err.message);
+    cb([]);
   });
 }
 
