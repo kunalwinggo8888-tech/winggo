@@ -900,22 +900,30 @@ export interface DepositRequest {
 }
 
 export async function uploadDepositScreenshot(uid: string, file: File): Promise<string> {
-  const cloudName   = (typeof import.meta !== "undefined" ? import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    : "") ?? "";
+  const PLACEHOLDER = "https://placehold.co/400x300/0a0a0f/FFD700?text=Screenshot";
+  const cloudName    = (typeof import.meta !== "undefined" ? import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    : "") ?? "";
   const uploadPreset = (typeof import.meta !== "undefined" ? import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET : "") ?? "";
   if (!cloudName || !uploadPreset) {
-    return "https://placehold.co/400x300/0a0a0f/FFD700?text=Screenshot";
+    // Cloudinary not configured — return placeholder so Firestore doc is still created
+    return PLACEHOLDER;
   }
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
-  formData.append("folder", `winggo/deposits/${uid}`);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) return "https://placehold.co/400x300/0a0a0f/FFD700?text=Screenshot";
-  const data = await res.json() as { secure_url: string };
-  return data.secure_url;
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", uploadPreset);
+    formData.append("folder", `winggo/deposits/${uid}`);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) return PLACEHOLDER;
+    const data = await res.json() as { secure_url: string };
+    return data.secure_url ?? PLACEHOLDER;
+  } catch {
+    // Network error or invalid Cloudinary creds — do NOT throw.
+    // The deposit request should still be submitted to Firestore.
+    return PLACEHOLDER;
+  }
 }
 
 export async function submitScreenshotDeposit(

@@ -61,7 +61,7 @@ export function clearStaffSession(): void { sessionStorage.removeItem(STAFF_SESS
  *  - Falls back to demo mode when Firebase is not configured
  */
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore, doc, getDoc } from "firebase/firestore";
+import { initializeFirestore, getFirestore, Firestore, doc, getDoc } from "firebase/firestore";
 import { getAuth, Auth, signInWithEmailAndPassword, signOut as fbSignOut } from "firebase/auth";
 import { getDatabase, Database } from "firebase/database";
 
@@ -101,7 +101,14 @@ if (FIREBASE_ENABLED) {
     ? initializeApp(firebaseConfig)
     : getApps()[0];
   _auth    = getAuth(app);
-  _db      = getFirestore(app);
+  // experimentalForceLongPolling is required in Replit's proxied environment
+  // because the default WebSocket/gRPC transport is blocked by the reverse proxy.
+  // Without this, all Firestore reads/writes silently fail in the admin panel.
+  try {
+    _db = initializeFirestore(app, { experimentalForceLongPolling: true });
+  } catch {
+    _db = getFirestore(app);
+  }
   if (firebaseConfig.databaseURL) {
     _rtdb = getDatabase(app);
   }

@@ -282,10 +282,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       pushLocalTx({ type: "deposit", title: `Deposit Request — ₹${amount}`, rawAmount: amount, display: `+₹${amount}`, color: "#3498db", status: "pending" });
       return;
     }
+    // Upload screenshot — errors are caught inside uploadDepositScreenshot and
+    // return a placeholder URL so the Firestore doc is always created regardless
+    // of Cloudinary availability.
     let screenshotUrl = "";
     if (file) {
-      screenshotUrl = await uploadDepositScreenshot(uid, file);
+      try {
+        screenshotUrl = await uploadDepositScreenshot(uid, file);
+      } catch {
+        screenshotUrl = ""; // still proceed with Firestore write
+      }
     }
+    // This MUST be awaited so errors propagate to the UI (caller shows error state)
     await submitScreenshotDeposit(uid, email, displayName, amount, screenshotUrl, utrRef);
   }, [uid, user, pushLocalTx]);
 
