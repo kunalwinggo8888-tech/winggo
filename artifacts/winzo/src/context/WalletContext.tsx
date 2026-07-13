@@ -208,7 +208,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         saveWalletCache(uid, updated);
         return updated;
       });
-      firestoreWithdraw(uid, amount, method, details, user?.email ?? "", user?.displayName ?? "").catch(console.error);
+      firestoreWithdraw(uid, amount, method, details, user?.email ?? "", user?.displayName ?? "").catch((err) => {
+        console.error("[Wallet] withdraw Firestore write failed — withdrawRequest NOT created:", err?.code ?? err);
+      });
     }
   }, [uid, user, pushLocalTx]);
 

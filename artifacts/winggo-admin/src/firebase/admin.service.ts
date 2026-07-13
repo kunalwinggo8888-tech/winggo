@@ -205,6 +205,9 @@ export function subscribeWithdrawRequests(
     : query(collection(adminDb, "withdrawRequests"), where("status", "==", statusFilter), orderBy("requestedAt", "desc"), limit(100));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as WithdrawRequest)));
+  }, (err) => {
+    console.error("[Admin] subscribeWithdrawRequests error:", err.code, err.message);
+    cb([]);
   });
 }
 

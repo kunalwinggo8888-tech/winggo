@@ -187,6 +187,7 @@ function AddMoneyTab({ onSubmit }: {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [utrRef, setUtrRef]           = useState("");
   const [loading, setLoading]         = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [qrOpen, setQrOpen]           = useState(false);
   const [paymentCfg, setPaymentCfg]   = useState<PaymentConfig>(DEFAULT_PAYMENT);
   const fileInputRef                  = useRef<HTMLInputElement>(null);
@@ -213,9 +214,14 @@ function AddMoneyTab({ onSubmit }: {
   async function handleSubmit() {
     if (finalAmt < 10 || !file) return;
     setLoading(true);
+    setSubmitError(null);
     try {
       await onSubmit(finalAmt, file, utrRef.trim());
       setStep("done");
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Request failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -555,6 +561,14 @@ function AddMoneyTab({ onSubmit }: {
         }}>
         {loading ? "⏳ Submitting Request…" : !file ? "Upload screenshot to continue" : `Submit Deposit Request — ₹${finalAmt}`}
       </button>
+
+      {/* Error message shown if deposit submission fails */}
+      {submitError && (
+        <div className="px-4 py-2.5 rounded-xl text-xs font-bold text-center"
+          style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}>
+          ⚠️ {submitError}
+        </div>
+      )}
 
       <p className="text-[10px] text-center" style={{ color: "rgba(255,255,255,0.25)" }}>
         Deposits verified within 30 minutes · Support: 9 AM – 11 PM IST
