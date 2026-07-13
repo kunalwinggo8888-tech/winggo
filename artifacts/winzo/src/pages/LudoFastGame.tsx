@@ -1,15 +1,14 @@
 /**
- * LudoFastGame – WINGGO Fast Ludo · PREMIUM v2
- * WinZO-style score-based competitive Ludo.
+ * LudoFastGame – WINGGO Fast Ludo · PREMIUM v3
+ * UI/Layout Update:
+ *  – Player = YELLOW (bottom-left home) ↔ Bot = BLUE (top-right home) [diagonally opposite]
+ *  – Red & Green corners dimmed/unused visually
+ *  – Two separate dice containers (Yellow near yellow home, Blue near blue home)
+ *  – Turn-based glow on active home + active dice
+ *  – Dice roll sound, win/lose sounds via Web Audio API
+ *  – Confetti on victory
  *
- * Rules:
- *  – All 4 tokens start DEPLOYED on the path (no waiting for 6)
- *  – +1 pt per step moved, +56 pts when token reaches HOME
- *  – Kill: attacker +15 pts, victim loses (victimStep-1) pts (min 0), token → step 1
- *  – Rolling 6 or making a kill grants an EXTRA TURN
- *  – 50 moves per player; highest score wins
- *  – Auto-move when only 1 valid token
- *  – Bot: Easy (fee<5) / Medium (5-19) / God Mode (fee≥20)
+ * Game logic (wallet, kills, scores, bot AI, match history) — UNCHANGED.
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,27 +18,32 @@ import { getRandomBot, type BotPlayer } from "@/data/botDatabase";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const C          = 26;           // cell size px
-const SZ         = 15 * C;       // board size px
+const C          = 26;
+const SZ         = 15 * C;
 const MAX_MOVES  = 50;
 const HOME_SCORE = 25;
 const KILL_BONUS = 15;
 const EMOTES     = ["😂","👍","😤","🔥","🎉","💪","😱","🤙","👑","😎"];
 
-// Player indices
-const P = 0;   // human → Red
-const B = 1;   // bot   → Blue
+const P = 0;  // human → Yellow (bottom-left)
+const B = 1;  // bot   → Blue   (top-right)
 
-const OFFSETS = [0, 13];  // main-path starting offsets
+// ── CHANGED: Yellow starts at offset 39 (bottom-left entry point on path) ──
+const OFFSETS = [39, 13];
 
+// ── CHANGED: Home corridor mapping ──
+// pi=0 (Yellow/player) → HOME_COLS[3] (bottom center column)
+// pi=1 (Blue/bot)      → HOME_COLS[1] (top center column)
+const HOME_PI = [3, 1];
+
+// ── CHANGED: Player is now Yellow, not Red ──
 const PLAYER_CFG = [
-  { label: "YOU",  fill: "#ef4444", light: "#fca5a5", glow: "#ef444490", offset: 0  },
+  { label: "YOU",  fill: "#eab308", light: "#fde68a", glow: "#eab30890", offset: 39 },
   { label: "BOT",  fill: "#3b82f6", light: "#93c5fd", glow: "#3b82f690", offset: 13 },
 ];
 
 // ─── BOARD DATA ───────────────────────────────────────────────────────────────
 
-// 52-cell main path [row, col]
 const MAIN_PATH: [number, number][] = [
   [6,1],[6,2],[6,3],[6,4],[6,5],
   [5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
@@ -55,38 +59,123 @@ const MAIN_PATH: [number, number][] = [
   [7,0],[6,0],
 ];
 
-// Home corridors per player (steps 53–58, index 0–5)
+// Home corridors per player index
 const HOME_COLS: [number, number][][] = [
-  [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
-  [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],
-  [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
-  [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],
+  [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],   // 0 = red   (unused now)
+  [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],   // 1 = blue  (BOT)
+  [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]], // 2 = green (unused now)
+  [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]], // 3 = yellow (PLAYER)
 ];
 
-// Safe path-indices in MAIN_PATH (0-indexed) — stars + start cells
 const SAFE_IDX = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 
 // ─── PATH HELPERS ─────────────────────────────────────────────────────────────
 
-/** Convert player-index + step → board [row, col]. null = off board. */
 function gPos(pi: number, step: number): [number, number] | null {
   if (step <= 0) return null;
   if (step >= 59) return [7, 7];
-  if (step >= 53) return HOME_COLS[pi][step - 53];
+  // ── CHANGED: use HOME_PI mapping instead of direct pi index ──
+  if (step >= 53) return HOME_COLS[HOME_PI[pi]][step - 53];
   return MAIN_PATH[(OFFSETS[pi] + step - 1) % 52];
 }
 
-/** True if a step is on a safe (no-kill) cell. */
 function isSafe(pi: number, step: number): boolean {
   if (step >= 53 || step <= 0) return true;
   return SAFE_IDX.has((OFFSETS[pi] + step - 1) % 52);
 }
 
-/** True if this token can legally move dice steps forward. */
 function canMoveTok(step: number, dice: number): boolean {
   if (step >= 59) return false;
   if (step >= 53) return step + dice <= 59;
   return true;
+}
+
+// ─── SOUND ENGINE (Web Audio API — no external files) ─────────────────────────
+
+let _audioCtx: AudioContext | null = null;
+function getACtx(): AudioContext | null {
+  try {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    }
+    if (_audioCtx.state === "suspended") _audioCtx.resume();
+    return _audioCtx;
+  } catch { return null; }
+}
+
+const Sounds = {
+  roll() {
+    try {
+      const c = getACtx(); if (!c) return;
+      const len = Math.ceil(c.sampleRate * 0.2);
+      const buf = c.createBuffer(1, len, c.sampleRate);
+      const d   = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2;
+      const src    = c.createBufferSource(); src.buffer = buf;
+      const filter = c.createBiquadFilter();
+      filter.type = "bandpass"; filter.frequency.value = 900; filter.Q.value = 0.5;
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(0.4, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.2);
+      src.connect(filter); filter.connect(gain); gain.connect(c.destination);
+      src.start();
+    } catch {}
+  },
+  win() {
+    try {
+      const c = getACtx(); if (!c) return;
+      [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => {
+        const osc = c.createOscillator(); const gain = c.createGain();
+        osc.type = "sine"; osc.frequency.value = f;
+        const t = c.currentTime + i * 0.13;
+        gain.gain.setValueAtTime(0.24, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        osc.connect(gain); gain.connect(c.destination);
+        osc.start(t); osc.stop(t + 0.22);
+      });
+    } catch {}
+  },
+  lose() {
+    try {
+      const c = getACtx(); if (!c) return;
+      [392, 349, 330, 262].forEach((f, i) => {
+        const osc = c.createOscillator(); const gain = c.createGain();
+        osc.type = "sine"; osc.frequency.value = f;
+        const t = c.currentTime + i * 0.18;
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+        osc.connect(gain); gain.connect(c.destination);
+        osc.start(t); osc.stop(t + 0.24);
+      });
+    } catch {}
+  },
+};
+
+// ─── CONFETTI (win screen) ─────────────────────────────────────────────────────
+
+function Confetti() {
+  const pieces = Array.from({ length: 28 }, (_, i) => ({
+    id: i,
+    emoji: ["🎉","🏆","⭐","✨","🎊","💛","🎈","🥇"][i % 8],
+    x: 5 + Math.random() * 90,
+    delay: Math.random() * 0.8,
+    dur:   2.2 + Math.random() * 1.8,
+    rot:   Math.random() * 360,
+  }));
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 60 }}>
+      {pieces.map(p => (
+        <motion.div key={p.id}
+          style={{ position: "absolute", top: -40, left: `${p.x}%`, fontSize: 22, rotate: p.rot }}
+          initial={{ y: 0, opacity: 1 }}
+          animate={{ y: "110vh", opacity: [1, 1, 0.3, 0] }}
+          transition={{ duration: p.dur, delay: p.delay, ease: "easeIn" }}>
+          {p.emoji}
+        </motion.div>
+      ))}
+    </div>
+  );
 }
 
 // ─── DICE COMPONENT ───────────────────────────────────────────────────────────
@@ -100,10 +189,11 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[28,24],[72,24],[28,50],[72,50],[28,76],[72,76]],
 };
 
-function Dice3D({ value, rolling, onClick, disabled }: {
+function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: {
   value: number; rolling: boolean; onClick: () => void; disabled: boolean;
+  playerColor?: string;
 }) {
-  const sz   = 72;
+  const sz   = 64;
   const dots = PIPS[value] ?? PIPS[1];
   return (
     <motion.div
@@ -117,33 +207,26 @@ function Dice3D({ value, rolling, onClick, disabled }: {
     >
       <div style={{
         width: sz, height: sz,
-        borderRadius: 16,
+        borderRadius: 14,
         background: "#ffffff",
         border: "2.5px solid #111111",
         boxShadow: rolling
-          ? "4px 6px 18px rgba(0,0,0,0.75), -2px -2px 6px rgba(255,255,255,0.9), inset 0 2px 4px rgba(255,255,255,0.8), 0 0 50px rgba(255,215,0,1), 0 0 100px rgba(255,215,0,0.55)"
+          ? `4px 6px 18px rgba(0,0,0,0.75),-2px -2px 6px rgba(255,255,255,0.9),inset 0 2px 4px rgba(255,255,255,0.8),0 0 50px ${playerColor},0 0 100px ${playerColor}88`
           : disabled
           ? "2px 3px 8px rgba(0,0,0,0.4)"
-          : "4px 6px 14px rgba(0,0,0,0.6), -2px -2px 5px rgba(255,255,255,0.7), inset 0 2px 3px rgba(255,255,255,0.6), 0 0 22px rgba(255,215,0,0.5)",
-        opacity: disabled && !rolling ? 0.48 : 1,
+          : `4px 6px 14px rgba(0,0,0,0.6),-2px -2px 5px rgba(255,255,255,0.7),inset 0 2px 3px rgba(255,255,255,0.6),0 0 22px ${playerColor}80`,
+        opacity: disabled && !rolling ? 0.42 : 1,
         transition: "box-shadow 0.22s, opacity 0.22s",
-        position: "relative",
       }}>
         <svg width={sz} height={sz} viewBox="0 0 100 100" style={{ display: "block" }}>
-          {/* Top-left 3D bevel highlight */}
           <rect x={3} y={3} width={93} height={93} rx={14}
             fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2.5} />
-          {/* Bottom-right shadow inset */}
           <rect x={5} y={5} width={91} height={91} rx={12}
             fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={1.5} />
-          {/* Pips */}
           {dots.map(([cx, cy], i) => (
             <g key={i}>
-              {/* pip drop shadow */}
               <circle cx={cx+1} cy={cy+1.5} r={8.5} fill="rgba(0,0,0,0.22)" />
-              {/* pip face */}
               <circle cx={cx} cy={cy} r={8.5} fill="#111111" />
-              {/* pip inner shine */}
               <circle cx={cx-2.5} cy={cy-2.5} r={2.8} fill="rgba(255,255,255,0.18)" />
             </g>
           ))}
@@ -167,7 +250,6 @@ function Board({
   turn: "player" | "bot";
   botName: string;
 }) {
-  // Build cell → token list
   type Tok = { pi: number; ti: number; step: number };
   const cellMap = new Map<string, Tok[]>();
   const addTok = (pi: number, ti: number, step: number) => {
@@ -180,52 +262,65 @@ function Board({
   pTokens.forEach((s, ti) => addTok(P, ti, s));
   bTokens.forEach((s, ti) => addTok(B, ti, s));
 
-  const r  = C * 0.33;   // token radius
-  const cx_  = (col: number) => col * C + C / 2;
-  const cy_  = (row: number) => row * C + C / 2;
+  const r   = C * 0.33;
+  const cx_ = (col: number) => col * C + C / 2;
+  const cy_ = (row: number) => row * C + C / 2;
 
   return (
     <svg
       width="100%" viewBox={`0 0 ${SZ} ${SZ}`}
-      style={{ display: "block", borderRadius: 10, boxShadow: "0 0 50px rgba(0,0,0,.85), 0 0 100px rgba(0,0,0,.5)" }}
+      style={{ display: "block", borderRadius: 10, boxShadow: "0 0 50px rgba(0,0,0,.85),0 0 100px rgba(0,0,0,.5)" }}
     >
       {/* ── Background ── */}
       <rect width={SZ} height={SZ} fill="#0f172a" />
 
-      {/* ── Colored corner zones ── */}
-      <rect x={0}    y={0}    width={6*C} height={6*C} fill="#dc2626" />
-      <rect x={9*C}  y={0}    width={6*C} height={6*C} fill="#2563eb" />
-      <rect x={9*C}  y={9*C}  width={6*C} height={6*C} fill="#16a34a" />
-      <rect x={0}    y={9*C}  width={6*C} height={6*C} fill="#ca8a04" />
+      {/* ═══ CORNER ZONES ═══
+          Yellow (Player) = bottom-left [rows 9-14, cols 0-5]
+          Blue   (Bot)    = top-right   [rows 0-5,  cols 9-14]
+          Unused          = top-left + bottom-right (dimmed)
+      */}
+      {/* Top-left: dimmed/unused */}
+      <rect x={0}   y={0}   width={6*C} height={6*C} fill="#1e293b" />
+      {/* Top-right: Blue (Bot) */}
+      <rect x={9*C} y={0}   width={6*C} height={6*C} fill="#1d4ed8" />
+      {/* Bottom-right: dimmed/unused */}
+      <rect x={9*C} y={9*C} width={6*C} height={6*C} fill="#1e293b" />
+      {/* Bottom-left: Yellow (Player) ── CHANGED */}
+      <rect x={0}   y={9*C} width={6*C} height={6*C} fill="#92400e" />
 
-      {/* ── Inner white home area in each zone ── */}
+      {/* ── Inner white home area ── */}
       <rect x={C}    y={C}    width={4*C} height={4*C} fill="white" opacity={0.92} rx={3} />
       <rect x={10*C} y={C}    width={4*C} height={4*C} fill="white" opacity={0.92} rx={3} />
-      <rect x={10*C} y={10*C} width={4*C} height={4*C} fill="white" opacity={0.92} rx={3} />
+      <rect x={10*C} y={10*C} width={4*C} height={4*C} fill="white" opacity={0.15} rx={3} />  {/* unused — very dim */}
       <rect x={C}    y={10*C} width={4*C} height={4*C} fill="white" opacity={0.92} rx={3} />
 
-      {/* ── Yard dots (decorative, showing empty yard positions) ── */}
+      {/* ── Yard dots ── */}
+      {/* Top-left (unused): subtle neutral dots */}
       {([[1.5,1.5],[1.5,3.5],[3.5,1.5],[3.5,3.5]] as [number,number][]).map(([rr,cc],i) => (
-        <circle key={`yr-${i}`} cx={cc*C} cy={rr*C} r={C*0.28} fill="rgba(220,38,38,0.25)" stroke="#ef4444" strokeWidth={1} />
+        <circle key={`yn-${i}`} cx={cc*C} cy={rr*C} r={C*0.28} fill="rgba(148,163,184,0.12)" stroke="rgba(148,163,184,0.25)" strokeWidth={1} />
       ))}
+      {/* Top-right (Blue/Bot) */}
       {([[1.5,10.5],[1.5,12.5],[3.5,10.5],[3.5,12.5]] as [number,number][]).map(([rr,cc],i) => (
         <circle key={`yb-${i}`} cx={cc*C} cy={rr*C} r={C*0.28} fill="rgba(37,99,235,0.25)" stroke="#3b82f6" strokeWidth={1} />
       ))}
+      {/* Bottom-right (unused): very dim */}
       {([[10.5,10.5],[10.5,12.5],[12.5,10.5],[12.5,12.5]] as [number,number][]).map(([rr,cc],i) => (
-        <circle key={`yg-${i}`} cx={cc*C} cy={rr*C} r={C*0.28} fill="rgba(22,163,74,0.25)" stroke="#22c55e" strokeWidth={1} />
+        <circle key={`yg-${i}`} cx={cc*C} cy={rr*C} r={C*0.28} fill="rgba(148,163,184,0.06)" stroke="rgba(148,163,184,0.1)" strokeWidth={1} />
       ))}
+      {/* Bottom-left (Yellow/Player) ── CHANGED */}
       {([[10.5,1.5],[10.5,3.5],[12.5,1.5],[12.5,3.5]] as [number,number][]).map(([rr,cc],i) => (
-        <circle key={`yy-${i}`} cx={cc*C} cy={rr*C} r={C*0.28} fill="rgba(202,138,4,0.25)" stroke="#eab308" strokeWidth={1} />
+        <circle key={`yy-${i}`} cx={cc*C} cy={rr*C} r={C*0.28} fill="rgba(234,179,8,0.28)" stroke="#eab308" strokeWidth={1} />
       ))}
 
       {/* ── Main path cells ── */}
       {MAIN_PATH.map(([row, col], i) => {
-        const safe    = SAFE_IDX.has(i);
-        const isRedS  = i === 0;
-        const isBlueS = i === 13;
+        const safe       = SAFE_IDX.has(i);
+        // ── CHANGED: Yellow start at index 39, Blue start at index 13 ──
+        const isYellowS  = i === 39;
+        const isBlueS    = i === 13;
         let fill = "#f8fafc";
-        if (isRedS)  fill = "#fca5a5";
-        if (isBlueS) fill = "#93c5fd";
+        if (isYellowS) fill = "#fde68a";
+        if (isBlueS)   fill = "#93c5fd";
         return (
           <g key={`mp-${i}`}>
             <rect x={col*C+1} y={row*C+1} width={C-2} height={C-2} fill={fill} rx={2} />
@@ -237,106 +332,108 @@ function Board({
       })}
 
       {/* ── Home corridors ── */}
+      {/* Corridor 0 (left, unused): neutral dark */}
       {HOME_COLS[0].map(([row,col],i) => (
-        <rect key={`hc0-${i}`} x={col*C+1} y={row*C+1} width={C-2} height={C-2} fill="#fca5a5" rx={2} />
+        <rect key={`hc0-${i}`} x={col*C+1} y={row*C+1} width={C-2} height={C-2} fill="#334155" rx={2} />
       ))}
+      {/* Corridor 1 (top, Blue/Bot): blue */}
       {HOME_COLS[1].map(([row,col],i) => (
         <rect key={`hc1-${i}`} x={col*C+1} y={row*C+1} width={C-2} height={C-2} fill="#93c5fd" rx={2} />
       ))}
+      {/* Corridor 2 (right, unused): neutral dark */}
       {HOME_COLS[2].map(([row,col],i) => (
-        <rect key={`hc2-${i}`} x={col*C+1} y={row*C+1} width={C-2} height={C-2} fill="#86efac" rx={2} />
+        <rect key={`hc2-${i}`} x={col*C+1} y={row*C+1} width={C-2} height={C-2} fill="#334155" rx={2} />
       ))}
+      {/* Corridor 3 (bottom, Yellow/Player): gold ── CHANGED */}
       {HOME_COLS[3].map(([row,col],i) => (
         <rect key={`hc3-${i}`} x={col*C+1} y={row*C+1} width={C-2} height={C-2} fill="#fde68a" rx={2} />
       ))}
 
-      {/* ── Center star (4 colored triangles) ── */}
+      {/* ── Center star (4 triangles) — updated for 2-player ── */}
       <rect x={6*C} y={6*C} width={3*C} height={3*C} fill="#0f172a" />
-      <polygon points={`${6*C},${6*C} ${9*C},${6*C} ${7.5*C},${7.5*C}`}   fill="#dc2626" opacity={0.9} />
-      <polygon points={`${9*C},${6*C} ${9*C},${9*C} ${7.5*C},${7.5*C}`}   fill="#2563eb" opacity={0.9} />
-      <polygon points={`${9*C},${9*C} ${6*C},${9*C} ${7.5*C},${7.5*C}`}   fill="#16a34a" opacity={0.9} />
-      <polygon points={`${6*C},${9*C} ${6*C},${6*C} ${7.5*C},${7.5*C}`}   fill="#ca8a04" opacity={0.9} />
-      <circle cx={7.5*C} cy={7.5*C} r={C*0.4} fill="white" opacity={0.15} />
+      {/* Top triangle → Blue home corridor */}
+      <polygon points={`${6*C},${6*C} ${9*C},${6*C} ${7.5*C},${7.5*C}`}   fill="#1d4ed8" opacity={0.9} />
+      {/* Right triangle → unused (neutral) */}
+      <polygon points={`${9*C},${6*C} ${9*C},${9*C} ${7.5*C},${7.5*C}`}   fill="#1e293b" opacity={0.8} />
+      {/* Bottom triangle → Yellow home corridor */}
+      <polygon points={`${9*C},${9*C} ${6*C},${9*C} ${7.5*C},${7.5*C}`}   fill="#92400e" opacity={0.9} />
+      {/* Left triangle → unused (neutral) */}
+      <polygon points={`${6*C},${9*C} ${6*C},${6*C} ${7.5*C},${7.5*C}`}   fill="#1e293b" opacity={0.8} />
+      <circle cx={7.5*C} cy={7.5*C} r={C*0.4} fill="white" opacity={0.12} />
 
-      {/* ── Column/row glow lines separating zones ── */}
-      <line x1={6*C} y1={0}  x2={6*C} y2={6*C}  stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
-      <line x1={9*C} y1={0}  x2={9*C} y2={6*C}  stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
-      <line x1={6*C} y1={9*C} x2={6*C} y2={SZ}  stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
-      <line x1={9*C} y1={9*C} x2={9*C} y2={SZ}  stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+      {/* ── Zone separator lines ── */}
+      <line x1={6*C} y1={0}   x2={6*C} y2={6*C}  stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+      <line x1={9*C} y1={0}   x2={9*C} y2={6*C}  stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+      <line x1={6*C} y1={9*C} x2={6*C} y2={SZ}   stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+      <line x1={9*C} y1={9*C} x2={9*C} y2={SZ}   stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
 
-      {/* ── Active-turn glow border on the zone ── */}
+      {/* ── HOME HIGHLIGHT: Active-turn glow border ──
+          Player (Yellow): bottom-left zone
+          Bot (Blue): top-right zone (unchanged)
+      */}
       {turn === "player" && (
-        <rect x={1} y={1} width={6*C-2} height={6*C-2}
-          fill="none" stroke="#ef4444" strokeWidth={3} rx={3} opacity={0.65}
+        <rect x={1} y={9*C+1} width={6*C-2} height={6*C-2}
+          fill="none" stroke="#eab308" strokeWidth={3.5} rx={3} opacity={0.7}
           style={{ animation: "zone-pulse 0.9s ease-in-out infinite alternate" }} />
       )}
       {turn === "bot" && (
         <rect x={9*C+1} y={1} width={6*C-2} height={6*C-2}
-          fill="none" stroke="#3b82f6" strokeWidth={3} rx={3} opacity={0.65}
+          fill="none" stroke="#3b82f6" strokeWidth={3.5} rx={3} opacity={0.7}
           style={{ animation: "zone-pulse 0.9s ease-in-out infinite alternate" }} />
       )}
 
-      {/* ── Score inside RED home base (YOU) ── */}
-      {/* Overlay tinted panel */}
-      <rect x={C+4} y={C+4} width={4*C-8} height={4*C-8} rx={6}
-        fill="rgba(220,38,38,0.08)" />
-      {/* "YOU" label */}
-      <text x={3*C} y={C + 4*C*0.22}
+      {/* ── Score inside YELLOW home base (YOU) ── bottom-left ── CHANGED ── */}
+      <rect x={C+4} y={10*C+4} width={4*C-8} height={4*C-8} rx={6}
+        fill="rgba(234,179,8,0.1)" />
+      <text x={3*C} y={10*C + 4*C*0.22}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*0.45} fontWeight="900" fill="#dc2626"
+        fontSize={C*0.45} fontWeight="900" fill="#eab308"
         letterSpacing="2" style={{ userSelect: "none" }}>YOU</text>
-      {/* Score number */}
-      <text x={3*C} y={C + 4*C*0.52}
+      <text x={3*C} y={10*C + 4*C*0.52}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*1.0} fontWeight="900" fill="#dc2626"
-        style={{ userSelect: "none", filter: "drop-shadow(0 0 4px rgba(220,38,38,0.5))" }}>
+        fontSize={C*1.0} fontWeight="900" fill="#eab308"
+        style={{ userSelect: "none", filter: "drop-shadow(0 0 4px rgba(234,179,8,0.55))" }}>
         {pScore}
       </text>
-      {/* Moves left */}
-      <text x={3*C} y={C + 4*C*0.82}
+      <text x={3*C} y={10*C + 4*C*0.82}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*0.35} fontWeight="700" fill="#9f1239"
+        fontSize={C*0.35} fontWeight="700" fill="#92400e"
         style={{ userSelect: "none" }}>
         {MAX_MOVES - pMoves} moves
       </text>
-      {/* TURN indicator badge */}
       {turn === "player" && (
         <>
-          <rect x={3*C - C*0.85} y={C + 4*C*0.9} width={C*1.7} height={C*0.36} rx={4}
-            fill="#dc2626" opacity={0.9}
+          <rect x={3*C - C*0.85} y={10*C + 4*C*0.9} width={C*1.7} height={C*0.36} rx={4}
+            fill="#eab308" opacity={0.9}
             style={{ animation: "zone-pulse 0.7s ease-in-out infinite alternate" }} />
-          <text x={3*C} y={C + 4*C*0.9 + C*0.18}
+          <text x={3*C} y={10*C + 4*C*0.9 + C*0.18}
             textAnchor="middle" dominantBaseline="middle"
-            fontSize={C*0.28} fontWeight="900" fill="white" letterSpacing="1"
+            fontSize={C*0.28} fontWeight="900" fill="#000" letterSpacing="1"
             style={{ userSelect: "none" }}>YOUR TURN</text>
         </>
       )}
 
-      {/* ── Score inside BLUE home base (BOT) ── */}
+      {/* ── Score inside BLUE home base (BOT) ── top-right (unchanged) ── */}
       <rect x={10*C+4} y={C+4} width={4*C-8} height={4*C-8} rx={6}
         fill="rgba(37,99,235,0.08)" />
-      {/* Bot name label */}
       <text x={12*C} y={C + 4*C*0.22}
         textAnchor="middle" dominantBaseline="middle"
         fontSize={C*0.4} fontWeight="900" fill="#2563eb"
         letterSpacing="1" style={{ userSelect: "none" }}>
         {botName.slice(0, 7).toUpperCase()}
       </text>
-      {/* Score number */}
       <text x={12*C} y={C + 4*C*0.52}
         textAnchor="middle" dominantBaseline="middle"
         fontSize={C*1.0} fontWeight="900" fill="#2563eb"
         style={{ userSelect: "none", filter: "drop-shadow(0 0 4px rgba(37,99,235,0.5))" }}>
         {bScore}
       </text>
-      {/* Moves left */}
       <text x={12*C} y={C + 4*C*0.82}
         textAnchor="middle" dominantBaseline="middle"
         fontSize={C*0.35} fontWeight="700" fill="#1e40af"
         style={{ userSelect: "none" }}>
         {MAX_MOVES - bMoves} moves
       </text>
-      {/* TURN indicator badge */}
       {turn === "bot" && (
         <>
           <rect x={12*C - C*0.85} y={C + 4*C*0.9} width={C*1.7} height={C*0.36} rx={4}
@@ -349,6 +446,16 @@ function Board({
         </>
       )}
 
+      {/* ── Top-left unused zone: subtle LUDO label ── */}
+      <text x={3*C} y={3*C}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={C*0.5} fontWeight="900" fill="rgba(148,163,184,0.18)"
+        letterSpacing="2" style={{ userSelect: "none" }}>LUDO</text>
+
+      {/* ── Bottom-right unused zone: subtle cross hatch ── */}
+      <line x1={9*C+C} y1={9*C+C}   x2={15*C-C} y2={15*C-C}  stroke="rgba(148,163,184,0.06)" strokeWidth={1} />
+      <line x1={15*C-C} y1={9*C+C}  x2={9*C+C}  y2={15*C-C}  stroke="rgba(148,163,184,0.06)" strokeWidth={1} />
+
       {/* ── Tokens ── */}
       {Array.from(cellMap.entries()).map(([key, toks]) => {
         const [row, col] = key.split(",").map(Number);
@@ -357,10 +464,9 @@ function Board({
         const n = toks.length;
 
         return toks.map((tok, idx) => {
-          const isPlayer   = tok.pi === P;
-          const isValid    = isPlayer && validTokens.includes(tok.ti);
-          const cfg        = PLAYER_CFG[tok.pi];
-          // Spread tokens in a 2×2 grid when stacked
+          const isPlayer = tok.pi === P;
+          const isValid  = isPlayer && validTokens.includes(tok.ti);
+          const cfg      = PLAYER_CFG[tok.pi];
           const offX = n > 1 ? (idx % 2 === 0 ? -C*0.22 : C*0.22) : 0;
           const offY = n > 2 ? (idx < 2 ? -C*0.22 : C*0.22) : 0;
           const tx   = baseCx + offX;
@@ -371,28 +477,23 @@ function Board({
             <g key={`tok-${tok.pi}-${tok.ti}`}
               onClick={isValid ? () => onSelect(tok.ti) : undefined}
               style={{ cursor: isValid ? "pointer" : "default" }}>
-              {/* Selection pulse ring */}
               {isValid && (
                 <circle cx={tx} cy={ty} r={tokR + 5} fill="none"
                   stroke="#FFD700" strokeWidth={2} opacity={0.85}
                   style={{ animation: "ludo-pulse 0.7s ease-in-out infinite alternate" }} />
               )}
-              {/* Kill highlight ring */}
               {!isPlayer && highlightKill && (
                 <circle cx={tx} cy={ty} r={tokR + 4} fill="none"
                   stroke="#ff3b5c" strokeWidth={2} opacity={0.7}
                   style={{ animation: "ludo-pulse 0.5s ease-in-out infinite alternate" }} />
               )}
-              {/* Main token circle */}
               <circle cx={tx} cy={ty} r={tokR}
                 fill={cfg.fill}
                 stroke={isValid ? "#FFD700" : "rgba(255,255,255,0.6)"}
                 strokeWidth={isValid ? 2 : 1}
                 filter={isValid ? `drop-shadow(0 0 5px ${cfg.glow})` : undefined}
               />
-              {/* Shine highlight */}
               <circle cx={tx - tokR*0.3} cy={ty - tokR*0.3} r={tokR*0.35} fill="rgba(255,255,255,0.45)" />
-              {/* Token index number */}
               <text x={tx} y={ty+1} textAnchor="middle" dominantBaseline="middle"
                 fontSize={tokR*0.9} fontWeight="900" fill="white" style={{ userSelect: "none" }}>
                 {tok.ti + 1}
@@ -404,13 +505,13 @@ function Board({
 
       <style>{`
         @keyframes ludo-pulse { from { opacity: 0.3; } to { opacity: 1; } }
-        @keyframes zone-pulse { from { opacity: 0.35; } to { opacity: 0.85; } }
+        @keyframes zone-pulse { from { opacity: 0.3; } to { opacity: 0.85; } }
       `}</style>
     </svg>
   );
 }
 
-// ─── BOT AI ───────────────────────────────────────────────────────────────────
+// ─── BOT AI (UNCHANGED) ───────────────────────────────────────────────────────
 
 type BotTier = "easy" | "medium" | "god";
 
@@ -424,14 +525,12 @@ function chooseBotToken(
   if (valid.length === 1) return valid[0].ti;
   if (tier === "easy") return valid[Math.floor(Math.random() * valid.length)].ti;
 
-  // Score each candidate move
   const scored = valid.map(({ ti, s }) => {
     const ns = s + dice;
-    let score = ns * 0.8;                         // prefer advancement
-    if (ns >= 59) score += 200;                   // home is best
-    if (ns >= 53) score += 30;                    // home corridor bonus
+    let score = ns * 0.8;
+    if (ns >= 59) score += 200;
+    if (ns >= 53) score += 30;
     const nPos = gPos(B, ns);
-    // Kill opportunity
     if (nPos && !isSafe(B, ns)) {
       for (const ps of pTokens) {
         const pp = gPos(P, ps);
@@ -440,7 +539,6 @@ function chooseBotToken(
         }
       }
     }
-    // Danger penalty (if god mode avoids it)
     if (tier === "god" && nPos && !isSafe(B, ns)) {
       for (const ps of pTokens) {
         if (ps + 1 <= 6 || ps + 2 <= 6 || ps + 3 <= 6) {
@@ -456,12 +554,11 @@ function chooseBotToken(
   });
   scored.sort((a, b) => b.score - a.score);
   if (tier === "god") return scored[0].ti;
-  // Medium: pick from top 2
   const pool = scored.slice(0, Math.min(2, scored.length));
   return pool[Math.floor(Math.random() * pool.length)].ti;
 }
 
-// ─── SCORE HEADER ─────────────────────────────────────────────────────────────
+// ─── SCORE HEADER — updated to Yellow for player ──────────────────────────────
 
 function ScoreHeader({
   pScore, bScore, pMoves, bMoves, turn, tier, botName, matchTimer,
@@ -469,8 +566,8 @@ function ScoreHeader({
   pScore: number; bScore: number; pMoves: number; bMoves: number;
   turn: "player" | "bot"; tier: BotTier; botName: string; matchTimer: number;
 }) {
-  const pLeft = MAX_MOVES - pMoves;
-  const bLeft = MAX_MOVES - bMoves;
+  const pLeft     = MAX_MOVES - pMoves;
+  const bLeft     = MAX_MOVES - bMoves;
   const tierColor = tier === "god" ? "#ff3b5c" : tier === "medium" ? "#f97316" : "#4ade80";
   const tierLabel = tier === "god" ? "⚡ GOD" : tier === "medium" ? "🔶 MED" : "🟢 EASY";
 
@@ -478,31 +575,37 @@ function ScoreHeader({
     <div className="flex gap-2 px-3 py-2 rounded-2xl items-center"
       style={{ background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(10px)" }}>
 
-      {/* Player card */}
+      {/* Player card — YELLOW */}
       <motion.div className="flex-1 rounded-xl px-2.5 py-2 flex flex-col items-center gap-0.5"
-        animate={{ boxShadow: turn === "player" ? "0 0 16px rgba(239,68,68,0.6), 0 0 32px rgba(239,68,68,0.25)" : "none" }}
+        animate={{ boxShadow: turn === "player" ? "0 0 16px rgba(234,179,8,0.65),0 0 32px rgba(234,179,8,0.25)" : "none" }}
         style={{
-          background: turn === "player" ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.04)",
-          border: `1.5px solid ${turn === "player" ? "#ef4444" : "rgba(255,255,255,0.07)"}`,
+          background: turn === "player" ? "rgba(234,179,8,0.16)" : "rgba(255,255,255,0.04)",
+          border: `1.5px solid ${turn === "player" ? "#eab308" : "rgba(255,255,255,0.07)"}`,
           transition: "all 0.3s",
         }}>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full" style={{ background: "#ef4444", boxShadow: "0 0 6px #ef4444" }} />
-          <span className="text-[10px] font-black tracking-wider" style={{ color: turn === "player" ? "#ef4444" : "rgba(255,255,255,0.5)" }}>YOU</span>
-          {turn === "player" && <motion.span className="text-[8px] font-black px-1 py-0.5 rounded-full"
-            style={{ background: "#ef4444", color: "#fff" }}
-            animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>TURN</motion.span>}
+          <div className="w-3 h-3 rounded-full"
+            style={{ background: "#eab308", boxShadow: turn === "player" ? "0 0 6px #eab308" : "none" }} />
+          <span className="text-[10px] font-black tracking-wider"
+            style={{ color: turn === "player" ? "#eab308" : "rgba(255,255,255,0.5)" }}>YOU</span>
+          {turn === "player" && (
+            <motion.span className="text-[8px] font-black px-1 py-0.5 rounded-full"
+              style={{ background: "#eab308", color: "#000" }}
+              animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>
+              TURN
+            </motion.span>
+          )}
         </div>
         <motion.div className="text-2xl font-black leading-none"
-          style={{ color: "#ef4444", textShadow: "0 0 12px rgba(239,68,68,0.6)" }}
-          key={pScore} initial={{ scale: 1.4, color: "#FFD700" }} animate={{ scale: 1, color: "#ef4444" }}
+          style={{ color: "#eab308", textShadow: "0 0 12px rgba(234,179,8,0.65)" }}
+          key={pScore} initial={{ scale: 1.4, color: "#FFD700" }} animate={{ scale: 1, color: "#eab308" }}
           transition={{ duration: 0.3 }}>
           {pScore}
         </motion.div>
         <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.35)" }}>{pLeft} moves left</div>
       </motion.div>
 
-      {/* Center — Countdown timer */}
+      {/* Center — countdown */}
       <div className="flex flex-col items-center gap-1 px-1">
         <div className="text-[10px] font-black tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>VS</div>
         <div className="text-base font-black tabular-nums"
@@ -516,20 +619,28 @@ function ScoreHeader({
         </div>
       </div>
 
-      {/* Bot card */}
+      {/* Bot card — Blue (unchanged) */}
       <motion.div className="flex-1 rounded-xl px-2.5 py-2 flex flex-col items-center gap-0.5"
-        animate={{ boxShadow: turn === "bot" ? "0 0 16px rgba(59,130,246,0.6), 0 0 32px rgba(59,130,246,0.25)" : "none" }}
+        animate={{ boxShadow: turn === "bot" ? "0 0 16px rgba(59,130,246,0.6),0 0 32px rgba(59,130,246,0.25)" : "none" }}
         style={{
           background: turn === "bot" ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.04)",
           border: `1.5px solid ${turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.07)"}`,
           transition: "all 0.3s",
         }}>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full" style={{ background: "#3b82f6", boxShadow: "0 0 6px #3b82f6" }} />
-          <span className="text-[10px] font-black tracking-wider" style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.5)" }}>{botName.slice(0,8)}</span>
-          {turn === "bot" && <motion.span className="text-[8px] font-black px-1 py-0.5 rounded-full"
-            style={{ background: "#3b82f6", color: "#fff" }}
-            animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>TURN</motion.span>}
+          <div className="w-3 h-3 rounded-full"
+            style={{ background: "#3b82f6", boxShadow: turn === "bot" ? "0 0 6px #3b82f6" : "none" }} />
+          <span className="text-[10px] font-black tracking-wider"
+            style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.5)" }}>
+            {botName.slice(0,8)}
+          </span>
+          {turn === "bot" && (
+            <motion.span className="text-[8px] font-black px-1 py-0.5 rounded-full"
+              style={{ background: "#3b82f6", color: "#fff" }}
+              animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>
+              TURN
+            </motion.span>
+          )}
         </div>
         <motion.div className="text-2xl font-black leading-none"
           style={{ color: "#3b82f6", textShadow: "0 0 12px rgba(59,130,246,0.6)" }}
@@ -557,7 +668,6 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const botRef  = useRef<BotPlayer>(getRandomBot());
   const scored  = useRef(false);
 
-  // All 4 tokens start at step 1 (deployed on board, no yard wait)
   const [pTokens,    setPTokens]    = useState([1, 1, 1, 1]);
   const [bTokens,    setBTokens]    = useState([1, 1, 1, 1]);
   const [pScore,     setPScore]     = useState(0);
@@ -577,27 +687,28 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const [turnTimer,  setTurnTimer]  = useState(15);
   const missedTurns                 = useRef(0);
   const forfeited                   = useRef(false);
-  const [matchTimer, setMatchTimer]  = useState(120);  // 2-minute match clock
+  const [matchTimer, setMatchTimer] = useState(120);
+  const soundedResult               = useRef(false);
 
-  const pushLog = (msg: string) => setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
+  const pushLog   = (msg: string) => setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
   const flashKill = () => { setKillFlash(true); setTimeout(() => setKillFlash(false), 600); };
 
-  // ── Matchmaking — 4-second flow: 3.5s searching → 0.5s "found" → playing ───
+  // ── Matchmaking ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "matchmaking") return;
-    const t1 = setTimeout(() => setMmStage("found"),   3500);
-    const t2 = setTimeout(() => setPhase("playing"),   4000);
+    const t1 = setTimeout(() => setMmStage("found"),  3500);
+    const t2 = setTimeout(() => setPhase("playing"),  4000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
 
-  // ── 2-minute match countdown ──────────────────────────────────────────────────
+  // ── 2-min countdown ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing") return;
     const id = setInterval(() => setMatchTimer(prev => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(id);
   }, [phase]);
 
-  // ── Match timer end — freeze game + auto-score when 2 minutes elapse ─────────
+  // ── Timer end ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (matchTimer !== 0 || phase !== "playing" || scored.current) return;
     scored.current = true;
@@ -606,78 +717,68 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
     if (!isFreeMode && won) addWinning(prize);
     addMatch({
-      gameId: "ludofast",
-      gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast",
-      gameIcon: "🎲",
-      result: won ? "win" : "loss",
-      entryFee: initialFee,
-      prize,
-      userScore: pScore,
-      opponentScore: bScore,
+      gameId: "ludofast", gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast", gameIcon: "🎲",
+      result: won ? "win" : "loss", entryFee: initialFee,
+      prize, userScore: pScore, opponentScore: bScore,
       opponentName: botRef.current.name,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchTimer, phase]);
 
-  // ── Turn timer: reset to 15 when it becomes the player's turn ───────────────
+  // ── Win/lose sound on result ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "result" || soundedResult.current) return;
+    soundedResult.current = true;
+    const won = !forfeited.current && pScore > bScore;
+    setTimeout(() => { if (won) Sounds.win(); else Sounds.lose(); }, 300);
+  }, [phase, pScore, bScore]);
+
+  // ── Turn timer reset ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing" || turn !== "player") return;
     setTurnTimer(15);
   }, [turn, phase]);
 
-  // ── Turn timer: 1-second countdown (pauses while dice is rolling) ─────────
+  // ── Turn timer countdown ─────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing" || turn !== "player" || rolling || turnTimer <= 0) return;
     const id = setInterval(() => setTurnTimer(prev => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(id);
   }, [phase, turn, rolling, turnTimer]);
 
-  // ── Turn timer: auto-act at 0 + 3-strike forfeit ─────────────────────────
+  // ── Auto-act on timer = 0 ────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "playing" || turn !== "player" || turnTimer !== 0 || rolling || scored.current) return;
 
     if (validToks.length > 0) {
-      // Player rolled but didn't pick a token — auto-pick best, no penalty
       const best = validToks.reduce((a, b) => (pTokens[a] > pTokens[b] ? a : b));
       pushLog(`⏱️ Time's up! Auto-picking token ${best + 1}…`);
       movePlayerToken(best, dice);
       return;
     }
 
-    // Player didn't roll at all — count the miss
     missedTurns.current += 1;
-
     if (missedTurns.current >= 3) {
-      // 3-strike forfeit
       scored.current = true;
       forfeited.current = true;
       pushLog("🚨 3 missed turns — FORFEITED! Game over.");
       addMatch({
-        gameId: "ludofast",
-        gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast",
-        gameIcon: "🎲",
-        result: "loss",
-        entryFee: initialFee,
-        prize: 0,
-        userScore: pScore,
-        opponentScore: bScore,
-        opponentName: botRef.current.name,
+        gameId: "ludofast", gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast", gameIcon: "🎲",
+        result: "loss", entryFee: initialFee, prize: 0,
+        userScore: pScore, opponentScore: bScore, opponentName: botRef.current.name,
       });
       setPhase("result");
       return;
     }
 
-    // Auto-roll
     pushLog(`⏱️ Auto-roll! (Miss ${missedTurns.current}/3)`);
     const val = rollDiceVal(false);
     setDice(val);
     setRolling(true);
+    Sounds.roll();
     setTimeout(() => {
       setRolling(false);
-      const valid = pTokens
-        .map((s, ti) => ({ s, ti }))
-        .filter(({ s }) => canMoveTok(s, val))
-        .map(({ ti }) => ti);
+      const valid = pTokens.map((s, ti) => ({ s, ti })).filter(({ s }) => canMoveTok(s, val)).map(({ ti }) => ti);
       if (valid.length === 0) {
         pushLog(`Auto-roll ${val} — no valid move. Skipped!`);
         setPMoves(m => m + 1);
@@ -707,7 +808,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     });
   }, [pMoves, bMoves, phase, pScore, bScore]);
 
-  // ── Bot AI turn ───────────────────────────────────────────────────────────────
+  // ── Bot AI turn (UNCHANGED logic) ────────────────────────────────────────────
   useEffect(() => {
     if (turn !== "bot" || phase !== "playing" || bMoves >= MAX_MOVES || rolling) return;
 
@@ -717,6 +818,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
       const val = rollDiceVal(tier === "god" && !isFreeMode);
       setDice(val);
       setRolling(true);
+      Sounds.roll();
 
       setTimeout(() => {
         setRolling(false);
@@ -733,10 +835,8 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         setBTokens(prev => {
           const nb = [...prev];
           const oldStep = nb[chosen];
-          let ns = Math.min(oldStep + val, oldStep >= 53 ? 59 : oldStep + val);
-          if (oldStep >= 53) ns = Math.min(oldStep + val, 59);
+          let ns = oldStep >= 53 ? Math.min(oldStep + val, 59) : oldStep + val;
 
-          // Check kill on player tokens
           let killed = false;
           const np = gPos(B, ns);
           const newP = [...pTokens];
@@ -770,7 +870,6 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
 
           if (val === 6 || killed) {
             pushLog("🔵 Bot gets EXTRA TURN!");
-            // bot keeps turn (don't switch)
           } else {
             setTurn("player");
           }
@@ -800,6 +899,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     const val = rollDiceVal(false);
     setDice(val);
     setRolling(true);
+    Sounds.roll();  // ← ADDED: roll sound
 
     setTimeout(() => {
       setRolling(false);
@@ -813,7 +913,6 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         return;
       }
       if (valid.length === 1) {
-        // Auto-move
         setTimeout(() => movePlayerToken(valid[0], val), 200);
         return;
       }
@@ -822,7 +921,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     }, 700);
   }, [rolling, turn, pMoves, validToks, pTokens]);
 
-  // ── Move player token ─────────────────────────────────────────────────────────
+  // ── Move player token (UNCHANGED logic) ──────────────────────────────────────
   function movePlayerToken(ti: number, diceVal: number) {
     setValidToks([]);
     setPTokens(prev => {
@@ -831,7 +930,6 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
       let ns = oldStep + diceVal;
       if (oldStep >= 53) ns = Math.min(ns, 59);
 
-      // Check kill on bot tokens
       let killed = false;
       let killPts = 0;
       const nPos = gPos(P, ns);
@@ -881,7 +979,6 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     movePlayerToken(ti, dice);
   };
 
-  // ─── Derived state ────────────────────────────────────────────────────────────
   const canRoll = turn === "player" && !rolling && pMoves < MAX_MOVES && validToks.length === 0;
   const prize   = (!isFreeMode && pScore > bScore) ? Math.floor(initialFee * 2 * 0.9) : 0;
 
@@ -889,13 +986,12 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   if (phase === "matchmaking") {
     const tierColor = tier === "god" ? "#ff3b5c" : tier === "medium" ? "#f97316" : "#4ade80";
     const tierLabel = tier === "god" ? "⚡ GOD MODE" : tier === "medium" ? "🔶 MEDIUM" : "🟢 EASY";
-    const prize     = isFreeMode ? null : Math.floor(initialFee * 2 * 0.9);
+    const prizeAmt  = isFreeMode ? null : Math.floor(initialFee * 2 * 0.9);
 
     return (
       <div className="flex flex-col min-h-screen items-center justify-center px-5"
         style={{ background: "linear-gradient(180deg,#06080f 0%,#0c1220 50%,#06080f 100%)", maxWidth: 480, margin: "0 auto" }}>
 
-        {/* ── HEADER ── */}
         <motion.div initial={{ opacity: 0, y: -18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
           className="mb-10 text-center">
           <p className="text-[10px] font-black tracking-[0.25em] mb-2.5"
@@ -913,53 +1009,46 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
               style={{ background: `${tierColor}18`, border: `1px solid ${tierColor}40`, color: tierColor }}>
               {tierLabel}
             </span>
-            {prize !== null && (
+            {prizeAmt !== null && (
               <span className="px-3 py-1.5 rounded-full text-xs font-black"
                 style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e" }}>
-                🏆 Win ₹{prize}
+                🏆 Win ₹{prizeAmt}
               </span>
             )}
           </div>
         </motion.div>
 
-        {/* ── PLAYER  VS  OPPONENT ── */}
         <div className="w-full flex items-center justify-center gap-3 mb-10">
-
-          {/* ── YOU ── */}
+          {/* YOU */}
           <motion.div
             initial={{ opacity: 0, x: -48 }} animate={{ opacity: 1, x: 0 }}
             transition={{ type: "spring", stiffness: 220, damping: 22, delay: 0.1 }}
             className="flex flex-col items-center gap-3 flex-1">
-
             <div className="relative">
-              {/* Pulse ring */}
               <motion.div className="absolute rounded-full pointer-events-none"
-                style={{ inset: -7, border: "2.5px solid #ef4444", borderRadius: "50%" }}
+                style={{ inset: -7, border: "2.5px solid #eab308", borderRadius: "50%" }}
                 animate={{ scale: [1, 1.14, 1], opacity: [0.75, 0.2, 0.75] }}
                 transition={{ duration: 1.9, repeat: Infinity }} />
-
-              {/* Avatar */}
+              {/* ── CHANGED: Yellow avatar ── */}
               <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center text-3xl"
                 style={{
-                  background: "linear-gradient(135deg,#ef4444 0%,#7f1d1d 100%)",
-                  border: "3.5px solid #ef4444",
-                  boxShadow: "0 0 28px rgba(239,68,68,0.6), 0 0 56px rgba(239,68,68,0.2)",
+                  background: "linear-gradient(135deg,#eab308 0%,#92400e 100%)",
+                  border: "3.5px solid #eab308",
+                  boxShadow: "0 0 28px rgba(234,179,8,0.65),0 0 56px rgba(234,179,8,0.25)",
                 }}>
                 🎮
               </div>
-
-              {/* Online badge */}
               <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full flex items-center justify-center"
                 style={{ background: "#22c55e", border: "2.5px solid #06080f" }} />
             </div>
-
             <div className="text-center">
               <div className="font-black text-white text-base leading-tight">YOU</div>
-              <div className="text-[11px] font-bold mt-0.5" style={{ color: "rgba(239,68,68,0.85)" }}>🔴 Red</div>
+              {/* ── CHANGED: Yellow instead of Red ── */}
+              <div className="text-[11px] font-bold mt-0.5" style={{ color: "rgba(234,179,8,0.85)" }}>🟡 Yellow</div>
             </div>
           </motion.div>
 
-          {/* ── VS BADGE ── */}
+          {/* VS */}
           <motion.div
             initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 340, damping: 18, delay: 0.28 }}
@@ -967,19 +1056,17 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             <div className="w-[58px] h-[58px] rounded-full flex items-center justify-center font-black text-lg"
               style={{
                 background: "linear-gradient(135deg,#FFD700,#ff8c00)",
-                boxShadow: "0 0 22px rgba(255,215,0,0.65), 0 0 44px rgba(255,215,0,0.25)",
-                color: "#000",
-                letterSpacing: "-0.02em",
+                boxShadow: "0 0 22px rgba(255,215,0,0.65),0 0 44px rgba(255,215,0,0.25)",
+                color: "#000", letterSpacing: "-0.02em",
               }}>
               VS
             </div>
             <div className="w-px h-6" style={{ background: "linear-gradient(to bottom,rgba(255,215,0,0.5),transparent)" }} />
           </motion.div>
 
-          {/* ── OPPONENT ── */}
+          {/* OPPONENT */}
           <AnimatePresence mode="wait">
             {mmStage === "searching" ? (
-              /* ── Searching placeholder ── */
               <motion.div key="searching"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.8 }}
                 className="flex flex-col items-center gap-3 flex-1">
@@ -1006,7 +1093,6 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
                 </div>
               </motion.div>
             ) : (
-              /* ── Bot card (match found) ── */
               <motion.div key="found"
                 initial={{ opacity: 0, x: 48, scale: 0.85 }}
                 animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -1021,7 +1107,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
                     style={{
                       background: `linear-gradient(135deg,${botRef.current.avatarColor}cc 0%,#1e1b4b 100%)`,
                       border: `3.5px solid ${botRef.current.avatarColor}`,
-                      boxShadow: `0 0 28px ${botRef.current.avatarColor}99, 0 0 56px ${botRef.current.avatarColor}33`,
+                      boxShadow: `0 0 28px ${botRef.current.avatarColor}99,0 0 56px ${botRef.current.avatarColor}33`,
                     }}>
                     <span className="font-black text-white" style={{ fontSize: 38, lineHeight: 1 }}>
                       {botRef.current.initial}
@@ -1039,18 +1125,17 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
               </motion.div>
             )}
           </AnimatePresence>
-
         </div>
 
-        {/* ── MATCH STATS STRIP ── */}
+        {/* Match stats */}
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
           className="w-full rounded-2xl px-4 py-3.5 mb-8 flex items-center justify-around"
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
           {[
-            { label: "Moves", value: "50 Each" },
-            { label: "Kill Bonus", value: "+15 pts" },
-            { label: "Home Bonus", value: "+25 pts" },
-            { label: "Winner", value: "Top Score" },
+            { label: "Moves",      value: "50 Each"  },
+            { label: "Kill Bonus", value: "+15 pts"  },
+            { label: "Home Bonus", value: "+25 pts"  },
+            { label: "Winner",     value: "Top Score"},
           ].map(({ label, value }) => (
             <div key={label} className="flex flex-col items-center gap-0.5">
               <div className="text-[9px] font-black tracking-widest uppercase"
@@ -1060,13 +1145,12 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
           ))}
         </motion.div>
 
-        {/* ── LOADING BAR ── */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="w-full">
+        {/* Loading bar */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="w-full">
           <div className="h-[5px] rounded-full overflow-hidden mb-2.5"
             style={{ background: "rgba(255,255,255,0.07)" }}>
             <motion.div className="h-full rounded-full"
-              style={{ background: "linear-gradient(90deg,#ef4444 0%,#FFD700 50%,#3b82f6 100%)" }}
+              style={{ background: "linear-gradient(90deg,#eab308 0%,#FFD700 50%,#3b82f6 100%)" }}
               initial={{ width: "0%" }} animate={{ width: "100%" }}
               transition={{ duration: 2.8, ease: "linear" }} />
           </div>
@@ -1076,7 +1160,6 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             {mmStage === "searching" ? "⏳ Scanning real players…" : "🎮 Setting up the board…"}
           </motion.p>
         </motion.div>
-
       </div>
     );
   }
@@ -1086,9 +1169,13 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     const won        = !forfeited.current && pScore > bScore;
     const resultIcon = forfeited.current ? "🏳️" : won ? "🏆" : "😔";
     const resultText = forfeited.current ? "FORFEITED" : won ? "VICTORY!" : "DEFEATED";
+
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center gap-5 px-5"
+      <div className="flex flex-col min-h-screen items-center justify-center gap-5 px-5 relative"
         style={{ background: won ? "linear-gradient(180deg,#052010,#0a3520,#052010)" : "linear-gradient(180deg,#1a0510,#2d0a18,#1a0510)", maxWidth: 480, margin: "0 auto" }}>
+
+        {/* ── Confetti on win ── ADDED */}
+        {won && <Confetti />}
 
         <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 200 }} className="text-8xl"
@@ -1113,9 +1200,10 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         {/* Score breakdown */}
         <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
           <div className="flex">
-            <div className="flex-1 p-4 text-center" style={{ background: "rgba(239,68,68,0.1)", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
-              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(239,68,68,0.7)" }}>YOU</div>
-              <div className="text-3xl font-black" style={{ color: "#ef4444" }}>{pScore}</div>
+            {/* ── CHANGED: Yellow for player ── */}
+            <div className="flex-1 p-4 text-center" style={{ background: "rgba(234,179,8,0.1)", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(234,179,8,0.75)" }}>YOU 🟡</div>
+              <div className="text-3xl font-black" style={{ color: "#eab308" }}>{pScore}</div>
               <div className="text-[9px] font-bold mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>points</div>
             </div>
             <div className="flex-1 p-4 text-center" style={{ background: "rgba(59,130,246,0.1)" }}>
@@ -1172,7 +1260,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         </div>
       </div>
 
-      {/* ── Score header with 2-minute match countdown ── */}
+      {/* ── Score header ── */}
       <div className="px-3 pb-2 flex-shrink-0">
         <ScoreHeader
           pScore={pScore} bScore={bScore}
@@ -1186,13 +1274,13 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
       {/* ── Compact turn / fee strip ── */}
       <div className="flex items-center justify-between px-3 pb-1 flex-shrink-0">
         <div className="flex items-center gap-1.5">
+          {/* ── CHANGED: Yellow dot for player ── */}
           <motion.div className="w-2.5 h-2.5 rounded-full"
-            style={{ background: "#ef4444", boxShadow: turn === "player" ? "0 0 8px #ef4444" : "none" }}
+            style={{ background: "#eab308", boxShadow: turn === "player" ? "0 0 8px #eab308" : "none" }}
             animate={turn === "player" ? { scale: [1, 1.35, 1] } : { scale: 1 }}
             transition={{ duration: 0.7, repeat: Infinity }} />
-          <span className="text-[10px] font-black" style={{ color: turn === "player" ? "#ef4444" : "rgba(255,255,255,0.3)" }}>YOU</span>
+          <span className="text-[10px] font-black" style={{ color: turn === "player" ? "#eab308" : "rgba(255,255,255,0.3)" }}>YOU 🟡</span>
 
-          {/* ── Turn countdown ring (player's turn only) ── */}
           {turn === "player" && phase === "playing" && (
             <motion.div
               style={{ position: "relative", width: 22, height: 22, flexShrink: 0 }}
@@ -1221,8 +1309,8 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             </motion.div>
           )}
         </div>
+
         <div className="flex items-center gap-1.5">
-          {/* Tier badge */}
           <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
             style={{
               background: tier === "god" ? "rgba(255,59,92,0.15)" : tier === "medium" ? "rgba(249,115,22,0.15)" : "rgba(74,222,128,0.12)",
@@ -1236,6 +1324,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             {isFreeMode ? "FREE" : `₹${initialFee}`}
           </span>
         </div>
+
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-black" style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.3)" }}>{botRef.current.name}</span>
           <motion.div className="w-2.5 h-2.5 rounded-full"
@@ -1245,12 +1334,11 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
         </div>
       </div>
 
-      {/* ── Turn timer bar (below turn strip, player's turn only) ── */}
+      {/* ── Turn timer bar ── */}
       {phase === "playing" && turn === "player" && (
         <div className="px-3 pb-1 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-[3px] rounded-full overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.07)" }}>
+            <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
               <div className="h-full rounded-full"
                 style={{
                   width: `${(turnTimer / 15) * 100}%`,
@@ -1264,8 +1352,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             </span>
           </div>
           {missedTurns.current > 0 && (
-            <p className="text-[8px] font-bold text-center mt-0.5"
-              style={{ color: "rgba(239,68,68,0.6)" }}>
+            <p className="text-[8px] font-bold text-center mt-0.5" style={{ color: "rgba(239,68,68,0.6)" }}>
               ⚠️ {missedTurns.current}/3 missed — auto-forfeit on 3rd
             </p>
           )}
@@ -1285,16 +1372,14 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
 
       {/* ── Board ── */}
       <div className="flex-1 flex items-center justify-center px-2 relative">
-        {/* Kill flash overlay */}
         <AnimatePresence>
           {killFlash && (
             <motion.div className="absolute inset-0 rounded-xl pointer-events-none z-10"
               initial={{ opacity: 0 }} animate={{ opacity: [0, 0.35, 0] }} exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              style={{ background: "radial-gradient(circle, rgba(255,59,92,0.7) 0%, transparent 70%)" }} />
+              style={{ background: "radial-gradient(circle,rgba(255,59,92,0.7) 0%,transparent 70%)" }} />
           )}
         </AnimatePresence>
-        {/* Emote flash */}
         <AnimatePresence>
           {emote && (
             <motion.div className="absolute top-1/2 left-1/2 z-20 pointer-events-none"
@@ -1314,52 +1399,25 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
           turn={turn} botName={botRef.current.name} />
       </div>
 
-      {/* ── Bottom controls ── */}
+      {/* ═══ BOTTOM CONTROLS — TWO SEPARATE DICE ═══
+          Yellow dice (player) on the LEFT  — near Yellow home (bottom-left of board)
+          Blue dice   (bot)    on the RIGHT — near Blue home   (top-right of board)
+          Both always visible; active one highlighted, inactive one dimmed.
+      */}
       <div className="flex-shrink-0 px-3 pb-4 pt-2">
-        <div className="flex items-center gap-3">
-          {/* Event log */}
-          <div className="flex-1 rounded-xl px-3 py-2 min-w-0" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}>
-            <AnimatePresence mode="popLayout">
-              {logMsgs.slice(0, 2).map((msg, i) => (
-                <motion.div key={msg + i}
-                  initial={{ opacity: 0, y: -6 }} animate={{ opacity: i === 0 ? 1 : 0.4 }} exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="text-[10px] font-bold truncate"
-                  style={{ color: i === 0 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.3)" }}>
-                  {msg}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-
-          {/* Dice */}
-          <div className="flex flex-col items-center gap-1 flex-shrink-0">
-            <Dice3D value={dice} rolling={rolling} onClick={handleRoll} disabled={!canRoll} />
-            {canRoll ? (
-              <span className="text-[9px] font-black" style={{ color: "#FFD700" }}>TAP TO ROLL</span>
-            ) : turn === "bot" ? (
-              <span className="text-[9px] font-black" style={{ color: "rgba(59,130,246,0.7)" }}>{botRef.current.name} THINKING…</span>
-            ) : validToks.length > 0 ? (
-              <span className="text-[9px] font-black" style={{ color: "rgba(255,215,0,0.8)" }}>PICK TOKEN</span>
-            ) : pMoves >= MAX_MOVES ? (
-              <span className="text-[9px] font-black" style={{ color: "rgba(255,255,255,0.3)" }}>DONE</span>
-            ) : (
-              <span className="text-[9px] font-black" style={{ color: "rgba(255,255,255,0.3)" }}>WAIT…</span>
-            )}
-          </div>
-        </div>
 
         {/* Progress bars */}
-        <div className="flex gap-3 mt-2">
+        <div className="flex gap-3 mb-2">
           <div className="flex-1">
             <div className="flex justify-between mb-0.5">
-              <span className="text-[8px] font-bold" style={{ color: "rgba(239,68,68,0.7)" }}>YOU</span>
-              <span className="text-[8px] font-bold" style={{ color: "rgba(239,68,68,0.7)" }}>{pMoves}/{MAX_MOVES}</span>
+              {/* ── CHANGED: Yellow label ── */}
+              <span className="text-[8px] font-bold" style={{ color: "rgba(234,179,8,0.75)" }}>YOU 🟡</span>
+              <span className="text-[8px] font-bold" style={{ color: "rgba(234,179,8,0.75)" }}>{pMoves}/{MAX_MOVES}</span>
             </div>
             <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
               <motion.div className="h-full rounded-full"
                 animate={{ width: `${(pMoves / MAX_MOVES) * 100}%` }}
-                style={{ background: "linear-gradient(90deg,#ef4444,#f87171)" }}
+                style={{ background: "linear-gradient(90deg,#eab308,#fde68a)" }}
                 transition={{ duration: 0.3 }} />
             </div>
           </div>
@@ -1375,6 +1433,106 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
                 transition={{ duration: 0.3 }} />
             </div>
           </div>
+        </div>
+
+        {/* Two dice row */}
+        <div className="flex items-end gap-2">
+
+          {/* ── YELLOW DICE (Player) — LEFT ── */}
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <span className="text-[8px] font-black uppercase tracking-wide"
+              style={{ color: turn === "player" ? "#eab308" : "rgba(255,255,255,0.22)" }}>
+              🟡 YOU
+            </span>
+            <motion.div
+              animate={{
+                boxShadow: turn === "player"
+                  ? "0 0 20px rgba(234,179,8,0.55),0 0 40px rgba(234,179,8,0.22)"
+                  : "none",
+              }}
+              style={{
+                borderRadius: 14,
+                padding: 5,
+                background: turn === "player" ? "rgba(234,179,8,0.12)" : "rgba(255,255,255,0.03)",
+                border: `1.5px solid ${turn === "player" ? "rgba(234,179,8,0.5)" : "rgba(255,255,255,0.07)"}`,
+                transition: "all 0.35s",
+              }}>
+              <Dice3D
+                value={dice}
+                rolling={rolling && turn === "player"}
+                onClick={handleRoll}
+                disabled={!canRoll}
+                playerColor="#eab308"
+              />
+            </motion.div>
+            <span className="text-[9px] font-black min-h-[13px]"
+              style={{ color: canRoll ? "#eab308" : "rgba(255,255,255,0.22)" }}>
+              {canRoll
+                ? "TAP ROLL"
+                : validToks.length > 0
+                ? "PICK TOKEN"
+                : pMoves >= MAX_MOVES
+                ? "DONE ✓"
+                : turn === "bot" ? "WAIT…" : ""}
+            </span>
+          </div>
+
+          {/* ── Event log (center) ── */}
+          <div className="flex-1 min-w-0">
+            <div className="rounded-xl px-3 py-2" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <AnimatePresence mode="popLayout">
+                {logMsgs.slice(0, 2).map((msg, i) => (
+                  <motion.div key={msg + i}
+                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: i === 0 ? 1 : 0.4 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-[10px] font-bold truncate"
+                    style={{ color: i === 0 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.3)" }}>
+                    {msg}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* ── BLUE DICE (Bot) — RIGHT ── */}
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <span className="text-[8px] font-black uppercase tracking-wide"
+              style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.22)" }}>
+              🔵 BOT
+            </span>
+            <motion.div
+              animate={{
+                boxShadow: turn === "bot"
+                  ? "0 0 20px rgba(59,130,246,0.55),0 0 40px rgba(59,130,246,0.22)"
+                  : "none",
+              }}
+              style={{
+                borderRadius: 14,
+                padding: 5,
+                background: turn === "bot" ? "rgba(59,130,246,0.12)" : "rgba(255,255,255,0.03)",
+                border: `1.5px solid ${turn === "bot" ? "rgba(59,130,246,0.5)" : "rgba(255,255,255,0.07)"}`,
+                transition: "all 0.35s",
+              }}>
+              <Dice3D
+                value={dice}
+                rolling={rolling && turn === "bot"}
+                onClick={() => {}}
+                disabled={true}
+                playerColor="#3b82f6"
+              />
+            </motion.div>
+            <span className="text-[9px] font-black min-h-[13px]"
+              style={{ color: turn === "bot" && !rolling ? "#3b82f6" : "rgba(255,255,255,0.22)" }}>
+              {turn === "bot" && rolling
+                ? "ROLLING…"
+                : turn === "bot"
+                ? "THINKING…"
+                : bMoves >= MAX_MOVES
+                ? "DONE ✓"
+                : ""}
+            </span>
+          </div>
+
         </div>
       </div>
     </div>
