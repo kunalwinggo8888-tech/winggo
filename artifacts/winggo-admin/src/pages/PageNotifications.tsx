@@ -3,7 +3,7 @@
  */
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { subscribeAppConfig, updateAppConfig, AppConfig } from "@/firebase/admin.service";
+import { subscribeAppConfig, updateAppConfig, AppConfig, queueNotification } from "@/firebase/admin.service";
 
 const T = {
   blue:"#00d4ff", green:"#00ff88", red:"#ff3366", gold:"#f59e0b",
@@ -69,9 +69,21 @@ function PushTab() {
   async function handleSend() {
     if (!title.trim() || !body.trim()) return;
     setSending(true);
-    await new Promise(r=>setTimeout(r,1500));
-    setSending(false); setSent(true);
-    setTimeout(()=>{ setSent(false); setTitle(""); setBody(""); setImageUrl(""); },3000);
+    try {
+      await queueNotification({
+        type: "push",
+        target,
+        title: title.trim(),
+        body: body.trim(),
+        imageUrl: imageUrl.trim() || undefined,
+      });
+      setSent(true);
+      setTimeout(() => { setSent(false); setTitle(""); setBody(""); setImageUrl(""); }, 3000);
+    } catch (err) {
+      console.error("[Notifications] queueNotification failed:", err);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (

@@ -200,13 +200,14 @@ interface DashboardProps {
   onWallet?: () => void;
   onHistory?: () => void;
   onLeaderboard?: () => void;
+  onNotifications?: () => void;
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
 // Only Ludo and Saanp Sidi are active — all other games show "Coming Soon"
 const IMPLEMENTED_GAMES = new Set(["ludo", "saanpsidi"]);
 
-export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, onNotifications, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -349,6 +350,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
           <motion.button
             data-testid="button-notifications"
             whileTap={{ scale: 0.9 }}
+            onClick={() => onNotifications?.()}
             className="relative w-8 h-8 flex items-center justify-center cursor-pointer"
           >
             <span className="text-lg">🔔</span>

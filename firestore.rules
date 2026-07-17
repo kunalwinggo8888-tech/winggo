@@ -89,9 +89,11 @@ service cloud.firestore {
       allow read, write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
     }
 
-    // ── Notification Queue (admin broadcast tool, never touched by end users) ──
+    // ── Notification Queue — admin writes, authenticated players read ──────────
+    // FIX: was isAdmin() for read, so player app could never load notifications.
     match /notificationQueue/{id} {
-      allow read, write: if isAdmin();
+      allow read:  if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // ── Analytics (admin dashboard stats, never touched by end users) ────────

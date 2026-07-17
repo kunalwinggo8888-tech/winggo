@@ -64,6 +64,7 @@ import HistoryScreen from "@/pages/HistoryScreen";
 import ProfileScreen from "@/pages/ProfileScreen";
 import KYCScreen from "@/pages/KYCScreen";
 import LeaderboardScreen from "@/pages/LeaderboardScreen";
+import NotificationsScreen from "@/pages/NotificationsScreen";
 import FirebaseSetupGuide from "@/pages/FirebaseSetupGuide";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
 import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER } from "@/firebase/firestore.service";
@@ -83,7 +84,7 @@ type Screen =
   | "liquidsort" | "bottleshoot" | "flyme"
   | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
   | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
-  | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard";
+  | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
@@ -373,6 +374,7 @@ function AppInner() {
             onWallet={() => setScreen("wallet")}
             onHistory={() => setScreen("history")}
             onLeaderboard={() => setScreen("leaderboard")}
+            onNotifications={() => setScreen("notifications")}
           />
         )}
 
@@ -541,6 +543,10 @@ function AppInner() {
 
         {screen === "leaderboard" && (
           <LeaderboardScreen key="leaderboard" onBack={() => setScreen("dashboard")} />
+        )}
+
+        {screen === "notifications" && (
+          <NotificationsScreen key="notifications" onBack={() => setScreen("dashboard")} />
         )}
 
         {screen === "refer" && (

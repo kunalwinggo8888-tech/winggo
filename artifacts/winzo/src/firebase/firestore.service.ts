@@ -1034,6 +1034,46 @@ export async function saveMatchToFirestore(
   }
 }
 
+// ─── IN-APP NOTIFICATIONS ─────────────────────────────────────────────────────
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl?: string;
+  createdAt: number;
+  type: "push" | "announcement";
+}
+
+/**
+ * Subscribe to broadcast notifications written by the admin panel.
+ * Reads from notificationQueue (ordered newest-first, last 20).
+ * Firestore rule fix: allow read if request.auth != null.
+ */
+export function subscribeNotifications(
+  cb: (notifs: AppNotification[]) => void,
+): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb([]); return () => {}; }
+  const q = query(
+    collection(db, "notificationQueue"),
+    orderBy("createdAt", "desc"),
+    limit(20),
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id:        d.id,
+        title:     (data.title     as string) ?? "",
+        body:      (data.body      as string) ?? "",
+        imageUrl:  data.imageUrl   as string | undefined,
+        createdAt: (data.createdAt as number) ?? 0,
+        type:      (data.type      as "push" | "announcement") ?? "push",
+      };
+    }));
+  }, () => cb([]));
+}
+
 /**
  * Fetch all matches from Firestore for admin panel.
  * Returns latest 200 matches ordered by date descending.
