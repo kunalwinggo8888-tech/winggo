@@ -3,15 +3,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
     function isSignedIn() {
       return request.auth != null;
     }
     function isOwner(uid) {
       return request.auth.uid == uid;
     }
+    // FIX: was get().data.role check (required role field in admins doc).
+    // Simplified to exists() — only requires admins/{uid} doc to exist.
+    // Works with bridgeToFirebaseAuth() which creates the doc via VITE_ADMIN_FIREBASE_EMAIL.
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in ['admin', 'superadmin', 'staff'];
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
     function notBanned() {
       return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
@@ -22,15 +26,15 @@ service cloud.firestore {
     match /users/{uid} {
       allow read:   if isSignedIn() && (isOwner(uid) || isAdmin());
       allow create: if isSignedIn() && isOwner(uid);
+      // Prevent players from tampering with kycStatus / banned / referralCode
       allow update: if isSignedIn() && isOwner(uid) && notBanned()
                     && !request.resource.data.diff(resource.data).affectedKeys()
-                       .hasAny(['kycStatus', 'banned', 'referralCode']);
+                       .hasAny(['kycStatus', 'banned', 'referralCode'])
+                    || isAdmin();
       allow delete: if isAdmin();
     }
 
-    // ── Wallets ──────────────────────────────────────────────────────────────
-    // Users manage their own wallet directly from the client while
-    // Cloud Functions are not yet deployed.
+    // ── Wallets ───────────────────────────────────────────────────────────────
     match /wallets/{uid} {
       allow read:  if isSignedIn() && (isOwner(uid) || isAdmin());
       allow write: if isSignedIn() && (isOwner(uid) || isAdmin());
@@ -40,6 +44,17 @@ service cloud.firestore {
         allow create: if isSignedIn() && (isOwner(uid) || isAdmin());
         allow update, delete: if false;
       }
+    }
+
+    // ── Deposit Requests ──────────────────────────────────────────────────────
+    // BUG FIX: this collection was MISSING — causing depositRequests to be
+    // denied by the catch-all rule. Player deposits never reached Firestore.
+    // Admin panel could not read any deposit requests.
+    match /depositRequests/{id} {
+      allow read:   if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     // ── Withdraw Requests ────────────────────────────────────────────────────
@@ -56,15 +71,16 @@ service cloud.firestore {
 
     // ── KYC Requests ─────────────────────────────────────────────────────────
     match /kycRequests/{uid} {
-      allow read:  if isSignedIn() && (isOwner(uid) || isAdmin());
-      allow write: if isSignedIn() && isOwner(uid) && notBanned();
-      allow update: if isAdmin();
+      allow read:   if isSignedIn() && (isOwner(uid) || isAdmin());
+      allow create: if isSignedIn() && isOwner(uid) && notBanned();
+      allow update: if (isSignedIn() && isOwner(uid) && notBanned()) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // ── Games Catalog ─────────────────────────────────────────────────────────
     match /games/{gameId} {
-      allow read:   if true;
-      allow write:  if isAdmin();
+      allow read:  if true;
+      allow write: if isAdmin();
     }
 
     // ── App Config ───────────────────────────────────────────────────────────
@@ -82,26 +98,77 @@ service cloud.firestore {
       }
     }
 
-    // ── Admins ───────────────────────────────────────────────────────────────
+    // ── Admins allow-list ─────────────────────────────────────────────────────
     match /admins/{uid} {
       allow read:  if isSignedIn() && (isOwner(uid) || isAdmin());
+      // Only superadmin can add/modify other admins
       allow write: if isAdmin() &&
-                   get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin';
+                   get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('role', 'admin') == 'superadmin';
     }
 
-    // ── Notifications ─────────────────────────────────────────────────────────
+    // ── Notifications (per-user items) ────────────────────────────────────────
     match /notifications/{uid}/items/{notifId} {
       allow read:  if isSignedIn() && isOwner(uid);
       allow write: if isAdmin();
     }
 
-    // ── Analytics (admin only) ────────────────────────────────────────────────
+    // ── Notification Queue (admin broadcast, all players read) ────────────────
+    // FIX: was isAdmin()-only read, blocking player notification inbox.
+    match /notificationQueue/{id} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Analytics (admin dashboard only) ─────────────────────────────────────
     match /analytics/{document=**} {
       allow read:  if isAdmin();
       allow write: if isAdmin();
     }
 
-    // ── Default: deny everything else ────────────────────────────────────────
+    // ── Payment Config (UPI ID + QR Code) ────────────────────────────────────
+    // BUG FIX: this collection was MISSING — causing:
+    //   1. Admin "Failed to save. Check Firebase connection." on every UPI/QR save
+    //   2. Player app unable to load payment QR/UPI (caught by our earlier rule fix
+    //      in the ROOT file that was never deployed)
+    match /payment_details/{docId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Match History ─────────────────────────────────────────────────────────
+    match /matches/{matchId} {
+      allow read:          if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create:        if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Code Editor (admin virtual filesystem) ────────────────────────────────
+    match /codeEditor/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Admin Version Snapshots ───────────────────────────────────────────────
+    match /admin_versions/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Staff Accounts ────────────────────────────────────────────────────────
+    match /staff_accounts/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── System Config ─────────────────────────────────────────────────────────
+    match /system/{docId} {
+      allow read:  if isAdmin() || docId == 'admin_config';
+      allow write: if isAdmin();
+    }
+
+    // ── Referrals ─────────────────────────────────────────────────────────────
+    match /referrals/{id} {
+      allow read, write: if isSignedIn() || isAdmin();
+    }
+
+    // ── Deny everything else ──────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
