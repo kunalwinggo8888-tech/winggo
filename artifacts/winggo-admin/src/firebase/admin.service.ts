@@ -900,7 +900,7 @@ export async function approveScreenshotDeposit(requestId: string, adminUid: stri
   const batch = writeBatch(adminDb);
   batch.update(reqRef, { status: "approved", processedAt: serverTimestamp(), processedBy: adminUid });
   const walletRef = doc(adminDb, "wallets", req.uid);
-  batch.update(walletRef, { deposit: increment(req.amount), updatedAt: serverTimestamp() });
+  batch.set(walletRef, { deposit: increment(req.amount), updatedAt: serverTimestamp() }, { merge: true });
   const txRef = doc(collection(adminDb, `wallets/${req.uid}/transactions`));
   batch.set(txRef, {
     type: "deposit",
