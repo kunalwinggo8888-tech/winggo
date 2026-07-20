@@ -880,24 +880,24 @@ export interface DepositRequest {
 export function subscribeScreenshotDeposits(
   statusFilter: "pending" | "all",
   cb: (reqs: DepositRequest[]) => void,
+  onDebug?: (msg: string) => void,
 ): () => void {
-  console.log("[subscribeScreenshotDeposits] called | FIREBASE_ENABLED=", FIREBASE_ENABLED, "| adminDb=", !!adminDb, "| filter=", statusFilter);
+  const dbg = (msg: string) => { console.log(msg); onDebug?.(msg); };
+  dbg(`[subscribe] FIREBASE_ENABLED=${FIREBASE_ENABLED} | adminDb=${!!adminDb} | filter=${statusFilter}`);
   if (!FIREBASE_ENABLED || !adminDb) {
-    console.warn("[subscribeScreenshotDeposits] Firebase disabled or adminDb null — returning empty");
+    dbg("[subscribe] ❌ Firebase disabled or adminDb is null — returning empty");
     cb([]); return () => {};
   }
   const q = statusFilter === "pending"
     ? query(collection(adminDb, "depositRequests"), where("status", "==", "pending"), orderBy("requestedAt", "desc"), limit(100))
     : query(collection(adminDb, "depositRequests"), orderBy("requestedAt", "desc"), limit(100));
-  console.log("[subscribeScreenshotDeposits] attaching onSnapshot | collection=depositRequests | query=", statusFilter);
+  dbg(`[subscribe] ⏳ attaching onSnapshot — collection=depositRequests, query=${statusFilter}`);
   return onSnapshot(q, (snap) => {
-    console.log("[subscribeScreenshotDeposits] snapshot received | docs.length=", snap.docs.length, "| empty=", snap.empty);
-    if (snap.docs.length > 0) {
-      console.log("[subscribeScreenshotDeposits] first doc sample=", JSON.stringify(snap.docs[0].data()).slice(0, 200));
-    }
+    const sample = snap.docs[0] ? ` | first_id=${snap.docs[0].id}` : "";
+    dbg(`[subscribe] ✅ snapshot received — docs.length=${snap.docs.length}${sample}`);
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DepositRequest)));
   }, (err) => {
-    console.error("[subscribeScreenshotDeposits] onSnapshot ERROR:", err.code, err.message, err);
+    dbg(`[subscribe] 🔴 onSnapshot ERROR — code=${err.code} | ${err.message}`);
     cb([]);
   });
 }

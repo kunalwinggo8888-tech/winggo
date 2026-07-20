@@ -2,7 +2,7 @@
  * PageDeposits — Admin panel: Screenshot Deposit Verification
  * Admin can view, approve, or reject user screenshot deposit requests.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   subscribeScreenshotDeposits,
@@ -10,7 +10,7 @@ import {
   rejectScreenshotDeposit,
   DepositRequest,
 } from "@/firebase/admin.service";
-import { FIREBASE_ENABLED } from "@/firebase/config";
+import { FIREBASE_ENABLED, adminAuth } from "@/firebase/config";
 
 const NOW = Date.now();
 const MOCK_REQUESTS: DepositRequest[] = [
@@ -102,15 +102,24 @@ export default function PageDeposits() {
   const [rejectReason, setRejectReason] = useState("");
   const [processing, setProcessing] = useState<string | null>(null);
   const [toast, setToast]           = useState("");
+  const [debugLines, setDebugLines] = useState<string[]>([]);
+  const [debugOpen, setDebugOpen]   = useState(true);
+
+  const debugLog = useCallback((msg: string) => {
+    const ts = new Date().toLocaleTimeString("en-IN", { hour12: false });
+    setDebugLines((prev) => [`[${ts}] ${msg}`, ...prev].slice(0, 30));
+  }, []);
 
   useEffect(() => {
-    console.log("[PageDeposits] mounted | FIREBASE_ENABLED=", FIREBASE_ENABLED, "| filter=", filter);
+    const user = adminAuth?.currentUser;
+    debugLog(`[auth] currentUser=${user ? user.email : "null (not signed in)"}`);
+    debugLog(`[mount] FIREBASE_ENABLED=${FIREBASE_ENABLED} | filter=${filter}`);
     const unsub = subscribeScreenshotDeposits(filter, (reqs) => {
-      console.log("[PageDeposits] callback received | reqs.length=", reqs.length, "| filter=", filter);
+      debugLog(`[callback] reqs.length=${reqs.length}`);
       setRequests(reqs.length > 0 ? reqs : (FIREBASE_ENABLED ? [] : MOCK_REQUESTS.filter((r) => filter === "all" || r.status === "pending")));
-    });
+    }, debugLog);
     return unsub;
-  }, [filter]);
+  }, [filter, debugLog]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -174,6 +183,34 @@ export default function PageDeposits() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── DEBUG PANEL (temporary) ── */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,215,0,0.3)", background: "rgba(10,8,0,0.95)" }}>
+        <button
+          onClick={() => setDebugOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-4 py-2.5"
+          style={{ background: "rgba(255,215,0,0.07)" }}>
+          <span className="text-xs font-black" style={{ color: "#FFD700" }}>🛠 Debug Panel — tap to {debugOpen ? "hide" : "show"}</span>
+          <span style={{ color: "rgba(255,215,0,0.5)", fontSize: 11 }}>{debugLines.length} lines</span>
+        </button>
+        {debugOpen && (
+          <div className="px-3 py-2 space-y-0.5 max-h-64 overflow-y-auto">
+            {debugLines.length === 0 && (
+              <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>Waiting for events…</p>
+            )}
+            {debugLines.map((line, i) => {
+              const isError   = line.includes("🔴") || line.includes("❌") || line.includes("ERROR") || line.includes("missing") || line.includes("null");
+              const isSuccess = line.includes("✅") || line.includes("signed in") || line.includes("snapshot received");
+              const isWarn    = line.includes("⏳") || line.includes("attaching");
+              const color = isError ? "#f87171" : isSuccess ? "#4ade80" : isWarn ? "#fbbf24" : "rgba(255,255,255,0.55)";
+              return (
+                <p key={i} className="text-[11px] font-mono leading-5 break-all" style={{ color }}>{line}</p>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {/* ── END DEBUG PANEL ── */}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
