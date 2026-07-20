@@ -19,6 +19,7 @@ export type AdminPage =
   | "dashboard"
   | "users"
   | "wallet"
+  | "deposits"
   | "games"
   | "marketing"
   | "notifications"
@@ -40,7 +41,7 @@ interface AdminSidebarProps {
   onClose:  () => void;
 }
 
-interface SubItem { tab: string; icon: LucideIcon; label: string }
+interface SubItem { tab: string; icon: LucideIcon; label: string; destPage?: AdminPage }
 interface NavGroup {
   id:      AdminPage;
   icon:    LucideIcon;
@@ -60,7 +61,7 @@ const NAV: NavGroup[] = [
     ],
   },
   { id: "wallet",        icon: Wallet,          label: "Wallet & Transactions", items: [
-      { tab: "deposits",     icon: ArrowDownToLine, label: "Deposit Requests"    },
+      { tab: "deposits",     icon: ArrowDownToLine, label: "Deposit Requests",    destPage: "deposits" },
       { tab: "withdrawals",  icon: ArrowUpFromLine, label: "Withdrawal Requests" },
       { tab: "logs",         icon: ScrollText,      label: "Transaction Logs"    },
       { tab: "bonus",        icon: Gift,            label: "Bonus & Coupons"     },
@@ -226,7 +227,7 @@ function SidebarContent({
                           <motion.button
                             key={item.tab}
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => onNav({ page: group.id, tab: item.tab })}
+                            onClick={() => onNav({ page: item.destPage ?? group.id, tab: item.destPage ? "" : item.tab })}
                             className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left cursor-pointer"
                             style={{
                               background: isActive ? "rgba(0,212,255,0.07)" : "transparent",

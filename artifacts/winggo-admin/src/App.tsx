@@ -7,6 +7,7 @@ import StaffDashboard     from "@/pages/StaffDashboard";
 import PageDashboard      from "@/pages/PageDashboard";
 import PageUserManagement from "@/pages/PageUserManagement";
 import PageWalletTxns     from "@/pages/PageWalletTxns";
+import PageDeposits       from "@/pages/PageDeposits";
 import PageGameSettings   from "@/pages/PageGameSettings";
 import PageMarketing      from "@/pages/PageMarketing";
 import PageNotifications  from "@/pages/PageNotifications";
@@ -22,6 +23,7 @@ import {
   hasAdminSession, clearAdminSession,
   hasStaffSession, clearStaffSession,
   bridgeToFirebaseAuth,
+  FIREBASE_ENABLED,
 } from "@/firebase/config";
 
 type AppMode   = "admin" | "staff" | "none";
@@ -34,6 +36,7 @@ const PAGE_META: Record<AdminPage, { icon: string; title: string }> = {
   dashboard:     { icon: "📊", title: "Dashboard Overview"           },
   users:         { icon: "👥", title: "User Management"              },
   wallet:        { icon: "💳", title: "Wallet & Transactions"        },
+  deposits:      { icon: "📥", title: "Deposit Requests"             },
   games:         { icon: "🎮", title: "Game Settings & Tournaments"  },
   marketing:     { icon: "🎁", title: "Banners, Offers & Marketing"  },
   notifications: { icon: "🔔", title: "Notifications & Social"       },
@@ -57,13 +60,17 @@ export default function App() {
   const [page,        setPage]       = useState<AdminPage>("dashboard");
   const [pageTab,     setPageTab]    = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // authReady: true once bridgeToFirebaseAuth() has resolved (or when Firebase is disabled).
+  // PageDeposits (and other Firestore-dependent pages) must not subscribe until auth is ready,
+  // otherwise Firestore security rules reject the snapshot listener with PERMISSION_DENIED.
+  const [authReady, setAuthReady]     = useState(!FIREBASE_ENABLED);
 
   // On page refresh, an admin session may already exist in sessionStorage but
   // Firebase Auth needs to be (re)established for Firestore/RTDB security
   // rules to allow reads. This is a no-op if already signed in.
   useEffect(() => {
     if (mode === "admin") {
-      bridgeToFirebaseAuth();
+      bridgeToFirebaseAuth().then(() => setAuthReady(true)).catch(() => setAuthReady(true));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -180,6 +187,7 @@ export default function App() {
               {page === "dashboard"     && <PageDashboard />}
               {page === "users"         && <PageUserManagement jumpTab={pageTab} />}
               {page === "wallet"        && <PageWalletTxns jumpTab={pageTab} />}
+              {page === "deposits"      && authReady && <PageDeposits />}
               {page === "games"         && <PageGameSettings jumpTab={pageTab} />}
               {page === "marketing"     && <PageMarketing jumpTab={pageTab} />}
               {page === "notifications" && <PageNotifications jumpTab={pageTab} />}
