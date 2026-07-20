@@ -131,8 +131,12 @@ function SidebarContent({
     }
     toggle(group.id);
     if (!expanded.has(group.id)) {
-      // navigating into the group — go to first sub-item
-      onNav({ page: group.id, tab: group.items[0].tab });
+      // navigating into the group — respect destPage if the first item has one
+      const first = group.items[0];
+      onNav({
+        page: first.destPage ?? group.id,
+        tab:  first.destPage ? "" : first.tab,
+      });
     }
   }
 
@@ -163,7 +167,9 @@ function SidebarContent({
       <div className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5"
         style={{ scrollbarWidth: "none" }}>
         {NAV.map((group) => {
-          const isActivePage  = active === group.id;
+          // highlight wallet group header when on any destPage sub-item (e.g. "deposits")
+          const isActivePage  = active === group.id ||
+            Boolean(group.items?.some((item) => item.destPage === active));
           const isExpanded    = expanded.has(group.id);
           const GroupIcon     = group.icon;
 
@@ -221,7 +227,10 @@ function SidebarContent({
                   >
                     <div className="pl-3 pr-1 pt-0.5 pb-1 space-y-0.5">
                       {group.items.map((item) => {
-                        const isActive = isActivePage && activeTab === item.tab;
+                        // if item has a destPage, highlight when on that page; otherwise use tab
+                        const isActive = item.destPage
+                          ? active === item.destPage
+                          : (isActivePage && activeTab === item.tab);
                         const ItemIcon = item.icon;
                         return (
                           <motion.button
