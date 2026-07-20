@@ -881,13 +881,25 @@ export function subscribeScreenshotDeposits(
   statusFilter: "pending" | "all",
   cb: (reqs: DepositRequest[]) => void,
 ): () => void {
-  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  console.log("[subscribeScreenshotDeposits] called | FIREBASE_ENABLED=", FIREBASE_ENABLED, "| adminDb=", !!adminDb, "| filter=", statusFilter);
+  if (!FIREBASE_ENABLED || !adminDb) {
+    console.warn("[subscribeScreenshotDeposits] Firebase disabled or adminDb null — returning empty");
+    cb([]); return () => {};
+  }
   const q = statusFilter === "pending"
     ? query(collection(adminDb, "depositRequests"), where("status", "==", "pending"), orderBy("requestedAt", "desc"), limit(100))
     : query(collection(adminDb, "depositRequests"), orderBy("requestedAt", "desc"), limit(100));
+  console.log("[subscribeScreenshotDeposits] attaching onSnapshot | collection=depositRequests | query=", statusFilter);
   return onSnapshot(q, (snap) => {
+    console.log("[subscribeScreenshotDeposits] snapshot received | docs.length=", snap.docs.length, "| empty=", snap.empty);
+    if (snap.docs.length > 0) {
+      console.log("[subscribeScreenshotDeposits] first doc sample=", JSON.stringify(snap.docs[0].data()).slice(0, 200));
+    }
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DepositRequest)));
-  }, () => cb([]));
+  }, (err) => {
+    console.error("[subscribeScreenshotDeposits] onSnapshot ERROR:", err.code, err.message, err);
+    cb([]);
+  });
 }
 
 export async function approveScreenshotDeposit(requestId: string, adminUid: string): Promise<void> {

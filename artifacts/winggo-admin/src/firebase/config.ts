@@ -194,14 +194,27 @@ export function clearAdminSession(): void {
  * Requires a Firestore `admins/{uid}` doc (uid of this Firebase Auth account).
  */
 export async function bridgeToFirebaseAuth(): Promise<void> {
-  if (!FIREBASE_ENABLED || !_auth) return;
+  console.log("[bridgeToFirebaseAuth] called | FIREBASE_ENABLED=", FIREBASE_ENABLED, "| _auth=", !!_auth);
+  if (!FIREBASE_ENABLED || !_auth) {
+    console.warn("[bridgeToFirebaseAuth] skipped — Firebase disabled or auth null");
+    return;
+  }
   const email    = import.meta.env.VITE_ADMIN_FIREBASE_EMAIL    ?? "";
   const password = import.meta.env.VITE_ADMIN_FIREBASE_PASSWORD ?? "";
-  if (!email || !password) return;
-  if (_auth.currentUser) return;
+  console.log("[bridgeToFirebaseAuth] email set=", !!email, "| password set=", !!password);
+  if (!email || !password) {
+    console.error("[bridgeToFirebaseAuth] VITE_ADMIN_FIREBASE_EMAIL or VITE_ADMIN_FIREBASE_PASSWORD missing — Firestore queries will be rejected by security rules");
+    return;
+  }
+  if (_auth.currentUser) {
+    console.log("[bridgeToFirebaseAuth] already signed in as", _auth.currentUser.email);
+    return;
+  }
   try {
-    await signInWithEmailAndPassword(_auth, email, password);
-  } catch {
+    const cred = await signInWithEmailAndPassword(_auth, email, password);
+    console.log("[bridgeToFirebaseAuth] signed in successfully | uid=", cred.user.uid);
+  } catch (err) {
+    console.error("[bridgeToFirebaseAuth] signIn FAILED:", (err as Error).message, err);
     // Non-fatal
   }
 }

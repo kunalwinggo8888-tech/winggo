@@ -104,7 +104,9 @@ export default function PageDeposits() {
   const [toast, setToast]           = useState("");
 
   useEffect(() => {
+    console.log("[PageDeposits] mounted | FIREBASE_ENABLED=", FIREBASE_ENABLED, "| filter=", filter);
     const unsub = subscribeScreenshotDeposits(filter, (reqs) => {
+      console.log("[PageDeposits] callback received | reqs.length=", reqs.length, "| filter=", filter);
       setRequests(reqs.length > 0 ? reqs : (FIREBASE_ENABLED ? [] : MOCK_REQUESTS.filter((r) => filter === "all" || r.status === "pending")));
     });
     return unsub;
