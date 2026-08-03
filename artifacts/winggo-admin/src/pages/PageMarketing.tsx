@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   subscribeAdminBanners, saveAdminBanners, subscribeAppConfig, updateAppConfig,
   subscribeAppBanner, saveAppBanner, uploadBannerImage,
-  AdminBanner, AppConfig, AppBannerConfig,
+  subscribeSpinWheelConfig, saveSpinWheelConfig,
+  AdminBanner, AppConfig, AppBannerConfig, SpinWheelConfig, SpinWheelSegment,
 } from "@/firebase/admin.service";
 
 const T = {
@@ -400,71 +401,123 @@ function BannersTab() {
 
 // ─── Spin Wheel Tab ───────────────────────────────────────────────────────────
 
-const DEFAULT_SEGMENTS = [
-  {label:"₹10",   weight:20,color:"#00d4ff"},
-  {label:"₹25",   weight:15,color:"#a855f7"},
-  {label:"₹50",   weight:10,color:"#f59e0b"},
-  {label:"₹100",  weight:5, color:"#00ff88"},
-  {label:"₹5",    weight:25,color:"#ff3366"},
-  {label:"Try Again",weight:15,color:"#6b7280"},
-  {label:"₹5",    weight:6, color:"#00d4ff"},
-  {label:"₹15",   weight:4, color:"#a855f7"},
-];
-
 function SpinWheelTab() {
-  const [segments, setSegments] = useState(DEFAULT_SEGMENTS);
-  const [saved,    setSaved]    = useState(false);
-  const total = segments.reduce((s,sg)=>s+sg.weight,0);
+  const [config, setConfig] = useState<SpinWheelConfig>({
+    enabled: true,
+    dailySpinLimit: 1,
+    segments: [
+      { label: "₹10", weight: 20, color: "#00d4ff", cashValue: 10 },
+      { label: "₹25", weight: 15, color: "#a855f7", cashValue: 25 },
+      { label: "₹50", weight: 10, color: "#f59e0b", cashValue: 50 },
+      { label: "₹100", weight: 5, color: "#00ff88", cashValue: 100 },
+      { label: "₹5", weight: 25, color: "#ff3366", cashValue: 5 },
+      { label: "Try Again", weight: 15, color: "#6b7280", cashValue: 0 },
+      { label: "₹5", weight: 6, color: "#00d4ff", cashValue: 5 },
+      { label: "₹15", weight: 4, color: "#a855f7", cashValue: 15 },
+    ],
+  });
+  const [saved, setSaved] = useState(false);
+  const total = config.segments.reduce((s, sg) => s + sg.weight, 0);
 
-  function updateWeight(i:number,v:number) {
-    setSegments(prev=>prev.map((s,j)=>j===i?{...s,weight:Math.max(1,v)}:s));
+  useEffect(() => {
+    const unsub = subscribeSpinWheelConfig(setConfig);
+    return unsub;
+  }, []);
+
+  function updateWeight(i: number, v: number) {
+    setConfig(prev => ({
+      ...prev,
+      segments: prev.segments.map((s, j) => j === i ? { ...s, weight: Math.max(1, v) } : s)
+    }));
+  }
+
+  function updateLabel(i: number, v: string) {
+    setConfig(prev => ({
+      ...prev,
+      segments: prev.segments.map((s, j) => j === i ? { ...s, label: v } : s)
+    }));
+  }
+
+  function updateCashValue(i: number, v: number) {
+    setConfig(prev => ({
+      ...prev,
+      segments: prev.segments.map((s, j) => j === i ? { ...s, cashValue: v } : s)
+    }));
   }
 
   async function save() {
-    setSaved(true); setTimeout(()=>setSaved(false),2000);
+    await saveSpinWheelConfig(config);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   return (
     <div className="p-4 space-y-4">
-      <div>
-        <h3 className="text-sm font-black text-white">Spin Wheel Probability</h3>
-        <p className="text-[11px] mt-0.5" style={{color:T.muted}}>
-          Adjust weights for each segment. Total weight = {total}
-          {total!==100 && <span style={{color:T.gold}}> (recommend total = 100)</span>}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-black text-white">Spin Wheel Configuration</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: T.muted }}>
+            Adjust rewards and probability weights. Total weight = {total}
+            {total !== 100 && <span style={{ color: T.gold }}> (recommend total = 100)</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] font-bold" style={{ color: T.muted }}>Enabled</label>
+          <button
+            onClick={() => setConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
+            className={`w-10 h-6 rounded-full relative transition-colors ${config.enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.enabled ? 'left-5' : 'left-1'}`} />
+          </button>
+        </div>
       </div>
+
       <div className="space-y-2">
-        {segments.map((seg,i) => (
+        {config.segments.map((seg, i) => (
           <div key={i} className="rounded-xl px-4 py-3 flex items-center gap-3"
-            style={{background:T.card,border:`1px solid ${T.bdr}`}}>
-            <div className="w-3 h-3 rounded-full shrink-0" style={{background:seg.color}} />
-            <p className="text-sm font-black text-white w-24 shrink-0">{seg.label}</p>
+            style={{ background: T.card, border: `1px solid ${T.bdr}` }}>
+            <div className="w-3 h-3 rounded-full shrink-0" style={{ background: seg.color }} />
+            <input
+              type="text"
+              value={seg.label}
+              onChange={e => updateLabel(i, e.target.value)}
+              className="w-20 text-sm font-black text-white outline-none bg-transparent"
+              style={{ caretColor: "#FFD700" }}
+            />
             <div className="flex-1">
-              <div className="w-full h-1.5 rounded-full mb-1" style={{background:"rgba(255,255,255,0.08)"}}>
-                <div className="h-full rounded-full" style={{width:`${(seg.weight/Math.max(total,1))*100}%`,background:seg.color,transition:"width 0.3s"}} />
+              <div className="w-full h-1.5 rounded-full mb-1" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div className="h-full rounded-full" style={{ width: `${(seg.weight / Math.max(total, 1)) * 100}%`, background: seg.color, transition: "width 0.3s" }} />
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <button onClick={()=>updateWeight(i,seg.weight-1)}
+              <button onClick={() => updateWeight(i, seg.weight - 1)}
                 className="w-6 h-6 rounded flex items-center justify-center text-xs cursor-pointer"
-                style={{background:"rgba(255,255,255,0.06)",color:T.muted}}>−</button>
-              <input type="number" value={seg.weight} onChange={e=>updateWeight(i,parseInt(e.target.value)||1)}
+                style={{ background: "rgba(255,255,255,0.06)", color: T.muted }}>−</button>
+              <input type="number" value={seg.weight} onChange={e => updateWeight(i, parseInt(e.target.value) || 1)}
                 className="w-12 text-center text-sm font-black text-white outline-none rounded-lg py-1"
-                style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(0,212,255,0.18)"}} />
-              <button onClick={()=>updateWeight(i,seg.weight+1)}
+                style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,212,255,0.18)" }} />
+              <button onClick={() => updateWeight(i, seg.weight + 1)}
                 className="w-6 h-6 rounded flex items-center justify-center text-xs cursor-pointer"
-                style={{background:"rgba(255,255,255,0.06)",color:T.muted}}>+</button>
+                style={{ background: "rgba(255,255,255,0.06)", color: T.muted }}>+</button>
             </div>
+            <input
+              type="number"
+              value={seg.cashValue || 0}
+              onChange={e => updateCashValue(i, parseInt(e.target.value) || 0)}
+              placeholder="₹"
+              className="w-16 text-center text-xs font-black text-white outline-none rounded-lg py-1"
+              style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,212,255,0.18)" }}
+            />
             <p className="text-[11px] font-black w-10 text-right shrink-0"
-              style={{color:T.blue}}>{total>0?Math.round((seg.weight/total)*100):0}%</p>
+              style={{ color: T.blue }}>{total > 0 ? Math.round((seg.weight / total) * 100) : 0}%</p>
           </div>
         ))}
       </div>
-      <motion.button whileTap={{scale:0.97}} onClick={save}
+      <motion.button whileTap={{ scale: 0.97 }} onClick={save}
         className="w-full py-3 rounded-xl text-sm font-black cursor-pointer"
-        style={{background:saved?"rgba(0,255,136,0.1)":"rgba(0,212,255,0.1)",
-          color:saved?T.green:T.blue,border:`1px solid ${saved?"rgba(0,255,136,0.3)":"rgba(0,212,255,0.25)"}`}}>
-        {saved?"✅ Saved to Firestore!":"🎡 Save Spin Wheel Config"}
+        style={{ background: saved ? "rgba(0,255,136,0.1)" : "rgba(0,212,255,0.1)",
+          color: saved ? T.green : T.blue, border: `1px solid ${saved ? "rgba(0,255,136,0.3)" : "rgba(0,212,255,0.25)"}` }}>
+        {saved ? "✅ Saved to Firestore!" : "🎡 Save Spin Wheel Config"}
       </motion.button>
     </div>
   );

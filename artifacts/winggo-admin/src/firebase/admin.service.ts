@@ -94,6 +94,8 @@ export interface WithdrawRequest {
   processedAt?: Timestamp;
   processedBy?: string;
   rejectionReason?: string;
+  dailyWithdrawCount?: number;
+  dailyLimit?: number;
 }
 
 export interface KYCRequest {
@@ -331,6 +333,52 @@ export async function seedGamesIfEmpty(): Promise<void> {
     batch.set(ref, { ...g, createdAt: serverTimestamp() });
   });
   await batch.commit();
+}
+
+// ─── SPIN WHEEL CONFIG ───────────────────────────────────────────────────────────
+
+export interface SpinWheelSegment {
+  label: string;
+  weight: number;
+  color: string;
+  cashValue?: number;
+}
+
+export interface SpinWheelConfig {
+  enabled: boolean;
+  dailySpinLimit: number;
+  segments: SpinWheelSegment[];
+  updatedAt?: Timestamp;
+}
+
+const DEFAULT_SPIN_WHEEL: SpinWheelConfig = {
+  enabled: true,
+  dailySpinLimit: 1,
+  segments: [
+    { label: "₹10", weight: 20, color: "#00d4ff", cashValue: 10 },
+    { label: "₹25", weight: 15, color: "#a855f7", cashValue: 25 },
+    { label: "₹50", weight: 10, color: "#f59e0b", cashValue: 50 },
+    { label: "₹100", weight: 5, color: "#00ff88", cashValue: 100 },
+    { label: "₹5", weight: 25, color: "#ff3366", cashValue: 5 },
+    { label: "Try Again", weight: 15, color: "#6b7280", cashValue: 0 },
+    { label: "₹5", weight: 6, color: "#00d4ff", cashValue: 5 },
+    { label: "₹15", weight: 4, color: "#a855f7", cashValue: 15 },
+  ],
+};
+
+export function subscribeSpinWheelConfig(cb: (c: SpinWheelConfig) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb(DEFAULT_SPIN_WHEEL); return () => {}; }
+  return onSnapshot(doc(adminDb, "config", "spinWheel"), (snap) => {
+    cb(snap.exists() ? { ...DEFAULT_SPIN_WHEEL, ...snap.data() } as SpinWheelConfig : DEFAULT_SPIN_WHEEL);
+  });
+}
+
+export async function saveSpinWheelConfig(config: SpinWheelConfig): Promise<void> {
+  if (!FIREBASE_ENABLED || !adminDb) return;
+  await setDoc(doc(adminDb, "config", "spinWheel"), {
+    ...config,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 export async function upsertGame(data: GameConfig): Promise<void> {
@@ -1237,6 +1285,63 @@ export async function staffSignIn(
 // suppress unused import warning
 function _noop(_: DocumentData) {}
 void _noop;
+
+// ─── LIVE LEADERBOARD (RTDB) ─────────────────────────────────────────────────────
+
+export interface LeaderboardEntry {
+  uid: string;
+  name: string;
+  score: number;
+  displayName?: string;
+  photoURL?: string;
+  totalWinnings?: number;
+  gamesPlayed?: number;
+}
+
+/**
+ * Subscribe to live leaderboard data from RTDB.
+ * Returns top 20 players sorted by score descending.
+ */
+export function subscribeLiveLeaderboard(
+  gameType: "ludo" | "worldwar" | "carrom",
+  cb: (entries: LeaderboardEntry[]) => void
+): () => void {
+  cb([]); // Emit empty immediately
+  if (!FIREBASE_ENABLED || !adminRtdb) return () => {};
+
+  const pathMap: Record<string, string> = {
+    ludo: "leaderboards/ludo",
+    worldwar: "leaderboards/worldwar",
+    carrom: "leaderboards/carrom",
+  };
+
+  const ref = rtdbRef(adminRtdb, pathMap[gameType] || "leaderboards/ludo");
+  const handler = (snap: DataSnapshot) => {
+    if (!snap.exists()) {
+      cb([]);
+      return;
+    }
+    const entries: LeaderboardEntry[] = [];
+    snap.forEach((child: DataSnapshot) => {
+      const data = child.val() as { name?: string; score?: number; displayName?: string; photoURL?: string; totalWinnings?: number; gamesPlayed?: number } | null;
+      if (data?.name && typeof data.score === "number") {
+        entries.push({
+          uid: child.key || "",
+          name: data.name,
+          score: data.score,
+          displayName: data.displayName,
+          photoURL: data.photoURL,
+          totalWinnings: data.totalWinnings,
+          gamesPlayed: data.gamesPlayed,
+        });
+      }
+    });
+    // Sort by score descending and take top 20
+    cb(entries.sort((a, b) => b.score - a.score).slice(0, 20));
+  };
+  onValue(ref, handler, () => cb([]));
+  return () => off(ref, "value", handler);
+}
 
 // ─── APP-OPEN BANNER AD ────────────────────────────────────────────────────────
 

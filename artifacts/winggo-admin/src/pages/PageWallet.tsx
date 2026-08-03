@@ -192,12 +192,12 @@ export default function PageWallet() {
             {/* Header */}
             <div className="grid px-4 py-3 text-[10px] font-black tracking-widest uppercase"
               style={{
-                gridTemplateColumns: "0.8fr 1.6fr 0.9fr 1.2fr 0.8fr 0.7fr 1fr",
+                gridTemplateColumns: "0.8fr 1.6fr 0.9fr 1.2fr 0.8fr 0.7fr 0.8fr 1fr",
                 background: "rgba(255,215,0,0.05)", color: "rgba(255,215,0,0.6)",
                 borderBottom: "1px solid rgba(255,255,255,0.06)",
               }}>
               <span>ID</span><span>User</span><span>Amount</span>
-              <span>UPI ID</span><span>Date</span><span>Status</span><span>Action</span>
+              <span>UPI ID</span><span>Date</span><span>Limit</span><span>Status</span><span>Action</span>
             </div>
 
             {filteredWD.length === 0 && (
@@ -224,7 +224,7 @@ export default function PageWallet() {
 
                     {/* Main row */}
                     <div className="grid items-center px-4 py-3"
-                      style={{ gridTemplateColumns: "0.8fr 1.6fr 0.9fr 1.2fr 0.8fr 0.7fr 1fr" }}>
+                      style={{ gridTemplateColumns: "0.8fr 1.6fr 0.9fr 1.2fr 0.8fr 0.7fr 0.8fr 1fr" }}>
                       <span className="text-[10px] font-mono truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
                         {w.id?.slice(-6)}
                       </span>
@@ -238,6 +238,9 @@ export default function PageWallet() {
                       </span>
                       <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
                         {fmtTs(w.requestedAt)}
+                      </span>
+                      <span className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        {w.dailyWithdrawCount ?? 0}/{w.dailyLimit ?? 2}
                       </span>
                       <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full inline-block"
                         style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>

@@ -425,10 +425,18 @@ export async function firestoreWithdraw(
 ): Promise<string> {
   if (!FIREBASE_ENABLED || !db) return "";
 
+  // Get daily withdrawal count for this user
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const withdrawCountKey = `winggo_withdraw_count_${uid}`;
+  const withdrawData = JSON.parse(localStorage.getItem(withdrawCountKey) || "{}");
+  const dailyWithdrawCount = (withdrawData.date === todayKey ? (withdrawData.count || 0) : 0) + 1;
+
   const reqData: Omit<WithdrawRequest, "id"> = {
     uid, email, displayName, amount, method,
     status: "pending",
     requestedAt: serverTimestamp() as unknown as Timestamp,
+    dailyWithdrawCount,
+    dailyLimit: 2,
   };
   if (method === "upi" && paymentDetails.upiId) reqData.upiId = paymentDetails.upiId;
   if (method === "bank" && paymentDetails.bankDetails) reqData.bankDetails = paymentDetails.bankDetails;
@@ -691,6 +699,44 @@ export function subscribeDeposits(cb: (deps: DepositRecord[]) => void): () => vo
 }
 
 /** Get deposit stats (total deposited, count) for admin summary */
+// ─── SPIN WHEEL CONFIG ───────────────────────────────────────────────────────────
+
+export interface SpinWheelSegment {
+  label: string;
+  weight: number;
+  color: string;
+  cashValue?: number;
+}
+
+export interface SpinWheelConfig {
+  enabled: boolean;
+  dailySpinLimit: number;
+  segments: SpinWheelSegment[];
+  updatedAt?: Timestamp;
+}
+
+const DEFAULT_SPIN_WHEEL: SpinWheelConfig = {
+  enabled: true,
+  dailySpinLimit: 1,
+  segments: [
+    { label: "₹5 Cash", weight: 25, color: "#FFD700", cashValue: 5 },
+    { label: "10 Coins", weight: 20, color: "#3B82F6", cashValue: 0 },
+    { label: "Better Luck", weight: 15, color: "#374151", cashValue: 0 },
+    { label: "₹10 Cash", weight: 15, color: "#EF4444", cashValue: 10 },
+    { label: "2x Referral", weight: 10, color: "#8B5CF6", cashValue: 0 },
+    { label: "₹2 Bonus", weight: 8, color: "#10B981", cashValue: 2 },
+    { label: "50 Coins", weight: 5, color: "#F97316", cashValue: 0 },
+    { label: "₹20 Cash", weight: 2, color: "#EC4899", cashValue: 20 },
+  ],
+};
+
+export function subscribeSpinWheelConfig(cb: (c: SpinWheelConfig) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb(DEFAULT_SPIN_WHEEL); return () => {}; }
+  return onSnapshot(doc(db, "config", "spinWheel"), (snap) => {
+    cb(snap.exists() ? { ...DEFAULT_SPIN_WHEEL, ...snap.data() } as SpinWheelConfig : DEFAULT_SPIN_WHEEL);
+  });
+}
+
 export async function getDepositStats(): Promise<{ total: number; count: number; today: number }> {
   if (!FIREBASE_ENABLED || !db) return { total: 0, count: 0, today: 0 };
   try {

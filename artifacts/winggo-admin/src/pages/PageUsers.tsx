@@ -582,12 +582,31 @@ export default function PageUsers() {
                   {[
                     { label: "KYC Status",    value: selected.kycStatus ?? "pending" },
                     { label: "Referral Code", value: selected.referralCode || "—" },
+                    { label: "Referred By",   value: selected.referredBy || "—" },
                     { label: "Joined",        value: fmtDate(selected.createdAt) },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex justify-between items-center py-2"
                       style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                       <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</span>
                       <span className="text-xs font-bold text-white">{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Game & Transaction stats */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black tracking-widest uppercase" style={{ color: "rgba(255,215,0,0.5)" }}>
+                    📊 ACTIVITY STATS
+                  </p>
+                  {[
+                    { label: "Games Played",     value: selected.gamesPlayed ?? 0, color: "#a78bfa" },
+                    { label: "Total Deposits",   value: `₹${(selected.totalDeposits ?? 0).toLocaleString("en-IN")}`, color: "#60a5fa" },
+                    { label: "Total Withdrawals", value: `₹${(selected.totalWithdrawals ?? 0).toLocaleString("en-IN")}`, color: "#f472b6" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex justify-between items-center py-2"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</span>
+                      <span className="text-xs font-bold" style={{ color }}>{value}</span>
                     </div>
                   ))}
                 </div>

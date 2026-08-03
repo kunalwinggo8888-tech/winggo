@@ -2,24 +2,18 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
 import { useWallet } from "@/context/useWallet";
+import { subscribeSpinWheelConfig, type SpinWheelConfig, type SpinWheelSegment } from "@/firebase/firestore.service";
 
-const SEGMENTS = [
-  { label: "₹5 Cash",              color: "#FFD700", textColor: "#000",    cashValue: 5  },
-  { label: "10 Coins",             color: "#3B82F6", textColor: "#fff",    cashValue: 0  },
-  { label: "Better Luck",          color: "#374151", textColor: "#9CA3AF", cashValue: 0  },
-  { label: "₹10 Cash",            color: "#EF4444", textColor: "#fff",    cashValue: 10 },
-  { label: "2x Referral",          color: "#8B5CF6", textColor: "#fff",    cashValue: 0  },
-  { label: "₹2 Bonus",            color: "#10B981", textColor: "#fff",    cashValue: 2  },
-  { label: "50 Coins",             color: "#F97316", textColor: "#fff",    cashValue: 0  },
-  { label: "₹20 Cash",            color: "#EC4899", textColor: "#fff",    cashValue: 20 },
+const DEFAULT_SEGMENTS: SpinWheelSegment[] = [
+  { label: "₹5 Cash", weight: 25, color: "#FFD700", cashValue: 5 },
+  { label: "10 Coins", weight: 20, color: "#3B82F6", cashValue: 0 },
+  { label: "Better Luck", weight: 15, color: "#374151", cashValue: 0 },
+  { label: "₹10 Cash", weight: 15, color: "#EF4444", cashValue: 10 },
+  { label: "2x Referral", weight: 10, color: "#8B5CF6", cashValue: 0 },
+  { label: "₹2 Bonus", weight: 8, color: "#10B981", cashValue: 2 },
+  { label: "50 Coins", weight: 5, color: "#F97316", cashValue: 0 },
+  { label: "₹20 Cash", weight: 2, color: "#EC4899", cashValue: 20 },
 ];
-
-const N = SEGMENTS.length;
-const SEG_ANGLE = 360 / N;
-const CX = 160;
-const CY = 160;
-const R = 148;
-const INNER_R = 40;
 
 const DAILY_KEY = "winggo_last_spin_date";
 
@@ -27,17 +21,32 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Weighted random selection based on segment weights
+function selectWeightedSegment(segments: SpinWheelSegment[]): number {
+  const totalWeight = segments.reduce((sum, seg) => sum + seg.weight, 0);
+  let random = Math.random() * totalWeight;
+  for (let i = 0; i < segments.length; i++) {
+    random -= segments[i].weight;
+    if (random <= 0) return i;
+  }
+  return 0;
+}
+
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-function segmentPath(i: number): string {
-  const start = polarToCartesian(CX, CY, R, i * SEG_ANGLE);
-  const end   = polarToCartesian(CX, CY, R, (i + 1) * SEG_ANGLE);
-  const iStart = polarToCartesian(CX, CY, INNER_R, i * SEG_ANGLE);
-  const iEnd   = polarToCartesian(CX, CY, INNER_R, (i + 1) * SEG_ANGLE);
-  const large  = SEG_ANGLE > 180 ? 1 : 0;
+function segmentPath(i: number, n: number, segAngle: number): string {
+  const CX = 160;
+  const CY = 160;
+  const R = 148;
+  const INNER_R = 40;
+  const start = polarToCartesian(CX, CY, R, i * segAngle);
+  const end   = polarToCartesian(CX, CY, R, (i + 1) * segAngle);
+  const iStart = polarToCartesian(CX, CY, INNER_R, i * segAngle);
+  const iEnd   = polarToCartesian(CX, CY, INNER_R, (i + 1) * segAngle);
+  const large  = segAngle > 180 ? 1 : 0;
   return [
     `M ${iStart.x} ${iStart.y}`,
     `L ${start.x} ${start.y}`,
@@ -112,29 +121,48 @@ interface SpinWheelProps {
 export default function SpinWheel({ onBack }: SpinWheelProps) {
   const { addBonus } = useWallet();
 
+  const [config, setConfig] = useState<SpinWheelConfig>({
+    enabled: true,
+    dailySpinLimit: 1,
+    segments: DEFAULT_SEGMENTS,
+  });
   const [rotation, setRotation]   = useState(0);
   const [spinning, setSpinning]   = useState(false);
-  const [winner, setWinner]       = useState<typeof SEGMENTS[0] | null>(null);
+  const [winner, setWinner]       = useState<SpinWheelSegment | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [confetti, setConfetti]   = useState(false);
   const [alreadySpun, setAlreadySpun] = useState(() => localStorage.getItem(DAILY_KEY) === todayStr());
   const rotRef = useRef(0);
 
-  const spin = useCallback(() => {
-    if (spinning || alreadySpun) return;
+  // Subscribe to Firebase config
+  useEffect(() => {
+    const unsub = subscribeSpinWheelConfig(setConfig);
+    return unsub;
+  }, []);
 
-    const winIdx   = Math.floor(Math.random() * N);
-    const winAngle = winIdx * SEG_ANGLE + SEG_ANGLE / 2;
+  const segments = config.segments || DEFAULT_SEGMENTS;
+  const n = segments.length;
+  const segAngle = 360 / n;
+  const CX = 160;
+  const CY = 160;
+  const R = 148;
+  const INNER_R = 40;
+
+  const spin = useCallback(() => {
+    if (spinning || alreadySpun || !config.enabled) return;
+
+    const winIdx = selectWeightedSegment(segments);
+    const winAngle = winIdx * segAngle + segAngle / 2;
     const normalizedCurrent = rotRef.current % 360;
-    const delta     = (winAngle - normalizedCurrent + 360) % 360;
-    const target    = rotRef.current + 5 * 360 + delta;
+    const delta = (winAngle - normalizedCurrent + 360) % 360;
+    const target = rotRef.current + 5 * 360 + delta;
 
     rotRef.current = target;
     setRotation(target);
     setSpinning(true);
 
     setTimeout(() => {
-      const seg = SEGMENTS[winIdx];
+      const seg = segments[winIdx];
       setSpinning(false);
       setWinner(seg);
       setShowModal(true);
@@ -143,13 +171,13 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
       setAlreadySpun(true);
 
       // Record cash rewards as real wallet transactions
-      if (seg.cashValue > 0) {
+      if (seg.cashValue && seg.cashValue > 0) {
         addBonus(seg.cashValue, `Daily Spin — ${seg.label}`);
       }
 
       setTimeout(() => setConfetti(false), 3500);
     }, 4500);
-  }, [spinning, alreadySpun, addBonus]);
+  }, [spinning, alreadySpun, config.enabled, segments, addBonus]);
 
   return (
     <motion.div
@@ -170,7 +198,15 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
         <h2 className="text-white font-black text-xl tracking-tight flex-1">
           Spin &amp; Win
         </h2>
-        {alreadySpun && (
+        {!config.enabled && (
+          <span
+            className="text-xs font-semibold px-2 py-1 rounded-full"
+            style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444" }}
+          >
+            Disabled
+          </span>
+        )}
+        {config.enabled && alreadySpun && (
           <span
             className="text-xs font-semibold px-2 py-1 rounded-full"
             style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444" }}
@@ -182,7 +218,9 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
 
       {/* ── Subtitle ── */}
       <p className="text-zinc-500 text-sm mt-4 mb-2 text-center px-6">
-        {alreadySpun
+        {!config.enabled
+          ? "Spin Wheel is currently disabled by admin."
+          : alreadySpun
           ? "You've already spun today. Come back tomorrow!"
           : "Spin once daily for a chance to win big prizes!"}
       </p>
@@ -232,13 +270,14 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
         >
           <svg viewBox="0 0 320 320" width="320" height="320">
             {/* Segments */}
-            {SEGMENTS.map((seg, i) => {
-              const mid = polarToCartesian(CX, CY, R * 0.68, i * SEG_ANGLE + SEG_ANGLE / 2);
-              const textAngle = i * SEG_ANGLE + SEG_ANGLE / 2;
+            {segments.map((seg, i) => {
+              const mid = polarToCartesian(CX, CY, R * 0.68, i * segAngle + segAngle / 2);
+              const textAngle = i * segAngle + segAngle / 2;
+              const textColor = seg.color === "#374151" || seg.color === "#6b7280" ? "#9CA3AF" : "#fff";
               return (
                 <g key={i}>
                   <path
-                    d={segmentPath(i)}
+                    d={segmentPath(i, n, segAngle)}
                     fill={seg.color}
                     stroke="rgba(0,0,0,0.4)"
                     strokeWidth="1.5"
@@ -248,7 +287,7 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
                     y={mid.y}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill={seg.textColor}
+                    fill={textColor}
                     fontSize="11"
                     fontWeight="800"
                     fontFamily="Inter, sans-serif"
@@ -321,7 +360,7 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
           Prize Slots
         </h3>
         <div className="grid grid-cols-2 gap-2">
-          {SEGMENTS.map((seg, i) => (
+          {segments.map((seg, i) => (
             <div
               key={i}
               className="flex items-center gap-2 px-3 py-2 rounded-xl"

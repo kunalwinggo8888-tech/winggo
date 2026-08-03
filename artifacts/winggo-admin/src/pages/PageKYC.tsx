@@ -10,9 +10,10 @@ const STATUS_CFG = {
   rejected: { label: "Rejected",  bg: "rgba(248,113,113,0.12)", color: "#f87171", border: "rgba(248,113,113,0.25)" },
 };
 
-type LocalKYC = { id: string; name: string; email: string; pan?: string; docType?: string; docNumber?: string; submitted: string; risk: string; status: string; uid: string; frontURL?: string; backURL?: string };
+type LocalKYC = { id: string; name: string; email: string; pan?: string; docType?: string; docNumber?: string; submitted: string; submittedTime: string; risk: string; status: string; uid: string; frontURL?: string; backURL?: string };
 
 function toLocal(r: KYCRequest): LocalKYC {
+  const submittedAt = r.submittedAt ? new Date((r.submittedAt as { seconds: number }).seconds * 1000) : null;
   return {
     id: r.uid,
     uid: r.uid,
@@ -20,7 +21,8 @@ function toLocal(r: KYCRequest): LocalKYC {
     email: r.email,
     docType: r.docType,
     docNumber: r.docNumber,
-    submitted: r.submittedAt ? new Date((r.submittedAt as { seconds: number }).seconds * 1000).toLocaleDateString("en-IN") : "—",
+    submitted: submittedAt ? submittedAt.toLocaleDateString("en-IN") : "—",
+    submittedTime: submittedAt ? submittedAt.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) : "—",
     risk: "low",
     status: r.status === "approved" ? "approved" : r.status === "rejected" ? "rejected" : "pending",
     frontURL: r.frontURL,
@@ -29,7 +31,7 @@ function toLocal(r: KYCRequest): LocalKYC {
 }
 
 function mockToLocal(m: (typeof MOCK_KYC)[number]): LocalKYC {
-  return { id: m.id, uid: m.id, name: m.name, email: "", pan: m.pan, docType: "pan", docNumber: m.pan, submitted: m.submitted, risk: m.risk, status: m.status };
+  return { id: m.id, uid: m.id, name: m.name, email: "", pan: m.pan, docType: "pan", docNumber: m.pan, submitted: m.submitted, submittedTime: "—", risk: m.risk, status: m.status };
 }
 
 export default function PageKYC() {
@@ -108,10 +110,10 @@ export default function PageKYC() {
 
       {/* Table */}
       <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-        <div className="grid grid-cols-7 gap-2 px-4 py-3 text-[10px] font-black tracking-widest uppercase"
+        <div className="grid grid-cols-8 gap-2 px-4 py-3 text-[10px] font-black tracking-widest uppercase"
           style={{ background: "rgba(255,215,0,0.05)", color: "rgba(255,215,0,0.6)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <span>User ID</span><span className="col-span-2">Name</span>
-          <span>Doc</span><span>Submitted</span><span>Risk</span><span>Status</span>
+          <span>Mobile/Doc</span><span>Submitted</span><span>Time</span><span>Risk</span><span>Status</span>
         </div>
 
         {filtered.length === 0 && (
@@ -124,7 +126,7 @@ export default function PageKYC() {
           const cfg  = STATUS_CFG[e.status as keyof typeof STATUS_CFG] ?? STATUS_CFG.pending;
           return (
             <motion.div key={e.id} whileTap={{ scale: 0.997 }}
-              onClick={() => setSelected(e)} className="grid grid-cols-7 gap-2 items-center px-4 py-3 cursor-pointer"
+              onClick={() => setSelected(e)} className="grid grid-cols-8 gap-2 items-center px-4 py-3 cursor-pointer"
               style={{
                 background: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
                 borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
@@ -134,8 +136,9 @@ export default function PageKYC() {
                 <p className="text-xs font-bold text-white truncate">{e.name}</p>
                 <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{e.email}</p>
               </div>
-              <span className="text-[10px] font-bold uppercase" style={{ color: "rgba(255,255,255,0.5)" }}>{e.docType ?? "PAN"}</span>
+              <span className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>{e.docType === "mobile" ? e.docNumber : (e.docType ?? "PAN")}</span>
               <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>{e.submitted}</span>
+              <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>{e.submittedTime}</span>
               <span className="text-[10px] font-bold" style={{ color: e.risk === "high" ? "#f87171" : e.risk === "medium" ? "#f59e0b" : "#34d399" }}>
                 {e.risk.toUpperCase()}
               </span>
@@ -167,7 +170,8 @@ export default function PageKYC() {
               {[
                 { label: "Email",   value: selected.email },
                 { label: "Doc Type",value: (selected.docType ?? "PAN").toUpperCase() },
-                { label: "Doc No.", value: selected.docNumber ?? selected.pan ?? "—" },
+                { label: "Doc No.", value: selected.docType === "mobile" ? selected.docNumber : (selected.docNumber ?? selected.pan ?? "—") },
+                { label: "Submitted", value: `${selected.submitted} ${selected.submittedTime}` },
                 { label: "Status",  value: selected.status },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>

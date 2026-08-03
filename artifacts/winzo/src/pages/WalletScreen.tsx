@@ -22,6 +22,34 @@ type WithdrawMethod = "upi" | "bank";
 const AMOUNT_PRESETS = [50, 100, 200, 500, 1000, 2000];
 const MIN_WITHDRAW = 100;
 const MAX_WITHDRAW = 10000;
+const DAILY_WITHDRAW_LIMIT = 2;
+
+// ─── WITHDRAWAL LIMIT HELPERS ─────────────────────────────────────────────────
+
+function getTodayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getWithdrawalCount(uid: string | null): number {
+  if (!uid) return 0;
+  const key = `winggo_withdraw_count_${uid}`;
+  const data = JSON.parse(localStorage.getItem(key) || "{}");
+  const today = getTodayKey();
+  return data.date === today ? (data.count || 0) : 0;
+}
+
+function incrementWithdrawalCount(uid: string | null): void {
+  if (!uid) return;
+  const key = `winggo_withdraw_count_${uid}`;
+  const data = JSON.parse(localStorage.getItem(key) || "{}");
+  const today = getTodayKey();
+  if (data.date !== today) {
+    data.date = today;
+    data.count = 0;
+  }
+  data.count = (data.count || 0) + 1;
+  localStorage.setItem(key, JSON.stringify(data));
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -778,11 +806,14 @@ function WithdrawalTab({
   const [saveBank, setSaveBank]       = useState(true);
   const [submitted, setSubmitted]     = useState(false);
   const [error, setError]             = useState("");
+  const [withdrawCount, setWithdrawCount] = useState(() => getWithdrawalCount(uid));
 
   const amtNum      = parseInt(amount, 10) || 0;
-  const canWithdraw = winningBalance >= MIN_WITHDRAW;
+  const canWithdraw = winningBalance >= MIN_WITHDRAW && withdrawCount < DAILY_WITHDRAW_LIMIT;
+  const remainingWithdrawals = DAILY_WITHDRAW_LIMIT - withdrawCount;
 
   function validate(): string {
+    if (withdrawCount >= DAILY_WITHDRAW_LIMIT) return `Daily withdrawal limit reached (${DAILY_WITHDRAW_LIMIT}/day). Try again tomorrow.`;
     if (amtNum < MIN_WITHDRAW) return `Minimum withdrawal is ${fmt(MIN_WITHDRAW)}`;
     if (amtNum > MAX_WITHDRAW) return `Maximum withdrawal is ${fmt(MAX_WITHDRAW)}`;
     if (amtNum > winningBalance) return `Only ${fmt(winningBalance)} available in winnings`;
@@ -820,6 +851,8 @@ function WithdrawalTab({
           },
         };
     onWithdraw(amtNum, method, details);
+    incrementWithdrawalCount(uid);
+    setWithdrawCount(prev => prev + 1);
     setSubmitted(true);
     setTimeout(() => { setSubmitted(false); setAmount(""); }, 3500);
   }
@@ -873,7 +906,44 @@ function WithdrawalTab({
         <span className="text-3xl">🏆</span>
       </div>
 
-      {!canWithdraw && (
+      {/* Withdrawal limit indicator */}
+      <div className="rounded-xl p-3 flex items-center justify-between"
+        style={{
+          background: remainingWithdrawals > 0 ? "rgba(59,130,246,0.08)" : "rgba(239,68,68,0.08)",
+          border: remainingWithdrawals > 0 ? "1px solid rgba(59,130,246,0.25)" : "1px solid rgba(239,68,68,0.25)",
+        }}>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">📊</span>
+          <div>
+            <p className="text-xs font-bold" style={{ color: remainingWithdrawals > 0 ? "#60a5fa" : "#f87171" }}>
+              Daily Withdrawal Limit
+            </p>
+            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {withdrawCount}/{DAILY_WITHDRAW_LIMIT} used today · Resets at midnight
+            </p>
+          </div>
+        </div>
+        <span className="text-xs font-black px-2 py-1 rounded-full"
+          style={{
+            background: remainingWithdrawals > 0 ? "rgba(59,130,246,0.15)" : "rgba(239,68,68,0.15)",
+            color: remainingWithdrawals > 0 ? "#60a5fa" : "#f87171",
+            border: remainingWithdrawals > 0 ? "1px solid rgba(59,130,246,0.3)" : "1px solid rgba(239,68,68,0.3)",
+          }}>
+          {remainingWithdrawals} left
+        </span>
+      </div>
+
+      {!canWithdraw && winningBalance >= MIN_WITHDRAW && (
+        <div className="rounded-xl p-3 flex items-center gap-2"
+          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+          <span>⚠️</span>
+          <p className="text-xs font-bold" style={{ color: "#f87171" }}>
+            Daily withdrawal limit reached. Try again tomorrow.
+          </p>
+        </div>
+      )}
+
+      {!canWithdraw && winningBalance < MIN_WITHDRAW && (
         <div className="rounded-xl p-3 flex items-center gap-2"
           style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}>
           <span>⚠️</span>
