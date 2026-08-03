@@ -153,6 +153,127 @@ export interface GameConfig {
   updatedAt?: Timestamp;
 }
 
+export interface LudoMatchResult {
+  id?: string;
+  uid: string;
+  opponentName: string;
+  opponentIsBot: boolean;
+  playerScore: number;
+  opponentScore: number;
+  won: boolean;
+  entryFee: number;
+  prizeAmount: number;
+  tier: "easy" | "medium" | "god";
+  duration: number; // seconds
+  moves: number;
+  kills: number;
+  forfeited: boolean;
+  playedAt: Timestamp;
+  roomId?: string;
+}
+
+// ─── LUDO MATCH RESULTS ───────────────────────────────────────────────────────
+
+/** Save a Ludo match result to Firestore */
+export async function saveLudoMatchResult(data: Omit<LudoMatchResult, "id" | "playedAt">): Promise<string> {
+  if (!FIREBASE_ENABLED || !db) return "";
+  const docRef = await addDoc(collection(db, "ludoMatches"), {
+    ...data,
+    playedAt: serverTimestamp(),
+  });
+  return docRef.id;
+}
+
+/** Get user's Ludo match history */
+export async function getLudoMatchHistory(uid: string, limitCount = 50): Promise<LudoMatchResult[]> {
+  if (!FIREBASE_ENABLED || !db) return [];
+  const snap = await getDocs(query(
+    collection(db, "ludoMatches"),
+    where("uid", "==", uid),
+    orderBy("playedAt", "desc"),
+    limit(limitCount)
+  ));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as LudoMatchResult));
+}
+
+/** Subscribe to user's Ludo match history in real-time */
+export function subscribeLudoMatchHistory(uid: string, cb: (matches: LudoMatchResult[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb([]); return () => {}; }
+  const q = query(
+    collection(db, "ludoMatches"),
+    where("uid", "==", uid),
+    orderBy("playedAt", "desc"),
+    limit(50)
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LudoMatchResult)));
+  }, () => cb([]));
+}
+
+/** Get live Ludo matches for admin dashboard */
+export function subscribeLiveLudoMatches(cb: (matches: LudoMatchResult[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb([]); return () => {}; }
+  const q = query(
+    collection(db, "ludoMatches"),
+    orderBy("playedAt", "desc"),
+    limit(100)
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LudoMatchResult)));
+  }, () => cb([]));
+}
+
+/** Get Ludo stats for admin dashboard */
+export async function getLudoStats(): Promise<{
+  totalMatches: number;
+  activeMatches: number;
+  realPlayers: number;
+  botPlayers: number;
+  totalWinnings: number;
+  todayMatches: number;
+}> {
+  if (!FIREBASE_ENABLED || !db) {
+    return { totalMatches: 0, activeMatches: 0, realPlayers: 0, botPlayers: 0, totalWinnings: 0, todayMatches: 0 };
+  }
+  try {
+    const snap = await getDocs(query(collection(db, "ludoMatches"), limit(1000)));
+    const now = Date.now();
+    const todayStart = now - 86400000;
+    let totalMatches = snap.size;
+    let todayMatches = 0;
+    let realPlayers = 0;
+    let botPlayers = 0;
+    let totalWinnings = 0;
+    
+    snap.docs.forEach((d) => {
+      const match = d.data() as LudoMatchResult;
+      const ts = typeof match.playedAt === "number"
+        ? match.playedAt
+        : (match.playedAt as Timestamp)?.seconds * 1000 ?? 0;
+      if (ts > todayStart) todayMatches++;
+      if (match.opponentIsBot) {
+        botPlayers++;
+      } else {
+        realPlayers++;
+      }
+      if (match.won) totalWinnings += match.prizeAmount;
+    });
+    
+    // Active matches = matches played in last 5 minutes
+    const activeMatches = snap.docs.filter((d) => {
+      const match = d.data() as LudoMatchResult;
+      const ts = typeof match.playedAt === "number"
+        ? match.playedAt
+        : (match.playedAt as Timestamp)?.seconds * 1000 ?? 0;
+      return now - ts < 300000; // 5 minutes
+    }).length;
+    
+    return { totalMatches, activeMatches, realPlayers, botPlayers, totalWinnings, todayMatches };
+  } catch {
+    return { totalMatches: 0, activeMatches: 0, realPlayers: 0, botPlayers: 0, totalWinnings: 0, todayMatches: 0 };
+  }
+}
+
 // ─── USER PROFILE ─────────────────────────────────────────────────────────────
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {

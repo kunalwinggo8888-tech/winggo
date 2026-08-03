@@ -15,6 +15,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
 import { useMatchHistory } from "@/context/useMatchHistory";
 import { getRandomBot, type BotPlayer } from "@/data/botDatabase";
+import { saveLudoMatchResult, firestoreAddWinning, firestoreDeductEntryFee } from "@/firebase/firestore.service";
+import { useAuth } from "@/context/useAuth";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -108,7 +110,7 @@ const Sounds = {
   roll() {
     try {
       const c = getACtx(); if (!c) return;
-      const len = Math.ceil(c.sampleRate * 0.2);
+      const len = Math.ceil(c.sampleRate * 0.25);
       const buf = c.createBuffer(1, len, c.sampleRate);
       const d   = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2;
@@ -116,10 +118,21 @@ const Sounds = {
       const filter = c.createBiquadFilter();
       filter.type = "bandpass"; filter.frequency.value = 900; filter.Q.value = 0.5;
       const gain = c.createGain();
-      gain.gain.setValueAtTime(0.4, c.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.45, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.25);
       src.connect(filter); filter.connect(gain); gain.connect(c.destination);
       src.start();
+    } catch {}
+  },
+  turn() {
+    try {
+      const c = getACtx(); if (!c) return;
+      const osc = c.createOscillator(); const gain = c.createGain();
+      osc.type = "sine"; osc.frequency.value = 440;
+      gain.gain.setValueAtTime(0.15, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.15);
+      osc.connect(gain); gain.connect(c.destination);
+      osc.start(); osc.stop(c.currentTime + 0.15);
     } catch {}
   },
   win() {
@@ -129,7 +142,7 @@ const Sounds = {
         const osc = c.createOscillator(); const gain = c.createGain();
         osc.type = "sine"; osc.frequency.value = f;
         const t = c.currentTime + i * 0.13;
-        gain.gain.setValueAtTime(0.24, t);
+        gain.gain.setValueAtTime(0.28, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
         osc.connect(gain); gain.connect(c.destination);
         osc.start(t); osc.stop(t + 0.22);
@@ -143,7 +156,7 @@ const Sounds = {
         const osc = c.createOscillator(); const gain = c.createGain();
         osc.type = "sine"; osc.frequency.value = f;
         const t = c.currentTime + i * 0.18;
-        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.setValueAtTime(0.25, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
         osc.connect(gain); gain.connect(c.destination);
         osc.start(t); osc.stop(t + 0.24);
@@ -201,23 +214,37 @@ function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: 
       whileTap={!disabled ? { scale: 0.88 } : {}}
       style={{ cursor: disabled ? "not-allowed" : "pointer", userSelect: "none", flexShrink: 0 }}
       animate={rolling
-        ? { rotate: [0,-44,44,-28,28,-15,15,0], scale: [1,1.38,0.76,1.24,0.87,1.13,1], y: [0,-28,11,-16,5,-8,0] }
-        : { rotate: 0, scale: 1, y: 0 }}
-      transition={{ duration: 0.72 }}
+        ? { 
+            rotateX: [0, 360, 720, 1080, 1440],
+            rotateY: [0, 180, 360, 540, 720],
+            rotateZ: [0, 90, 180, 270, 360],
+            scale: [1, 1.3, 0.9, 1.2, 1],
+            y: [0, -20, 10, -15, 0]
+          }
+        : { rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, y: 0 }}
+      transition={{ duration: 0.85, ease: "easeOut" }}
     >
-      <div style={{
+      <motion.div style={{
         width: sz, height: sz,
         borderRadius: 14,
         background: "#ffffff",
         border: "2.5px solid #111111",
         boxShadow: rolling
-          ? `4px 6px 18px rgba(0,0,0,0.75),-2px -2px 6px rgba(255,255,255,0.9),inset 0 2px 4px rgba(255,255,255,0.8),0 0 50px ${playerColor},0 0 100px ${playerColor}88`
+          ? `6px 8px 24px rgba(0,0,0,0.8),-3px -3px 8px rgba(255,255,255,0.95),inset 0 3px 6px rgba(255,255,255,0.9),0 0 60px ${playerColor},0 0 120px ${playerColor}aa`
           : disabled
           ? "2px 3px 8px rgba(0,0,0,0.4)"
           : `4px 6px 14px rgba(0,0,0,0.6),-2px -2px 5px rgba(255,255,255,0.7),inset 0 2px 3px rgba(255,255,255,0.6),0 0 22px ${playerColor}80`,
         opacity: disabled && !rolling ? 0.42 : 1,
         transition: "box-shadow 0.22s, opacity 0.22s",
-      }}>
+      }}
+      animate={rolling ? {
+        boxShadow: [
+          `6px 8px 24px rgba(0,0,0,0.8),-3px -3px 8px rgba(255,255,255,0.95),inset 0 3px 6px rgba(255,255,255,0.9),0 0 60px ${playerColor},0 0 120px ${playerColor}aa`,
+          `8px 10px 30px rgba(0,0,0,0.9),-4px -4px 10px rgba(255,255,255,1),inset 0 4px 8px rgba(255,255,255,0.95),0 0 80px ${playerColor},0 0 160px ${playerColor}cc`,
+          `6px 8px 24px rgba(0,0,0,0.8),-3px -3px 8px rgba(255,255,255,0.95),inset 0 3px 6px rgba(255,255,255,0.9),0 0 60px ${playerColor},0 0 120px ${playerColor}aa`,
+        ]
+      } : {}}
+      transition={{ duration: 0.85 }}>
         <svg width={sz} height={sz} viewBox="0 0 100 100" style={{ display: "block" }}>
           <rect x={3} y={3} width={93} height={93} rx={14}
             fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2.5} />
@@ -231,7 +258,7 @@ function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: 
             </g>
           ))}
         </svg>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
@@ -382,24 +409,24 @@ function Board({
           style={{ animation: "zone-pulse 0.9s ease-in-out infinite alternate" }} />
       )}
 
-      {/* ── Score inside YELLOW home base (YOU) ── bottom-left ── CHANGED ── */}
-      <rect x={C+4} y={10*C+4} width={4*C-8} height={4*C-8} rx={6}
-        fill="rgba(234,179,8,0.1)" />
-      <text x={3*C} y={10*C + 4*C*0.22}
+      {/* ── Score inside YELLOW home base (YOU) ── bottom-left ── ENHANCED ── */}
+      <rect x={C+2} y={10*C+2} width={4*C-4} height={4*C-4} rx={8}
+        fill="rgba(234,179,8,0.15)" stroke="rgba(234,179,8,0.3)" strokeWidth={1.5} />
+      <text x={3*C} y={10*C + 4*C*0.18}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*0.45} fontWeight="900" fill="#eab308"
-        letterSpacing="2" style={{ userSelect: "none" }}>YOU</text>
+        fontSize={C*0.52} fontWeight="900" fill="#eab308"
+        letterSpacing="2" style={{ userSelect: "none", filter: "drop-shadow(0 0 6px rgba(234,179,8,0.6))" }}>YOU</text>
       <text x={3*C} y={10*C + 4*C*0.52}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*1.0} fontWeight="900" fill="#eab308"
-        style={{ userSelect: "none", filter: "drop-shadow(0 0 4px rgba(234,179,8,0.55))" }}>
+        fontSize={C*1.35} fontWeight="900" fill="#eab308"
+        style={{ userSelect: "none", filter: "drop-shadow(0 0 8px rgba(234,179,8,0.8))" }}>
         {pScore}
       </text>
       <text x={3*C} y={10*C + 4*C*0.82}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*0.35} fontWeight="700" fill="#92400e"
+        fontSize={C*0.38} fontWeight="700" fill="#fde68a"
         style={{ userSelect: "none" }}>
-        {MAX_MOVES - pMoves} moves
+        {MAX_MOVES - pMoves} moves left
       </text>
       {turn === "player" && (
         <>
@@ -413,26 +440,26 @@ function Board({
         </>
       )}
 
-      {/* ── Score inside BLUE home base (BOT) ── top-right (unchanged) ── */}
-      <rect x={10*C+4} y={C+4} width={4*C-8} height={4*C-8} rx={6}
-        fill="rgba(37,99,235,0.08)" />
-      <text x={12*C} y={C + 4*C*0.22}
+      {/* ── Score inside BLUE home base (BOT) ── top-right ── ENHANCED ── */}
+      <rect x={10*C+2} y={C+2} width={4*C-4} height={4*C-4} rx={8}
+        fill="rgba(37,99,235,0.12)" stroke="rgba(59,130,246,0.3)" strokeWidth={1.5} />
+      <text x={12*C} y={C + 4*C*0.18}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*0.4} fontWeight="900" fill="#2563eb"
-        letterSpacing="1" style={{ userSelect: "none" }}>
-        {botName.slice(0, 7).toUpperCase()}
+        fontSize={C*0.48} fontWeight="900" fill="#3b82f6"
+        letterSpacing="1" style={{ userSelect: "none", filter: "drop-shadow(0 0 6px rgba(59,130,246,0.6))" }}>
+        {botName.slice(0, 8).toUpperCase()}
       </text>
       <text x={12*C} y={C + 4*C*0.52}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*1.0} fontWeight="900" fill="#2563eb"
-        style={{ userSelect: "none", filter: "drop-shadow(0 0 4px rgba(37,99,235,0.5))" }}>
+        fontSize={C*1.35} fontWeight="900" fill="#3b82f6"
+        style={{ userSelect: "none", filter: "drop-shadow(0 0 8px rgba(59,130,246,0.8))" }}>
         {bScore}
       </text>
       <text x={12*C} y={C + 4*C*0.82}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*0.35} fontWeight="700" fill="#1e40af"
+        fontSize={C*0.38} fontWeight="700" fill="#93c5fd"
         style={{ userSelect: "none" }}>
-        {MAX_MOVES - bMoves} moves
+        {MAX_MOVES - bMoves} moves left
       </text>
       {turn === "bot" && (
         <>
@@ -605,14 +632,27 @@ function ScoreHeader({
         <div className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.35)" }}>{pLeft} moves left</div>
       </motion.div>
 
-      {/* Center — countdown */}
+      {/* Center — countdown — ENHANCED */}
       <div className="flex flex-col items-center gap-1 px-1">
-        <div className="text-[10px] font-black tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>VS</div>
-        <div className="text-base font-black tabular-nums"
-          style={{ color: matchTimer <= 30 ? "#ef4444" : matchTimer <= 60 ? "#f97316" : "#FFD700",
-            textShadow: matchTimer <= 30 ? "0 0 10px rgba(239,68,68,0.7)" : "0 0 8px rgba(255,215,0,0.5)" }}>
-          {String(Math.floor(matchTimer / 60)).padStart(2,"0")}:{String(matchTimer % 60).padStart(2,"0")}
-        </div>
+        <div className="text-[9px] font-black tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>VS</div>
+        <motion.div 
+          animate={{ scale: matchTimer <= 30 ? [1, 1.05, 1] : 1 }}
+          transition={{ duration: 0.5, repeat: matchTimer <= 30 ? Infinity : 0 }}
+          className="relative">
+          <div className="text-lg font-black tabular-nums"
+            style={{ color: matchTimer <= 30 ? "#ef4444" : matchTimer <= 60 ? "#f97316" : "#FFD700",
+              textShadow: matchTimer <= 30 ? "0 0 15px rgba(239,68,68,0.9),0 0 30px rgba(239,68,68,0.5)" : matchTimer <= 60 ? "0 0 12px rgba(249,115,22,0.7),0 0 24px rgba(249,115,22,0.4)" : "0 0 10px rgba(255,215,0,0.6),0 0 20px rgba(255,215,0,0.3)",
+              letterSpacing: 1 }}>
+            {String(Math.floor(matchTimer / 60)).padStart(2,"0")}:{String(matchTimer % 60).padStart(2,"0")}
+          </div>
+          {matchTimer <= 30 && (
+            <motion.div 
+              className="absolute inset-0 rounded-lg"
+              style={{ background: "rgba(239,68,68,0.2)" }}
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 0.8, repeat: Infinity }} />
+          )}
+        </motion.div>
         <div className="text-[8px] font-black px-1.5 py-0.5 rounded-full"
           style={{ background: `${tierColor}18`, color: tierColor, border: `1px solid ${tierColor}40` }}>
           {tierLabel}
@@ -661,12 +701,16 @@ interface Props { onBack: () => void; initialFee?: number }
 export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   const { addWinning } = useWallet();
   const { addMatch }   = useMatchHistory();
+  const { user }       = useAuth();
 
   const isFreeMode = initialFee === 0;
   const tier: BotTier = isFreeMode || initialFee < 5 ? "easy" : initialFee < 20 ? "medium" : "god";
 
   const botRef  = useRef<BotPlayer>(getRandomBot());
   const scored  = useRef(false);
+  const matchStartTime = useRef(Date.now());
+  const playerKills = useRef(0);
+  const botKills = useRef(0);
 
   const [pTokens,    setPTokens]    = useState([1, 1, 1, 1]);
   const [bTokens,    setBTokens]    = useState([1, 1, 1, 1]);
@@ -696,10 +740,15 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   // ── Matchmaking ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "matchmaking") return;
+    matchStartTime.current = Date.now();
     const t1 = setTimeout(() => setMmStage("found"),  3500);
     const t2 = setTimeout(() => setPhase("playing"),  4000);
+    // Deduct entry fee when match starts
+    if (!isFreeMode && user?.uid) {
+      firestoreDeductEntryFee(user.uid, initialFee, "Ludo Fast Entry Fee").catch(console.error);
+    }
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [phase]);
+  }, [phase, isFreeMode, initialFee, user?.uid]);
 
   // ── 2-min countdown ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -715,7 +764,35 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     setPhase("result");
     const won   = pScore > bScore;
     const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
-    if (!isFreeMode && won) addWinning(prize);
+    const duration = Math.floor((Date.now() - matchStartTime.current) / 1000);
+    
+    // Save match result to Firestore
+    if (user?.uid) {
+      saveLudoMatchResult({
+        uid: user.uid,
+        opponentName: botRef.current.name,
+        opponentIsBot: true,
+        playerScore: pScore,
+        opponentScore: bScore,
+        won,
+        entryFee: initialFee,
+        prizeAmount: prize,
+        tier,
+        duration,
+        moves: pMoves,
+        kills: playerKills.current,
+        forfeited: forfeited.current,
+      }).catch(console.error);
+    }
+    
+    // Add winnings to wallet
+    if (!isFreeMode && won) {
+      addWinning(prize);
+      if (user?.uid) {
+        firestoreAddWinning(user.uid, prize, "Ludo Fast Win").catch(console.error);
+      }
+    }
+    
     addMatch({
       gameId: "ludofast", gameName: isFreeMode ? "Ludo Fast (Practice)" : "Ludo Fast", gameIcon: "🎲",
       result: won ? "win" : "loss", entryFee: initialFee,
@@ -723,7 +800,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
       opponentName: botRef.current.name,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchTimer, phase]);
+  }, [matchTimer, phase, pScore, bScore, pMoves, isFreeMode, initialFee, user?.uid]);
 
   // ── Win/lose sound on result ─────────────────────────────────────────────────
   useEffect(() => {
@@ -733,10 +810,11 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     setTimeout(() => { if (won) Sounds.win(); else Sounds.lose(); }, 300);
   }, [phase, pScore, bScore]);
 
-  // ── Turn timer reset ──────────────────────────────────────────────────────────
+  // ── Turn timer reset + turn sound ────────────────────────────────────────────────
   useEffect(() => {
-    if (phase !== "playing" || turn !== "player") return;
-    setTurnTimer(15);
+    if (phase !== "playing") return;
+    Sounds.turn();
+    if (turn === "player") setTurnTimer(15);
   }, [turn, phase]);
 
   // ── Turn timer countdown ─────────────────────────────────────────────────────
@@ -848,6 +926,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
                 killPts = newP[i] - 1;
                 newP[i] = 1;
                 killed = true;
+                botKills.current++;
                 flashKill();
                 setEmote(EMOTES[Math.floor(Math.random() * EMOTES.length)]);
                 setTimeout(() => setEmote(""), 1200);
@@ -885,10 +964,15 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
   function rollDiceVal(godMode: boolean): number {
     if (godMode) {
       const r = Math.random();
-      if (r < 0.35) return 6;
-      if (r < 0.62) return 5;
-      return Math.ceil(Math.random() * 4);
+      // Smarter dice rolling with varied patterns
+      if (r < 0.28) return 6;  // 28% chance for 6 (increased from 35%)
+      if (r < 0.50) return 5;  // 22% chance for 5 (increased from 27%)
+      if (r < 0.70) return 4;  // 20% chance for 4 (new)
+      if (r < 0.85) return 3;  // 15% chance for 3 (new)
+      if (r < 0.95) return 2;  // 10% chance for 2 (new)
+      return 1;               // 5% chance for 1 (new)
     }
+    // Normal mode: balanced distribution
     return Math.ceil(Math.random() * 6);
   }
 
@@ -942,6 +1026,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
               killPts = nb[i] - 1;
               nb[i] = 1;
               killed = true;
+              playerKills.current++;
               flashKill();
               setEmote("💥");
               setTimeout(() => setEmote(""), 1200);
@@ -1189,11 +1274,22 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
             {resultText}
           </motion.h2>
           {won && !isFreeMode && prize > 0 && (
-            <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
-              className="mt-2 text-2xl font-black" style={{ color: "#4ade80" }}>+₹{prize}</motion.div>
+            <>
+              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
+                className="mt-2 text-3xl font-black" style={{ color: "#4ade80", textShadow: "0 0 20px rgba(74,222,128,0.6)" }}>+₹{prize}</motion.div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+                className="mt-3 px-4 py-2 rounded-xl text-sm font-bold"
+                style={{ background: "rgba(74,222,128,0.15)", border: "1.5px solid rgba(74,222,128,0.4)", color: "#4ade80" }}>
+                ✅ Wallet Updated Successfully
+              </motion.div>
+            </>
           )}
           {isFreeMode && (
             <div className="mt-2 text-sm font-bold" style={{ color: "rgba(16,185,129,0.8)" }}>Practice Match</div>
+          )}
+          {!won && !isFreeMode && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+              className="mt-2 text-xl font-bold" style={{ color: "#ef4444" }}>-₹{initialFee}</motion.div>
           )}
         </div>
 

@@ -1397,6 +1397,91 @@ export async function uploadBannerImage(file: File): Promise<string> {
   return _cldUpload(file, "winggo/banners", "image");
 }
 
+// ─── LUDO MATCH RESULTS (Admin Dashboard) ───────────────────────────────────────
+
+export interface LudoMatchResult {
+  id?: string;
+  uid: string;
+  opponentName: string;
+  opponentIsBot: boolean;
+  playerScore: number;
+  opponentScore: number;
+  won: boolean;
+  entryFee: number;
+  prizeAmount: number;
+  tier: "easy" | "medium" | "god";
+  duration: number;
+  moves: number;
+  kills: number;
+  forfeited: boolean;
+  playedAt: Timestamp;
+  roomId?: string;
+}
+
+/** Subscribe to live Ludo matches for admin dashboard */
+export function subscribeLiveLudoMatches(cb: (matches: LudoMatchResult[]) => void): () => void {
+  if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
+  const q = query(
+    collection(adminDb, "ludoMatches"),
+    orderBy("playedAt", "desc"),
+    limit(100)
+  );
+  return onSnapshot(q, (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LudoMatchResult)));
+  }, () => cb([]));
+}
+
+/** Get Ludo stats for admin dashboard */
+export async function getLudoStats(): Promise<{
+  totalMatches: number;
+  activeMatches: number;
+  realPlayers: number;
+  botPlayers: number;
+  totalWinnings: number;
+  todayMatches: number;
+}> {
+  if (!FIREBASE_ENABLED || !adminDb) {
+    return { totalMatches: 0, activeMatches: 0, realPlayers: 0, botPlayers: 0, totalWinnings: 0, todayMatches: 0 };
+  }
+  try {
+    const snap = await getDocs(query(collection(adminDb, "ludoMatches"), limit(1000)));
+    const now = Date.now();
+    const todayStart = now - 86400000;
+    let totalMatches = snap.size;
+    let todayMatches = 0;
+    let realPlayers = 0;
+    let botPlayers = 0;
+    let totalWinnings = 0;
+    
+    snap.docs.forEach((d) => {
+      const match = d.data() as LudoMatchResult;
+      const ts = typeof match.playedAt === "number"
+        ? match.playedAt
+        : (match.playedAt as Timestamp)?.seconds * 1000 ?? 0;
+      if (ts > todayStart) todayMatches++;
+      if (match.opponentIsBot) {
+        botPlayers++;
+      } else {
+        realPlayers++;
+      }
+      if (match.won) totalWinnings += match.prizeAmount;
+    });
+    
+    // Active matches = matches played in last 5 minutes
+    const activeMatches = snap.docs.filter((d) => {
+      const match = d.data() as LudoMatchResult;
+      const ts = typeof match.playedAt === "number"
+        ? match.playedAt
+        : (match.playedAt as Timestamp)?.seconds * 1000 ?? 0;
+      return now - ts < 300000; // 5 minutes
+    }).length;
+    
+    return { totalMatches, activeMatches, realPlayers, botPlayers, totalWinnings, todayMatches };
+  } catch {
+    return { totalMatches: 0, activeMatches: 0, realPlayers: 0, botPlayers: 0, totalWinnings: 0, todayMatches: 0 };
+  }
+}
+
 
 // ─── DAILY WITHDRAWAL LIMIT (Admin) ─────────────────────────────────────────────
 
