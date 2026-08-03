@@ -298,7 +298,8 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
   }, []);
 
   // Featured game for hero card (from Firestore)
-  const featuredGame = liveGames.find((g) => g.isFeatured && g.isActive);
+  // worldwar is intentionally excluded — it shows only in the Upcoming section
+  const featuredGame = liveGames.find((g) => g.isFeatured && g.isActive && g.id !== "worldwar");
 
   return (
     <div
@@ -682,6 +683,67 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ─── UPCOMING GAMES ─── */}
+        <div className="mt-7">
+          <div className="flex items-center justify-between px-4 mb-3">
+            <h3 className="text-white font-bold text-base">⏳ Upcoming Games</h3>
+            <span
+              className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+              style={{ background: "rgba(139,92,246,0.18)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.35)" }}
+            >
+              Coming Soon
+            </span>
+          </div>
+          <div className="flex gap-3 px-4 overflow-x-auto pb-3 no-scrollbar gpu">
+            {/* Karan Aujla World War — upcoming, not playable */}
+            <div
+              className="flex-shrink-0 rounded-2xl overflow-hidden"
+              style={{
+                width: "120px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(139,92,246,0.25)",
+                opacity: 0.9,
+              }}
+            >
+              {/* Thumbnail */}
+              <div
+                className="relative flex items-center justify-center"
+                style={{ height: "90px", background: "linear-gradient(135deg,#1a0a2e,#4b1fa8)" }}
+              >
+                <span className="text-4xl" style={{ filter: "grayscale(30%)" }}>⚔️</span>
+                {/* Upcoming overlay */}
+                <div
+                  className="absolute inset-0 flex items-center justify-center"
+                  style={{ background: "rgba(0,0,0,0.45)" }}
+                >
+                  <span
+                    className="text-[8px] font-black px-1.5 py-0.5 rounded-lg"
+                    style={{ background: "rgba(139,92,246,0.25)", border: "1px solid rgba(139,92,246,0.6)", color: "#c4b5fd" }}
+                  >
+                    UPCOMING
+                  </span>
+                </div>
+              </div>
+              {/* Card info */}
+              <div className="px-2.5 py-2">
+                <div className="text-white font-bold leading-tight truncate" style={{ fontSize: "11px" }}>
+                  Karan Aujla WW
+                </div>
+                <div className="text-zinc-500 mt-0.5 truncate" style={{ fontSize: "9px" }}>
+                  World War
+                </div>
+                <div
+                  className="mt-1.5 w-full rounded-lg text-center font-bold"
+                  style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", color: "rgba(167,139,250,0.6)", fontSize: "9px", padding: "4px 0" }}
+                >
+                  Coming Soon
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mx-4 mt-2 h-px" style={{ background: "rgba(255,255,255,0.05)" }} />
         </div>
 
         {/* ─── ALL GAME CATEGORIES ─── */}
