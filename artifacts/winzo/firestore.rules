@@ -168,6 +168,13 @@ service cloud.firestore {
       allow read, write: if isSignedIn() || isAdmin();
     }
 
+    // ── Daily Withdrawal Limits ────────────────────────────────────────────────
+    // Users can only read their own limit, cannot write (server-side only)
+    match /dailyWithdrawLimits/{uid} {
+      allow read:   if isSignedIn() && isOwner(uid);
+      allow write:  if false; // Only server-side functions can write
+    }
+
     // ── Deny everything else ──────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
