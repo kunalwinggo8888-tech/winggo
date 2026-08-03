@@ -215,14 +215,14 @@ function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: 
       style={{ cursor: disabled ? "not-allowed" : "pointer", userSelect: "none", flexShrink: 0 }}
       animate={rolling
         ? { 
-            rotateX: [0, 360, 720, 1080, 1440],
-            rotateY: [0, 180, 360, 540, 720],
-            rotateZ: [0, 90, 180, 270, 360],
-            scale: [1, 1.3, 0.9, 1.2, 1],
-            y: [0, -20, 10, -15, 0]
+            rotateX: [0, 360, 720, 1080, 1440, 1800],
+            rotateY: [0, 180, 360, 540, 720, 900],
+            rotateZ: [0, 90, 180, 270, 360, 450],
+            scale: [1, 1.4, 0.85, 1.3, 0.95, 1],
+            y: [0, -25, 15, -20, 10, 0]
           }
         : { rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, y: 0 }}
-      transition={{ duration: 0.85, ease: "easeOut" }}
+      transition={{ duration: 1.0, ease: "easeOut" }}
     >
       <motion.div style={{
         width: sz, height: sz,
@@ -230,7 +230,7 @@ function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: 
         background: "#ffffff",
         border: "2.5px solid #111111",
         boxShadow: rolling
-          ? `6px 8px 24px rgba(0,0,0,0.8),-3px -3px 8px rgba(255,255,255,0.95),inset 0 3px 6px rgba(255,255,255,0.9),0 0 60px ${playerColor},0 0 120px ${playerColor}aa`
+          ? `8px 10px 32px rgba(0,0,0,0.9),-4px -4px 12px rgba(255,255,255,0.98),inset 0 4px 8px rgba(255,255,255,0.95),0 0 80px ${playerColor},0 0 160px ${playerColor}cc`
           : disabled
           ? "2px 3px 8px rgba(0,0,0,0.4)"
           : `4px 6px 14px rgba(0,0,0,0.6),-2px -2px 5px rgba(255,255,255,0.7),inset 0 2px 3px rgba(255,255,255,0.6),0 0 22px ${playerColor}80`,
@@ -239,12 +239,12 @@ function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: 
       }}
       animate={rolling ? {
         boxShadow: [
-          `6px 8px 24px rgba(0,0,0,0.8),-3px -3px 8px rgba(255,255,255,0.95),inset 0 3px 6px rgba(255,255,255,0.9),0 0 60px ${playerColor},0 0 120px ${playerColor}aa`,
-          `8px 10px 30px rgba(0,0,0,0.9),-4px -4px 10px rgba(255,255,255,1),inset 0 4px 8px rgba(255,255,255,0.95),0 0 80px ${playerColor},0 0 160px ${playerColor}cc`,
-          `6px 8px 24px rgba(0,0,0,0.8),-3px -3px 8px rgba(255,255,255,0.95),inset 0 3px 6px rgba(255,255,255,0.9),0 0 60px ${playerColor},0 0 120px ${playerColor}aa`,
+          `8px 10px 32px rgba(0,0,0,0.9),-4px -4px 12px rgba(255,255,255,0.98),inset 0 4px 8px rgba(255,255,255,0.95),0 0 80px ${playerColor},0 0 160px ${playerColor}cc`,
+          `10px 12px 40px rgba(0,0,0,0.95),-5px -5px 14px rgba(255,255,255,1),inset 0 5px 10px rgba(255,255,255,0.98),0 0 100px ${playerColor},0 0 200px ${playerColor}ee`,
+          `8px 10px 32px rgba(0,0,0,0.9),-4px -4px 12px rgba(255,255,255,0.98),inset 0 4px 8px rgba(255,255,255,0.95),0 0 80px ${playerColor},0 0 160px ${playerColor}cc`,
         ]
       } : {}}
-      transition={{ duration: 0.85 }}>
+      transition={{ duration: 1.0 }}>
         <svg width={sz} height={sz} viewBox="0 0 100 100" style={{ display: "block" }}>
           <rect x={3} y={3} width={93} height={93} rx={14}
             fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2.5} />
@@ -418,8 +418,8 @@ function Board({
         letterSpacing="2" style={{ userSelect: "none", filter: "drop-shadow(0 0 6px rgba(234,179,8,0.6))" }}>YOU</text>
       <text x={3*C} y={10*C + 4*C*0.52}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*1.35} fontWeight="900" fill="#eab308"
-        style={{ userSelect: "none", filter: "drop-shadow(0 0 8px rgba(234,179,8,0.8))" }}>
+        fontSize={C*1.65} fontWeight="900" fill="#eab308"
+        style={{ userSelect: "none", filter: "drop-shadow(0 0 12px rgba(234,179,8,0.9))" }}>
         {pScore}
       </text>
       <text x={3*C} y={10*C + 4*C*0.82}
@@ -451,8 +451,8 @@ function Board({
       </text>
       <text x={12*C} y={C + 4*C*0.52}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={C*1.35} fontWeight="900" fill="#3b82f6"
-        style={{ userSelect: "none", filter: "drop-shadow(0 0 8px rgba(59,130,246,0.8))" }}>
+        fontSize={C*1.65} fontWeight="900" fill="#3b82f6"
+        style={{ userSelect: "none", filter: "drop-shadow(0 0 12px rgba(59,130,246,0.9))" }}>
         {bScore}
       </text>
       <text x={12*C} y={C + 4*C*0.82}
@@ -604,21 +604,27 @@ function ScoreHeader({
 
       {/* Player card — YELLOW */}
       <motion.div className="flex-1 rounded-xl px-2.5 py-2 flex flex-col items-center gap-0.5"
-        animate={{ boxShadow: turn === "player" ? "0 0 16px rgba(234,179,8,0.65),0 0 32px rgba(234,179,8,0.25)" : "none" }}
+        animate={{ 
+          boxShadow: turn === "player" ? "0 0 24px rgba(234,179,8,0.8),0 0 48px rgba(234,179,8,0.35)" : "none",
+          scale: turn === "player" ? [1, 1.02, 1] : 1
+        }}
+        transition={{ duration: 0.4, repeat: turn === "player" ? Infinity : 0, repeatDelay: 1.5 }}
         style={{
-          background: turn === "player" ? "rgba(234,179,8,0.16)" : "rgba(255,255,255,0.04)",
-          border: `1.5px solid ${turn === "player" ? "#eab308" : "rgba(255,255,255,0.07)"}`,
+          background: turn === "player" ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.04)",
+          border: `2px solid ${turn === "player" ? "#eab308" : "rgba(255,255,255,0.07)"}`,
           transition: "all 0.3s",
         }}>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full"
-            style={{ background: "#eab308", boxShadow: turn === "player" ? "0 0 6px #eab308" : "none" }} />
+          <motion.div className="w-3 h-3 rounded-full"
+            style={{ background: "#eab308" }}
+            animate={{ boxShadow: turn === "player" ? ["0 0 8px #eab308", "0 0 16px #eab308", "0 0 8px #eab308"] : "none" }}
+            transition={{ duration: 0.8, repeat: turn === "player" ? Infinity : 0 }} />
           <span className="text-[10px] font-black tracking-wider"
             style={{ color: turn === "player" ? "#eab308" : "rgba(255,255,255,0.5)" }}>YOU</span>
           {turn === "player" && (
             <motion.span className="text-[8px] font-black px-1 py-0.5 rounded-full"
               style={{ background: "#eab308", color: "#000" }}
-              animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>
+              animate={{ opacity: [1, 0.4, 1], scale: [1, 1.1, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>
               TURN
             </motion.span>
           )}
@@ -636,21 +642,21 @@ function ScoreHeader({
       <div className="flex flex-col items-center gap-1 px-1">
         <div className="text-[9px] font-black tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>VS</div>
         <motion.div 
-          animate={{ scale: matchTimer <= 30 ? [1, 1.05, 1] : 1 }}
-          transition={{ duration: 0.5, repeat: matchTimer <= 30 ? Infinity : 0 }}
+          animate={{ scale: matchTimer <= 30 ? [1, 1.08, 1] : 1 }}
+          transition={{ duration: 0.4, repeat: matchTimer <= 30 ? Infinity : 0 }}
           className="relative">
-          <div className="text-lg font-black tabular-nums"
+          <div className="text-xl font-black tabular-nums"
             style={{ color: matchTimer <= 30 ? "#ef4444" : matchTimer <= 60 ? "#f97316" : "#FFD700",
-              textShadow: matchTimer <= 30 ? "0 0 15px rgba(239,68,68,0.9),0 0 30px rgba(239,68,68,0.5)" : matchTimer <= 60 ? "0 0 12px rgba(249,115,22,0.7),0 0 24px rgba(249,115,22,0.4)" : "0 0 10px rgba(255,215,0,0.6),0 0 20px rgba(255,215,0,0.3)",
-              letterSpacing: 1 }}>
+              textShadow: matchTimer <= 30 ? "0 0 20px rgba(239,68,68,1),0 0 40px rgba(239,68,68,0.6)" : matchTimer <= 60 ? "0 0 16px rgba(249,115,22,0.85),0 0 32px rgba(249,115,22,0.5)" : "0 0 14px rgba(255,215,0,0.8),0 0 28px rgba(255,215,0,0.4)",
+              letterSpacing: 1.5, fontWeight: 950 }}>
             {String(Math.floor(matchTimer / 60)).padStart(2,"0")}:{String(matchTimer % 60).padStart(2,"0")}
           </div>
           {matchTimer <= 30 && (
             <motion.div 
               className="absolute inset-0 rounded-lg"
-              style={{ background: "rgba(239,68,68,0.2)" }}
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 0.8, repeat: Infinity }} />
+              style={{ background: "rgba(239,68,68,0.25)" }}
+              animate={{ opacity: [0.3, 0.65, 0.3] }}
+              transition={{ duration: 0.7, repeat: Infinity }} />
           )}
         </motion.div>
         <div className="text-[8px] font-black px-1.5 py-0.5 rounded-full"
@@ -661,15 +667,21 @@ function ScoreHeader({
 
       {/* Bot card — Blue (unchanged) */}
       <motion.div className="flex-1 rounded-xl px-2.5 py-2 flex flex-col items-center gap-0.5"
-        animate={{ boxShadow: turn === "bot" ? "0 0 16px rgba(59,130,246,0.6),0 0 32px rgba(59,130,246,0.25)" : "none" }}
+        animate={{ 
+          boxShadow: turn === "bot" ? "0 0 24px rgba(59,130,246,0.8),0 0 48px rgba(59,130,246,0.35)" : "none",
+          scale: turn === "bot" ? [1, 1.02, 1] : 1
+        }}
+        transition={{ duration: 0.4, repeat: turn === "bot" ? Infinity : 0, repeatDelay: 1.5 }}
         style={{
-          background: turn === "bot" ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.04)",
-          border: `1.5px solid ${turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.07)"}`,
+          background: turn === "bot" ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.04)",
+          border: `2px solid ${turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.07)"}`,
           transition: "all 0.3s",
         }}>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full"
-            style={{ background: "#3b82f6", boxShadow: turn === "bot" ? "0 0 6px #3b82f6" : "none" }} />
+          <motion.div className="w-3 h-3 rounded-full"
+            style={{ background: "#3b82f6" }}
+            animate={{ boxShadow: turn === "bot" ? ["0 0 8px #3b82f6", "0 0 16px #3b82f6", "0 0 8px #3b82f6"] : "none" }}
+            transition={{ duration: 0.8, repeat: turn === "bot" ? Infinity : 0 }} />
           <span className="text-[10px] font-black tracking-wider"
             style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.5)" }}>
             {botName.slice(0,8)}
@@ -677,7 +689,7 @@ function ScoreHeader({
           {turn === "bot" && (
             <motion.span className="text-[8px] font-black px-1 py-0.5 rounded-full"
               style={{ background: "#3b82f6", color: "#fff" }}
-              animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>
+              animate={{ opacity: [1, 0.4, 1], scale: [1, 1.1, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>
               TURN
             </motion.span>
           )}
@@ -743,12 +755,9 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     matchStartTime.current = Date.now();
     const t1 = setTimeout(() => setMmStage("found"),  3500);
     const t2 = setTimeout(() => setPhase("playing"),  4000);
-    // Deduct entry fee when match starts
-    if (!isFreeMode && user?.uid) {
-      firestoreDeductEntryFee(user.uid, initialFee, "Ludo Fast Entry Fee").catch(console.error);
-    }
+    // Entry fee is already deducted by GameEntrySheet before game starts
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [phase, isFreeMode, initialFee, user?.uid]);
+  }, [phase]);
 
   // ── 2-min countdown ──────────────────────────────────────────────────────────
   useEffect(() => {

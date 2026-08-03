@@ -123,7 +123,7 @@ export interface KYCRequest {
   uid: string;
   email: string;
   displayName: string;
-  docType: "aadhaar" | "pan" | "passport";
+  docType: "aadhaar" | "pan" | "passport" | "mobile";
   docNumber: string;
   frontURL?: string;
   backURL?: string;
@@ -134,6 +134,31 @@ export interface KYCRequest {
   reviewedAt?: Timestamp;
   reviewedBy?: string;
   rejectionReason?: string;
+}
+
+export interface LeaderboardEntry {
+  uid: string;
+  name: string;
+  score: number;
+  gamesPlayed?: number;
+  wins?: number;
+}
+
+export async function getLeaderboard(gameType: string = "ludo"): Promise<LeaderboardEntry[]> {
+  if (!FIREBASE_ENABLED || !db) return [];
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, "leaderboards"),
+        where("gameType", "==", gameType),
+        orderBy("score", "desc"),
+        limit(20)
+      )
+    );
+    return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as LeaderboardEntry));
+  } catch {
+    return [];
+  }
 }
 
 export interface GameConfig {
@@ -545,6 +570,15 @@ export async function firestoreDeposit(
   });
 }
 
+/** Get today's date in YYYY-MM-DD format */
+function getTodayDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /** Withdraw — deducts from winning, creates pending request (atomic batch) */
 export async function firestoreWithdraw(
   uid: string,
@@ -575,6 +609,9 @@ export async function firestoreWithdraw(
   });
   batch.set(reqRef, reqData);
   await batch.commit();
+
+  // Increment daily withdrawal count
+  await incrementDailyWithdrawCount(uid);
 
   const methodLabel = method === "upi"
     ? `UPI: ${paymentDetails.upiId}`
@@ -729,16 +766,6 @@ export interface LeaderboardEntry {
   rank?: number;
 }
 
-export async function getLeaderboard(gameType: string, topN = 50): Promise<LeaderboardEntry[]> {
-  if (!FIREBASE_ENABLED || !db) return [];
-  const snap = await getDocs(query(
-    collection(db, "leaderboards", gameType, "players"),
-    orderBy("totalWinnings", "desc"),
-    limit(topN)
-  ));
-  return snap.docs.map((d, i) => ({ ...d.data(), rank: i + 1 } as LeaderboardEntry));
-}
-
 export async function updateLeaderboard(gameType: string, uid: string, winAmount: number): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   const ref = doc(db, "leaderboards", gameType, "players", uid);
@@ -860,6 +887,11 @@ export function subscribeSpinWheelConfig(cb: (c: SpinWheelConfig) => void): () =
   });
 }
 
+export async function updateSpinWheelConfig(data: Partial<SpinWheelConfig>): Promise<void> {
+  if (!FIREBASE_ENABLED || !db) return;
+  await setDoc(doc(db, "config", "spinWheel"), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 export async function getDepositStats(): Promise<{ total: number; count: number; today: number }> {
   if (!FIREBASE_ENABLED || !db) return { total: 0, count: 0, today: 0 };
   try {
@@ -945,6 +977,33 @@ export interface AppConfig {
   maxWithdrawAmount: number;
   announcementBanner: string;
   announcementActive: boolean;
+}
+
+export interface SupportConfig {
+  gmail: string;
+  instagramUrl: string;
+  instagramUsername: string;
+  supportText: string;
+  updatedAt?: Timestamp;
+}
+
+export const DEFAULT_SUPPORT_CONFIG: SupportConfig = {
+  gmail: "support@winggo.com",
+  instagramUrl: "https://instagram.com/winggo",
+  instagramUsername: "winggo_official",
+  supportText: "For support, contact us via email or Instagram. We typically respond within 24 hours.",
+};
+
+export function subscribeSupportConfig(cb: (c: SupportConfig) => void): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb(DEFAULT_SUPPORT_CONFIG); return () => {}; }
+  return onSnapshot(doc(db, "config", "support"), (snap) => {
+    cb(snap.exists() ? { ...DEFAULT_SUPPORT_CONFIG, ...snap.data() } as SupportConfig : DEFAULT_SUPPORT_CONFIG);
+  });
+}
+
+export async function updateSupportConfig(data: Partial<SupportConfig>): Promise<void> {
+  if (!FIREBASE_ENABLED || !db) return;
+  await setDoc(doc(db, "config", "support"), { ...data, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
@@ -1263,17 +1322,6 @@ export async function getMatchHistoryAdmin(): Promise<FirestoreMatchRecord[]> {
 }
 
 // ─── DAILY WITHDRAWAL LIMIT (Firestore-based) ───────────────────────────────────
-
-/**
- * Get today's date in YYYY-MM-DD format (UTC)
- */
-function getTodayDate(): string {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(now.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 
 /**
  * Get daily withdrawal limit data for a user

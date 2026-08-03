@@ -61,9 +61,9 @@ const BANNERS = [
 ];
 
 const GAME_CATALOG = [
-  // Popular - Only Ludo and Snakes & Ladders
-  { id: "ludo",         name: "Ludo ⚡ Fast",      icon: "🎲", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "7.3L playing", minFee: "₹2" },
-  { id: "saanpsidi",   name: "Snake & Ladder",    icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
+  // Only Ludo Classic and Snakes & Ladders
+  { id: "ludo",         name: "Ludo Classic",      icon: "🎲", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "7.3L playing", minFee: "₹2" },
+  { id: "saanpsidi",    name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
 ] as const;
 
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
@@ -152,7 +152,7 @@ interface DashboardProps {
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
-// Only Ludo and Saanp Sidi are active — all other games show "Coming Soon"
+// Only Ludo Classic and Snakes & Ladders are active — all other games show "Coming Soon"
 const IMPLEMENTED_GAMES = new Set(["ludo", "saanpsidi"]);
 
 export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, onNotifications, appConfig }: DashboardProps) {
@@ -548,37 +548,16 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
           );
         })()}
 
-        {/* ─── TOP 5 FEATURED GAMES ─── */}
+        {/* ─── TOP 2 FEATURED GAMES ─── */}
         <div className="mt-5 px-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-bold text-base">🔥 Popular Games</h3>
-            <span className="text-xs font-bold" style={{ color: "#FFD700" }}>5 Games Live</span>
+            <span className="text-xs font-bold" style={{ color: "#FFD700" }}>2 Games Live</span>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar gpu">
             {[
-              { id: "ludo",      name: "Ludo ⚡ Fast",   icon: "🎲", gradient: "linear-gradient(135deg, #ff6e00, #ffe000)", minFee: "₹2" },
-              { id: "saanpsidi", name: "Snake & Ladder", icon: "🐍", gradient: "linear-gradient(135deg, #134e5e, #71b280)", minFee: "₹2" },
-              { id: "solitaire", name: "Solitaire",      icon: "🃏", gradient: "linear-gradient(135deg, #e91e8c, #6a0050)", minFee: "₹1" },
-              { id: "carrom",  name: "Carrom",         icon: "🎯", gradient: "linear-gradient(135deg, #f7971e, #ffd200)", minFee: "₹5" },
-              { id: "bubble",  name: "Bubble Shooter", icon: "🫧", gradient: "linear-gradient(135deg, #f093fb, #f5576c)", minFee: "₹5" },
-              { id: "candy",        name: "Candy Match",    icon: "🍬", gradient: "linear-gradient(135deg, #FF4081, #00E5FF)",   minFee: "₹5" },
-              { id: "chess",        name: "Chess",          icon: "♟️", gradient: "linear-gradient(135deg, #8a8a8a, #2d2d2d)",   minFee: "₹5" },
-              { id: "rummy",        name: "Rummy",          icon: "🃏", gradient: "linear-gradient(135deg, #ff6b6b, #c0392b)",   minFee: "₹5" },
-              { id: "callbreak",    name: "Call Break",     icon: "♠️", gradient: "linear-gradient(135deg, #4169E1, #1a237e)",   minFee: "₹5" },
-              { id: "poker",        name: "Poker",          icon: "♦️", gradient: "linear-gradient(135deg, #00c851, #007e33)",   minFee: "₹5" },
-              { id: "solitaire",    name: "Solitaire",      icon: "🃏", gradient: "linear-gradient(135deg, #e91e8c, #6a0050)",   minFee: "₹5" },
-              { id: "twenty1",      name: "21 Card",        icon: "🃏", gradient: "linear-gradient(135deg, #FFD700, #ff8c00)",   minFee: "₹5" },
-              { id: "discfootball", name: "Disc Football",  icon: "🥏", gradient: "linear-gradient(135deg, #00ff87, #007e3a)",   minFee: "₹5" },
-              { id: "axemaster",    name: "Axe Master 3D", icon: "🪓", gradient: "linear-gradient(135deg, #5c3d1e, #8B4513)",    minFee: "₹5" },
-              { id: "mrracer",      name: "Mr. Racer 3D",  icon: "🏎️", gradient: "linear-gradient(135deg, #ff3300, #ff8800)",    minFee: "₹5" },
-              { id: "bricksbreaker",name: "Bricks 3D",     icon: "🧱", gradient: "linear-gradient(135deg, #00e5ff, #0077aa)",    minFee: "₹5" },
-              { id: "slapfest",     name: "Slap Fest",     icon: "👋", gradient: "linear-gradient(135deg, #FFD700, #ff8c00)",    minFee: "₹5" },
-              { id: "fruitchop",    name: "Fruit Chop",    icon: "🍉", gradient: "linear-gradient(135deg, #22c55e, #15803d)",    minFee: "₹5" },
-              { id: "alienfusion",  name: "Alien Fusion",  icon: "👽", gradient: "linear-gradient(135deg, #a855f7, #6d28d9)",    minFee: "₹5" },
-              { id: "pool3d",       name: "Pool 3D",       icon: "🎱", gradient: "linear-gradient(135deg, #166534, #14532d)",    minFee: "₹5" },
-              { id: "crickettd20",  name: "Cricket T20",   icon: "🏏", gradient: "linear-gradient(135deg, #ff8c00, #FFD700)",    minFee: "₹5" },
-              { id: "sheepbattle",  name: "Sheep Battle",  icon: "🐑", gradient: "linear-gradient(135deg, #a3e635, #4d7c0f)",    minFee: "₹5" },
-              { id: "hexa2048",     name: "2048 Hexa",     icon: "🔷", gradient: "linear-gradient(135deg, #FFD700, #b8860b)",    minFee: "₹5" },
+              { id: "ludo",      name: "Ludo Classic",   icon: "🎲", gradient: "linear-gradient(135deg, #ff6e00, #ffe000)", minFee: "₹2" },
+              { id: "saanpsidi", name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg, #134e5e, #71b280)", minFee: "₹2" },
             ].map((g) => {
               return (
                 <motion.div

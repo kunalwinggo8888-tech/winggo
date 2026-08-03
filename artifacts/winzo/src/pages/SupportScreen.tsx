@@ -1,27 +1,30 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import BackButton from "@/components/BackButton";
-import { subscribeAppConfig, AppConfig } from "@/firebase/firestore.service";
+import { subscribeSupportConfig, SupportConfig } from "@/firebase/firestore.service";
 
 interface SupportScreenProps {
   onBack?: () => void;
 }
 
 export default function SupportScreen({ onBack }: SupportScreenProps) {
-  const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
-  const [instagramLink, setInstagramLink] = useState("");
+  const [supportConfig, setSupportConfig] = useState<SupportConfig | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeAppConfig((config) => {
-      setAppConfig(config);
-      // Instagram link will be stored in AppConfig or a separate config
-      // For now, use a default or fetch from Firestore
-      setInstagramLink("https://instagram.com/winggo_official"); // Default
+    // Subscribe to support settings from Firestore
+    const unsub = subscribeSupportConfig((config) => {
+      setSupportConfig(config);
     });
-    return unsub;
+
+    return () => {
+      unsub();
+    };
   }, []);
 
-  const SUPPORT_EMAIL = "support@winggo.com";
+  const supportEmail = supportConfig?.gmail || "support@winggo.com";
+  const instagramLink = supportConfig?.instagramUrl || "https://instagram.com/winggo_official";
+  const instagramUsername = supportConfig?.instagramUsername || "winggo_official";
+  const supportText = supportConfig?.supportText || "For support, contact us via email or Instagram. We typically respond within 24 hours.";
 
   return (
     <motion.div
@@ -70,7 +73,7 @@ export default function SupportScreen({ onBack }: SupportScreenProps) {
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,215,0,0.10)",
             }}
-            onClick={() => window.location.href = `mailto:${SUPPORT_EMAIL}`}
+            onClick={() => window.location.href = `mailto:${supportEmail}`}
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
@@ -80,7 +83,7 @@ export default function SupportScreen({ onBack }: SupportScreenProps) {
               <div className="flex-1">
                 <div className="text-white font-black text-base">Email Support</div>
                 <div className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  {SUPPORT_EMAIL}
+                  {supportEmail}
                 </div>
               </div>
               <span style={{ color: "rgba(255,255,255,0.25)" }}>›</span>
@@ -105,7 +108,7 @@ export default function SupportScreen({ onBack }: SupportScreenProps) {
               <div className="flex-1">
                 <div className="text-white font-black text-base">Instagram</div>
                 <div className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  Follow us for updates
+                  @{instagramUsername}
                 </div>
               </div>
               <span style={{ color: "rgba(255,255,255,0.25)" }}>›</span>

@@ -1,25 +1,24 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import BackButton from "@/components/BackButton";
-import { subscribeAppConfig, AppConfig } from "@/firebase/firestore.service";
+import { subscribeSupportConfig, SupportConfig } from "@/firebase/firestore.service";
 
 interface TermsScreenProps {
   onBack?: () => void;
 }
 
 export default function TermsScreen({ onBack }: TermsScreenProps) {
-  const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
-  const [instagramLink, setInstagramLink] = useState("https://instagram.com/winggo_official");
+  const [supportConfig, setSupportConfig] = useState<SupportConfig | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeAppConfig((config) => {
-      setAppConfig(config);
-      // Instagram link will be stored in AppConfig or a separate config
-      // For now, use a default or fetch from Firestore
-      setInstagramLink("https://instagram.com/winggo_official"); // Default
+    const unsub = subscribeSupportConfig((config) => {
+      setSupportConfig(config);
     });
     return unsub;
   }, []);
+
+  const instagramLink = supportConfig?.instagramUrl || "https://instagram.com/winggo_official";
+  const supportEmail = supportConfig?.gmail || "support@winggo.com";
 
   return (
     <motion.div
@@ -92,7 +91,7 @@ export default function TermsScreen({ onBack }: TermsScreenProps) {
                 </div>
                 <div>
                   <div className="text-xs font-bold text-white">Email Support</div>
-                  <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>support@winggo.com</div>
+                  <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>{supportEmail}</div>
                 </div>
               </div>
               <motion.div

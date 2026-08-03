@@ -1,31 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/BackButton";
-import { subscribeLiveLeaderboard, RTDBLeaderEntry } from "@/firebase/rtdb.service";
+import { getLeaderboard, LeaderboardEntry } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
+import { useAuth } from "@/context/useAuth";
 
 const GAME_TABS = [
   { id: "ludo",     label: "🎲 Ludo",      color: "#a78bfa" },
-  { id: "worldwar", label: "⚔️ World War", color: "#f97316" },
-  { id: "carrom",   label: "🎯 Carrom",    color: "#ffd700" },
-];
-
-const DEMO_LEADERS: RTDBLeaderEntry[] = [
-  { uid: "u1",  name: "Rahul_G",    score: 48200 },
-  { uid: "u2",  name: "Priya_K",    score: 43100 },
-  { uid: "u3",  name: "Amit_S",     score: 39800 },
-  { uid: "u4",  name: "Dev_R",      score: 36400 },
-  { uid: "u5",  name: "Sneha_M",    score: 31000 },
-  { uid: "u6",  name: "Rohit_P",    score: 28700 },
-  { uid: "u7",  name: "Kavya_L",    score: 26200 },
-  { uid: "u8",  name: "Arjun_T",    score: 23400 },
-  { uid: "u9",  name: "Meera_V",    score: 21100 },
-  { uid: "u10", name: "Varun_D",    score: 18500 },
-  { uid: "u11", name: "Pooja_N",    score: 16700 },
-  { uid: "u12", name: "Kiran_B",    score: 14200 },
-  { uid: "u13", name: "Ankit_J",    score: 12800 },
-  { uid: "u14", name: "Divya_C",    score: 10400 },
-  { uid: "u15", name: "Sanjay_F",   score: 8900  },
+  { id: "saanpsidi", label: "🐍 Snakes & Ladders", color: "#10b981" },
 ];
 
 const RANK_COLORS = ["#FFD700", "#C0C0C0", "#cd7f32"];
@@ -43,28 +25,26 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 }
 
 export default function LeaderboardScreen({ onBack }: { onBack?: () => void }) {
-  const [tab, setTab]               = useState(GAME_TABS[0].id);
-  const [leaders, setLeaders]       = useState<RTDBLeaderEntry[]>(DEMO_LEADERS);
-  const [loading, setLoading]       = useState(FIREBASE_ENABLED);
-  const [pulseCount, setPulseCount] = useState(0);
+  const { user } = useAuth();
+  const [tab, setTab] = useState(GAME_TABS[0].id);
+  const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    setLeaders(DEMO_LEADERS);
-    const unsub = subscribeLiveLeaderboard(tab, (entries) => {
-      if (entries.length > 0) setLeaders(entries);
-      else setLeaders(DEMO_LEADERS);
-      setLoading(false);
-    });
-    const t = setTimeout(() => setLoading(false), 2000);
-    return () => { unsub(); clearTimeout(t); };
+    const loadLeaderboard = async () => {
+      setLoading(true);
+      try {
+        const data = await getLeaderboard(tab);
+        setLeaders(data);
+      } catch (error) {
+        console.error("Error loading leaderboard:", error);
+        setLeaders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadLeaderboard();
   }, [tab]);
-
-  // Random score pulse (demo activity)
-  useEffect(() => {
-    const t = setInterval(() => setPulseCount((c) => c + 1), 3500);
-    return () => clearInterval(t);
-  }, []);
 
   const top3  = leaders.slice(0, 3);
   const rest  = leaders.slice(3);
@@ -159,12 +139,11 @@ export default function LeaderboardScreen({ onBack }: { onBack?: () => void }) {
           <AnimatePresence>
             {rest.map((entry, idx) => {
               const rank = idx + 4;
-              const isPulse = !loading && pulseCount % rest.length === idx;
               return (
                 <motion.div key={entry.uid} layout
                   className="flex items-center gap-3 px-4 py-3 relative"
                   style={{
-                    background: isPulse ? "rgba(255,215,0,0.04)" : idx % 2 === 0 ? "rgba(255,255,255,0.01)" : "transparent",
+                    background: idx % 2 === 0 ? "rgba(255,255,255,0.01)" : "transparent",
                     borderBottom: idx < rest.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
                     transition: "background 0.4s",
                   }}>
@@ -179,16 +158,9 @@ export default function LeaderboardScreen({ onBack }: { onBack?: () => void }) {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <motion.p className="text-sm font-black" style={{ color: tabCfg.color }}
-                      animate={isPulse ? { scale: [1, 1.12, 1] } : {}} transition={{ duration: 0.5 }}>
+                    <p className="text-sm font-black" style={{ color: tabCfg.color }}>
                       ₹{(entry.score / 100).toFixed(0)}
-                    </motion.p>
-                    {isPulse && (
-                      <motion.span className="text-[9px] font-black" style={{ color: "#34d399" }}
-                        initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                        +₹{Math.floor(Math.random() * 50 + 10)}
-                      </motion.span>
-                    )}
+                    </p>
                   </div>
                 </motion.div>
               );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,50 +13,6 @@ import SplashScreen from "@/pages/SplashScreen";
 import LoginScreen from "@/pages/LoginScreen";
 import Dashboard from "@/pages/Dashboard";
 import SpinWheel from "@/pages/SpinWheel";
-import LudoFastGame from "@/pages/LudoFastGame";
-import SaanpSidiGame from "@/pages/SaanpSidiGame";
-import CarromGame from "@/pages/CarromGame";
-import BubbleGame from "@/pages/BubbleGame";
-import CandyGame from "@/pages/CandyGame";
-import ChessGame from "@/pages/ChessGame";
-import DiscFootballGame from "@/pages/DiscFootballGame";
-import RummyGame from "@/pages/RummyGame";
-import CallBreakGame from "@/pages/CallBreakGame";
-import PokerGame from "@/pages/PokerGame";
-import SolitaireGame from "@/pages/SolitaireGame";
-import Twenty1Game from "@/pages/Twenty1Game";
-import MetroSurferGame from "@/pages/MetroSurferGame";
-import KnifeUpGame from "@/pages/KnifeUpGame";
-import AngryMonstersGame from "@/pages/AngryMonstersGame";
-import BearRunGame from "@/pages/BearRunGame";
-import ArcheryGame from "@/pages/ArcheryGame";
-import BasketballGame from "@/pages/BasketballGame";
-import PenaltyShootoutGame from "@/pages/PenaltyShootoutGame";
-import StumpItGame from "@/pages/StumpItGame";
-import BikeRacingGame from "@/pages/BikeRacingGame";
-import GearUpGame from "@/pages/GearUpGame";
-import HillClimberGame from "@/pages/HillClimberGame";
-import LiquidSortGame from "@/pages/LiquidSortGame";
-import BottleShootGame from "@/pages/BottleShootGame";
-import FlyMeGame from "@/pages/FlyMeGame";
-import StreetFightGame from "@/pages/StreetFightGame";
-import ShadowFighterGame from "@/pages/ShadowFighterGame";
-import GolfMasterGame from "@/pages/GolfMasterGame";
-import ArcheryKingGame from "@/pages/ArcheryKingGame";
-import TileMatch3DGame from "@/pages/TileMatch3DGame";
-import PipeConnectGame from "@/pages/PipeConnectGame";
-import JellyShiftGame from "@/pages/JellyShiftGame";
-import GoldMinerGame from "@/pages/GoldMinerGame";
-import AxeMasterGame from "@/pages/AxeMasterGame";
-import MrRacerGame from "@/pages/MrRacerGame";
-import BricksBreaker3DGame from "@/pages/BricksBreaker3DGame";
-import SlapFestGame from "@/pages/SlapFestGame";
-import FruitChopGame from "@/pages/FruitChopGame";
-import AlienFusionGame from "@/pages/AlienFusionGame";
-import Pool3DGame from "@/pages/Pool3DGame";
-import CricketT20Game from "@/pages/CricketT20Game";
-import SheepBattleGame from "@/pages/SheepBattleGame";
-import Hexa2048Game from "@/pages/Hexa2048Game";
 import ReferEarn from "@/pages/ReferEarn";
 import WalletScreen from "@/pages/WalletScreen";
 import HistoryScreen from "@/pages/HistoryScreen";
@@ -71,6 +27,52 @@ import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
 import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 import AppBannerModal from "@/components/AppBannerModal";
+
+// Lazy load game components for better performance
+const LudoFastGame = lazy(() => import("@/pages/LudoFastGame"));
+const SaanpSidiGame = lazy(() => import("@/pages/SaanpSidiGame"));
+const CarromGame = lazy(() => import("@/pages/CarromGame"));
+const BubbleGame = lazy(() => import("@/pages/BubbleGame"));
+const CandyGame = lazy(() => import("@/pages/CandyGame"));
+const ChessGame = lazy(() => import("@/pages/ChessGame"));
+const DiscFootballGame = lazy(() => import("@/pages/DiscFootballGame"));
+const RummyGame = lazy(() => import("@/pages/RummyGame"));
+const CallBreakGame = lazy(() => import("@/pages/CallBreakGame"));
+const PokerGame = lazy(() => import("@/pages/PokerGame"));
+const SolitaireGame = lazy(() => import("@/pages/SolitaireGame"));
+const Twenty1Game = lazy(() => import("@/pages/Twenty1Game"));
+const MetroSurferGame = lazy(() => import("@/pages/MetroSurferGame"));
+const KnifeUpGame = lazy(() => import("@/pages/KnifeUpGame"));
+const AngryMonstersGame = lazy(() => import("@/pages/AngryMonstersGame"));
+const BearRunGame = lazy(() => import("@/pages/BearRunGame"));
+const ArcheryGame = lazy(() => import("@/pages/ArcheryGame"));
+const BasketballGame = lazy(() => import("@/pages/BasketballGame"));
+const PenaltyShootoutGame = lazy(() => import("@/pages/PenaltyShootoutGame"));
+const StumpItGame = lazy(() => import("@/pages/StumpItGame"));
+const BikeRacingGame = lazy(() => import("@/pages/BikeRacingGame"));
+const GearUpGame = lazy(() => import("@/pages/GearUpGame"));
+const HillClimberGame = lazy(() => import("@/pages/HillClimberGame"));
+const LiquidSortGame = lazy(() => import("@/pages/LiquidSortGame"));
+const BottleShootGame = lazy(() => import("@/pages/BottleShootGame"));
+const FlyMeGame = lazy(() => import("@/pages/FlyMeGame"));
+const StreetFightGame = lazy(() => import("@/pages/StreetFightGame"));
+const ShadowFighterGame = lazy(() => import("@/pages/ShadowFighterGame"));
+const GolfMasterGame = lazy(() => import("@/pages/GolfMasterGame"));
+const ArcheryKingGame = lazy(() => import("@/pages/ArcheryKingGame"));
+const TileMatch3DGame = lazy(() => import("@/pages/TileMatch3DGame"));
+const PipeConnectGame = lazy(() => import("@/pages/PipeConnectGame"));
+const JellyShiftGame = lazy(() => import("@/pages/JellyShiftGame"));
+const GoldMinerGame = lazy(() => import("@/pages/GoldMinerGame"));
+const AxeMasterGame = lazy(() => import("@/pages/AxeMasterGame"));
+const MrRacerGame = lazy(() => import("@/pages/MrRacerGame"));
+const BricksBreaker3DGame = lazy(() => import("@/pages/BricksBreaker3DGame"));
+const SlapFestGame = lazy(() => import("@/pages/SlapFestGame"));
+const FruitChopGame = lazy(() => import("@/pages/FruitChopGame"));
+const AlienFusionGame = lazy(() => import("@/pages/AlienFusionGame"));
+const Pool3DGame = lazy(() => import("@/pages/Pool3DGame"));
+const CricketT20Game = lazy(() => import("@/pages/CricketT20Game"));
+const SheepBattleGame = lazy(() => import("@/pages/SheepBattleGame"));
+const Hexa2048Game = lazy(() => import("@/pages/Hexa2048Game"));
 
 const queryClient = new QueryClient();
 
@@ -382,169 +384,278 @@ function AppInner() {
         )}
 
         {screen === "ludo" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <LudoFastGame key="ludo" onBack={() => setScreen("dashboard")} initialFee={ludoFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "saanpsidi" && (
+      {screen === "saanpsidi" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <SaanpSidiGame key="saanpsidi" onBack={() => setScreen("dashboard")} initialFee={saanpSidiFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "carrom" && (
+      {screen === "carrom" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <CarromGame key="carrom" onBack={() => setScreen("dashboard")} initialFee={carromFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "bubble" && (
+      {screen === "bubble" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <BubbleGame key="bubble" onBack={() => setScreen("dashboard")} initialFee={bubbleFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "candy" && (
+      {screen === "candy" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <CandyGame key="candy" onBack={() => setScreen("dashboard")} initialFee={candyFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "chess" && (
+      {screen === "chess" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <ChessGame key="chess" onBack={() => setScreen("dashboard")} initialFee={chessFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "discfootball" && (
+      {screen === "discfootball" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <DiscFootballGame key="discfootball" onBack={() => setScreen("dashboard")} initialFee={discFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "rummy" && (
+      {screen === "rummy" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <RummyGame key="rummy" onBack={() => setScreen("dashboard")} initialFee={rummyFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "callbreak" && (
+      {screen === "callbreak" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <CallBreakGame key="callbreak" onBack={() => setScreen("dashboard")} initialFee={callBreakFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "poker" && (
+      {screen === "poker" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <PokerGame key="poker" onBack={() => setScreen("dashboard")} initialFee={pokerFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "solitaire" && (
+      {screen === "solitaire" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <SolitaireGame key="solitaire" onBack={() => setScreen("dashboard")} initialFee={solitaireFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "twenty1" && (
+      {screen === "twenty1" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <Twenty1Game key="twenty1" onBack={() => setScreen("dashboard")} initialFee={twenty1Fee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "axemaster" && (
+      {screen === "axemaster" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <AxeMasterGame key="axemaster" onBack={() => setScreen("dashboard")} initialFee={axemasterFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "mrracer" && (
+      {screen === "mrracer" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <MrRacerGame key="mrracer" onBack={() => setScreen("dashboard")} initialFee={mrracerFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "bricksbreaker" && (
+      {screen === "bricksbreaker" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <BricksBreaker3DGame key="bricksbreaker" onBack={() => setScreen("dashboard")} initialFee={bricksbreakFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "slapfest" && (
+      {screen === "slapfest" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <SlapFestGame key="slapfest" onBack={() => setScreen("dashboard")} initialFee={slapfestFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "fruitchop" && (
+      {screen === "fruitchop" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <FruitChopGame key="fruitchop" onBack={() => setScreen("dashboard")} initialFee={fruitchopFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "alienfusion" && (
+      {screen === "alienfusion" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <AlienFusionGame key="alienfusion" onBack={() => setScreen("dashboard")} initialFee={alienfusionFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "pool3d" && (
+      {screen === "pool3d" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <Pool3DGame key="pool3d" onBack={() => setScreen("dashboard")} initialFee={pool3dFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "crickettd20" && (
+      {screen === "crickettd20" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <CricketT20Game key="crickettd20" onBack={() => setScreen("dashboard")} initialFee={crickettd20Fee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "sheepbattle" && (
+      {screen === "sheepbattle" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <SheepBattleGame key="sheepbattle" onBack={() => setScreen("dashboard")} initialFee={sheepbattleFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "hexa2048" && (
+      {screen === "hexa2048" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <Hexa2048Game key="hexa2048" onBack={() => setScreen("dashboard")} initialFee={hexa2048Fee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "metrosurfer" && (
+      {screen === "metrosurfer" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <MetroSurferGame key="metrosurfer" onBack={() => setScreen("dashboard")} initialFee={metrosurferFee} />
-        )}
-        {screen === "knifeup" && (
+        </Suspense>
+      )}
+
+      {screen === "knifeup" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <KnifeUpGame key="knifeup" onBack={() => setScreen("dashboard")} initialFee={knifeupFee} />
-        )}
-        {screen === "angrymonsters" && (
+        </Suspense>
+      )}
+
+      {screen === "angrymonsters" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <AngryMonstersGame key="angrymonsters" onBack={() => setScreen("dashboard")} initialFee={angrymonstersFee} />
-        )}
-        {screen === "bearrun" && (
+        </Suspense>
+      )}
+
+      {screen === "bearrun" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <BearRunGame key="bearrun" onBack={() => setScreen("dashboard")} initialFee={bearrunFee} />
-        )}
-        {screen === "archery" && (
+        </Suspense>
+      )}
+
+      {screen === "archery" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <ArcheryGame key="archery" onBack={() => setScreen("dashboard")} initialFee={archeryFee} />
-        )}
-        {screen === "basketball" && (
+        </Suspense>
+      )}
+
+      {screen === "basketball" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <BasketballGame key="basketball" onBack={() => setScreen("dashboard")} initialFee={basketballFee} />
-        )}
-        {screen === "penalty" && (
+        </Suspense>
+      )}
+
+      {screen === "penalty" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <PenaltyShootoutGame key="penalty" onBack={() => setScreen("dashboard")} initialFee={penaltyFee} />
-        )}
-        {screen === "stumpit" && (
+        </Suspense>
+      )}
+
+      {screen === "stumpit" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <StumpItGame key="stumpit" onBack={() => setScreen("dashboard")} initialFee={stumpitFee} />
-        )}
-        {screen === "bikeracing" && (
+        </Suspense>
+      )}
+
+      {screen === "bikeracing" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <BikeRacingGame key="bikeracing" onBack={() => setScreen("dashboard")} initialFee={bikeracingFee} />
-        )}
-        {screen === "gearup" && (
+        </Suspense>
+      )}
+
+      {screen === "gearup" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <GearUpGame key="gearup" onBack={() => setScreen("dashboard")} initialFee={gearupFee} />
-        )}
-        {screen === "hillclimber" && (
+        </Suspense>
+      )}
+
+      {screen === "hillclimber" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <HillClimberGame key="hillclimber" onBack={() => setScreen("dashboard")} initialFee={hillclimberFee} />
-        )}
-        {screen === "liquidsort" && (
+        </Suspense>
+      )}
+
+      {screen === "liquidsort" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <LiquidSortGame key="liquidsort" onBack={() => setScreen("dashboard")} initialFee={liquidsortFee} />
-        )}
-        {screen === "bottleshoot" && (
+        </Suspense>
+      )}
+
+      {screen === "bottleshoot" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <BottleShootGame key="bottleshoot" onBack={() => setScreen("dashboard")} initialFee={bottleshootFee} />
-        )}
-        {screen === "flyme" && (
+        </Suspense>
+      )}
+
+      {screen === "flyme" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <FlyMeGame key="flyme" onBack={() => setScreen("dashboard")} initialFee={flymeFee} />
-        )}
-        {screen === "streetfight" && (
+        </Suspense>
+      )}
+
+      {screen === "streetfight" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <StreetFightGame key="streetfight" onBack={() => setScreen("dashboard")} initialFee={streetfightFee} />
-        )}
-        {screen === "shadowfighter" && (
+        </Suspense>
+      )}
+
+      {screen === "shadowfighter" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <ShadowFighterGame key="shadowfighter" onBack={() => setScreen("dashboard")} initialFee={shadowfighterFee} />
-        )}
-        {screen === "golfmaster" && (
+        </Suspense>
+      )}
+
+      {screen === "golfmaster" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <GolfMasterGame key="golfmaster" onBack={() => setScreen("dashboard")} initialFee={golfmasterFee} />
-        )}
-        {screen === "archeryking" && (
+        </Suspense>
+      )}
+
+      {screen === "archeryking" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <ArcheryKingGame key="archeryking" onBack={() => setScreen("dashboard")} initialFee={archerykingFee} />
-        )}
-        {screen === "tilematch3d" && (
+        </Suspense>
+      )}
+
+      {screen === "tilematch3d" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <TileMatch3DGame key="tilematch3d" onBack={() => setScreen("dashboard")} initialFee={tilematch3dFee} />
-        )}
-        {screen === "pipeconnect" && (
+        </Suspense>
+      )}
+
+      {screen === "pipeconnect" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <PipeConnectGame key="pipeconnect" onBack={() => setScreen("dashboard")} initialFee={pipeconnectFee} />
-        )}
-        {screen === "jellyshift" && (
+        </Suspense>
+      )}
+
+      {screen === "jellyshift" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <JellyShiftGame key="jellyshift" onBack={() => setScreen("dashboard")} initialFee={jellyshiftFee} />
-        )}
-        {screen === "goldminer3d" && (
+        </Suspense>
+      )}
+
+      {screen === "goldminer3d" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <GoldMinerGame key="goldminer3d" onBack={() => setScreen("dashboard")} initialFee={goldminer3dFee} />
-        )}
+        </Suspense>
+      )}
 
-        {screen === "leaderboard" && (
-          <LeaderboardScreen key="leaderboard" onBack={() => setScreen("dashboard")} />
-        )}
+      {screen === "leaderboard" && (
+        <LeaderboardScreen key="leaderboard" onBack={() => setScreen("dashboard")} />
+      )}
 
-        {screen === "notifications" && (
-          <NotificationsScreen key="notifications" onBack={() => setScreen("dashboard")} />
-        )}
+      {screen === "notifications" && (
+        <NotificationsScreen key="notifications" onBack={() => setScreen("dashboard")} />
+      )}
 
-        {screen === "refer" && (
+      {screen === "refer" && (
           <ReferEarn key="refer" onBack={() => setScreen("dashboard")} />
         )}
 

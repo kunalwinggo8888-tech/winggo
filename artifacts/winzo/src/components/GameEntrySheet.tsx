@@ -39,13 +39,13 @@ const GAME_MAP: Record<string, GameCfg> = {
     accent: "#9333ea", headerGrad: "linear-gradient(135deg,#3b0764,#7e22ce,#9333ea)",
     mainGrad: "linear-gradient(180deg,#120630 0%,#0e0220 100%)",
     assets: ["🎲","🔴","🟡","🟢","🔵","🎲","🔴","🟢"],
-    defaultFees: [1,5,10,50,100,500], bigTitle: "LUDO",
+    defaultFees: [2,5,10,20,50,100], bigTitle: "LUDO",
   },
   "5": {
     accent: "#9333ea", headerGrad: "linear-gradient(135deg,#3b0764,#7e22ce,#9333ea)",
     mainGrad: "linear-gradient(180deg,#120630 0%,#0e0220 100%)",
     assets: ["🎲","🔴","🟡","🟢","🔵","🎲","🔴","🟢"],
-    defaultFees: [1,5,10,50,100,500], bigTitle: "LUDO",
+    defaultFees: [2,5,10,20,50,100], bigTitle: "LUDO",
   },
 
   /* ── Carrom ── */
@@ -74,6 +74,12 @@ const GAME_MAP: Record<string, GameCfg> = {
     mainGrad: "linear-gradient(180deg,#021a12 0%,#010d09 100%)",
     assets: ["🐍","🪜","🎲","🐍","🪜","🐍","🎲","🪜"],
     defaultFees: [2,5,10,50,100], bigTitle: "SAPSIDI",
+  },
+  saanpsidi: {
+    accent: "#10b981", headerGrad: "linear-gradient(135deg,#022c22,#065f46,#10b981)",
+    mainGrad: "linear-gradient(180deg,#021a12 0%,#010d09 100%)",
+    assets: ["🐍","🪜","🎲","🐍","🪜","🐍","🎲","🪜"],
+    defaultFees: [2,5,10,20,50,100], bigTitle: "SAPSIDI",
   },
 
   /* ── Solitaire ── */

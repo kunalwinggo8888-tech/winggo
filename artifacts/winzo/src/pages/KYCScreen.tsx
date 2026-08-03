@@ -154,9 +154,9 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
                 animate={{ scale: [1, 1.25, 1] }}
                 transition={{ duration: 0.6, repeat: 2 }}
               >✅</motion.span>
-              <div className="text-base font-black" style={{ color: "#34d399" }}>Verification Submitted!</div>
+              <div className="text-base font-black" style={{ color: "#34d399" }}>KYC Successfully Completed!</div>
               <div className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                Your mobile number {phone} has been submitted for verification.
+                Your mobile number {phone} has been verified successfully.
               </div>
             </motion.div>
           )}
