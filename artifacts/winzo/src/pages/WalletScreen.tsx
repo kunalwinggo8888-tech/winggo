@@ -10,7 +10,7 @@ import { useAuth } from "@/context/useAuth";
 import type { BankDetails } from "@/context/WalletContext";
 import { useMatchHistory } from "@/context/useMatchHistory";
 import type { MatchRecord } from "@/context/MatchHistoryContext";
-import { subscribePaymentConfig, type PaymentConfig } from "@/firebase/firestore.service";
+import { subscribePaymentConfig, type PaymentConfig, canUserWithdraw, incrementDailyWithdrawCount, subscribeDailyWithdrawLimit, type DailyWithdrawLimit } from "@/firebase/firestore.service";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -23,33 +23,6 @@ const AMOUNT_PRESETS = [50, 100, 200, 500, 1000, 2000];
 const MIN_WITHDRAW = 100;
 const MAX_WITHDRAW = 10000;
 const DAILY_WITHDRAW_LIMIT = 2;
-
-// ─── WITHDRAWAL LIMIT HELPERS ─────────────────────────────────────────────────
-
-function getTodayKey(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getWithdrawalCount(uid: string | null): number {
-  if (!uid) return 0;
-  const key = `winggo_withdraw_count_${uid}`;
-  const data = JSON.parse(localStorage.getItem(key) || "{}");
-  const today = getTodayKey();
-  return data.date === today ? (data.count || 0) : 0;
-}
-
-function incrementWithdrawalCount(uid: string | null): void {
-  if (!uid) return;
-  const key = `winggo_withdraw_count_${uid}`;
-  const data = JSON.parse(localStorage.getItem(key) || "{}");
-  const today = getTodayKey();
-  if (data.date !== today) {
-    data.date = today;
-    data.count = 0;
-  }
-  data.count = (data.count || 0) + 1;
-  localStorage.setItem(key, JSON.stringify(data));
-}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -806,8 +779,23 @@ function WithdrawalTab({
   const [saveBank, setSaveBank]       = useState(true);
   const [submitted, setSubmitted]     = useState(false);
   const [error, setError]             = useState("");
-  const [withdrawCount, setWithdrawCount] = useState(() => getWithdrawalCount(uid));
+  const [withdrawLimit, setWithdrawLimit] = useState<DailyWithdrawLimit | null>(null);
+  const [loadingLimit, setLoadingLimit] = useState(true);
 
+  // Subscribe to daily withdrawal limit from Firestore
+  useEffect(() => {
+    if (!uid) {
+      setLoadingLimit(false);
+      return;
+    }
+    const unsub = subscribeDailyWithdrawLimit(uid, (limit) => {
+      setWithdrawLimit(limit);
+      setLoadingLimit(false);
+    });
+    return unsub;
+  }, [uid]);
+
+  const withdrawCount = withdrawLimit?.count || 0;
   const amtNum      = parseInt(amount, 10) || 0;
   const canWithdraw = winningBalance >= MIN_WITHDRAW && withdrawCount < DAILY_WITHDRAW_LIMIT;
   const remainingWithdrawals = DAILY_WITHDRAW_LIMIT - withdrawCount;
@@ -851,8 +839,10 @@ function WithdrawalTab({
           },
         };
     onWithdraw(amtNum, method, details);
-    incrementWithdrawalCount(uid);
-    setWithdrawCount(prev => prev + 1);
+    // Increment Firestore-based daily withdrawal count
+    if (uid) {
+      incrementDailyWithdrawCount(uid, DAILY_WITHDRAW_LIMIT);
+    }
     setSubmitted(true);
     setTimeout(() => { setSubmitted(false); setAmount(""); }, 3500);
   }

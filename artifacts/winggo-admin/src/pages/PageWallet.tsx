@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   subscribeWithdrawRequests, approveWithdraw, rejectWithdraw,
   subscribeDeposits, subscribePlatformStats,
-  WithdrawRequest, DepositRecord, PlatformStats,
+  subscribeUserDailyWithdrawLimit,
+  WithdrawRequest, DepositRecord, PlatformStats, DailyWithdrawLimit,
 } from "@/firebase/admin.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 
@@ -51,10 +52,29 @@ export default function PageWallet() {
   const [expandedWd, setExpandedWd]   = useState<string | null>(null);
   const [rejectId, setRejectId]       = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [userWithdrawLimit, setUserWithdrawLimit] = useState<Record<string, DailyWithdrawLimit>>({});
 
   useEffect(() => { return subscribePlatformStats(setStats); }, []);
   useEffect(() => { return subscribeWithdrawRequests("all", setWithdrawals); }, []);
   useEffect(() => { return subscribeDeposits(setDeposits); }, []);
+
+  // Subscribe to withdrawal limits for users with pending withdrawals
+  useEffect(() => {
+    const unsubscribers: (() => void)[] = [];
+    const pendingUids = new Set(withdrawals.filter(w => w.status === "pending").map(w => w.uid));
+    
+    pendingUids.forEach(uid => {
+      const unsub = subscribeUserDailyWithdrawLimit(uid, (limit) => {
+        setUserWithdrawLimit(prev => ({
+          ...prev,
+          [uid]: limit || { uid, date: "", count: 0, limit: 2, updatedAt: Date.now() }
+        }));
+      });
+      unsubscribers.push(unsub);
+    });
+
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [withdrawals]);
 
   const pendingCount  = withdrawals.filter((w) => w.status === "pending").length;
   const pendingAmount = withdrawals.filter((w) => w.status === "pending").reduce((s, w) => s + w.amount, 0);
@@ -240,7 +260,7 @@ export default function PageWallet() {
                         {fmtTs(w.requestedAt)}
                       </span>
                       <span className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
-                        {w.dailyWithdrawCount ?? 0}/{w.dailyLimit ?? 2}
+                        {userWithdrawLimit[w.uid]?.count ?? 0}/{userWithdrawLimit[w.uid]?.limit ?? 2}
                       </span>
                       <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full inline-block"
                         style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>

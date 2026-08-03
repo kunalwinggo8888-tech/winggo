@@ -10,6 +10,7 @@
  *   games/{gameId}               — game catalog (admin managed)
  *   leaderboards/{gameType}      — top players
  *   notifications/{uid}/items/   — push notification log
+ *   dailyWithdrawLimits/{uid}    — daily withdrawal tracking per user
  */
 import {
   doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc,
@@ -91,6 +92,15 @@ export interface BankDetails {
   accountNumber: string;
   ifscCode: string;
   bankName: string;
+}
+
+export interface DailyWithdrawLimit {
+  uid: string;
+  date: string; // YYYY-MM-DD format
+  count: number;
+  limit: number;
+  lastWithdrawalAt?: Timestamp | number;
+  updatedAt: Timestamp | number;
 }
 
 export interface WithdrawRequest {
@@ -425,18 +435,10 @@ export async function firestoreWithdraw(
 ): Promise<string> {
   if (!FIREBASE_ENABLED || !db) return "";
 
-  // Get daily withdrawal count for this user
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const withdrawCountKey = `winggo_withdraw_count_${uid}`;
-  const withdrawData = JSON.parse(localStorage.getItem(withdrawCountKey) || "{}");
-  const dailyWithdrawCount = (withdrawData.date === todayKey ? (withdrawData.count || 0) : 0) + 1;
-
   const reqData: Omit<WithdrawRequest, "id"> = {
     uid, email, displayName, amount, method,
     status: "pending",
     requestedAt: serverTimestamp() as unknown as Timestamp,
-    dailyWithdrawCount,
-    dailyLimit: 2,
   };
   if (method === "upi" && paymentDetails.upiId) reqData.upiId = paymentDetails.upiId;
   if (method === "bank" && paymentDetails.bankDetails) reqData.bankDetails = paymentDetails.bankDetails;
@@ -1137,4 +1139,159 @@ export async function getMatchHistoryAdmin(): Promise<FirestoreMatchRecord[]> {
   } catch {
     return [];
   }
+}
+
+// ─── DAILY WITHDRAWAL LIMIT (Firestore-based) ───────────────────────────────────
+
+/**
+ * Get today's date in YYYY-MM-DD format (UTC)
+ */
+function getTodayDate(): string {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get daily withdrawal limit data for a user
+ */
+export async function getDailyWithdrawLimit(uid: string): Promise<DailyWithdrawLimit | null> {
+  if (!FIREBASE_ENABLED || !db || !uid) return null;
+  try {
+    const today = getTodayDate();
+    const docRef = doc(db, "dailyWithdrawLimits", uid);
+    const snap = await getDoc(docRef);
+    
+    if (!snap.exists()) {
+      return null;
+    }
+    
+    const data = snap.data() as DailyWithdrawLimit;
+    
+    // Check if date is today, if not return null (will trigger reset)
+    if (data.date !== today) {
+      return null;
+    }
+    
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if user can make a withdrawal (count < limit)
+ */
+export async function canUserWithdraw(uid: string, limit: number = 2): Promise<{ canWithdraw: boolean; count: number; remaining: number }> {
+  if (!FIREBASE_ENABLED || !db || !uid) {
+    return { canWithdraw: true, count: 0, remaining: limit };
+  }
+  
+  try {
+    const limitData = await getDailyWithdrawLimit(uid);
+    
+    if (!limitData) {
+      // No record for today, user can withdraw
+      return { canWithdraw: true, count: 0, remaining: limit };
+    }
+    
+    const count = limitData.count;
+    const remaining = Math.max(0, limit - count);
+    
+    return {
+      canWithdraw: count < limit,
+      count,
+      remaining,
+    };
+  } catch {
+    return { canWithdraw: true, count: 0, remaining: limit };
+  }
+}
+
+/**
+ * Increment daily withdrawal count for a user
+ * Creates new record if doesn't exist for today
+ */
+export async function incrementDailyWithdrawCount(uid: string, limit: number = 2): Promise<void> {
+  if (!FIREBASE_ENABLED || !db || !uid) return;
+  
+  const today = getTodayDate();
+  const docRef = doc(db, "dailyWithdrawLimits", uid);
+  
+  try {
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(docRef);
+      
+      if (!snap.exists()) {
+        // Create new record for today
+        const newLimit: DailyWithdrawLimit = {
+          uid,
+          date: today,
+          count: 1,
+          limit,
+          lastWithdrawalAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        transaction.set(docRef, newLimit);
+      } else {
+        const data = snap.data() as DailyWithdrawLimit;
+        
+        // Check if date is today, if not reset
+        if (data.date !== today) {
+          const resetLimit: DailyWithdrawLimit = {
+            uid,
+            date: today,
+            count: 1,
+            limit,
+            lastWithdrawalAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+          transaction.set(docRef, resetLimit);
+        } else {
+          // Increment count
+          transaction.update(docRef, {
+            count: increment(1),
+            lastWithdrawalAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Failed to increment daily withdraw count:", error);
+  }
+}
+
+/**
+ * Subscribe to daily withdrawal limit for a user (live updates)
+ */
+export function subscribeDailyWithdrawLimit(
+  uid: string,
+  cb: (limit: DailyWithdrawLimit | null) => void
+): () => void {
+  if (!FIREBASE_ENABLED || !db || !uid) {
+    cb(null);
+    return () => {};
+  }
+  
+  const docRef = doc(db, "dailyWithdrawLimits", uid);
+  const today = getTodayDate();
+  
+  return onSnapshot(docRef, (snap) => {
+    if (!snap.exists()) {
+      cb(null);
+      return;
+    }
+    
+    const data = snap.data() as DailyWithdrawLimit;
+    
+    // Only return data if it's for today
+    if (data.date === today) {
+      cb(data);
+    } else {
+      cb(null);
+    }
+  }, () => cb(null));
 }

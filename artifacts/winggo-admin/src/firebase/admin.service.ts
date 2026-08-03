@@ -14,6 +14,17 @@ import {
   ref as rtdbRef, onValue, off, DataSnapshot,
 } from "firebase/database";
 
+// ─── DAILY WITHDRAWAL LIMIT TYPES ─────────────────────────────────────────────
+
+export interface DailyWithdrawLimit {
+  uid: string;
+  date: string; // YYYY-MM-DD format
+  count: number;
+  limit: number;
+  lastWithdrawalAt?: Timestamp | number;
+  updatedAt: Timestamp | number;
+}
+
 
 // ─── Cloudinary Upload Helper (replaces Firebase Storage) ────────────────────
 const _CLD_NAME   = typeof import.meta !== "undefined" ? (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    ?? "") : "";
@@ -1368,6 +1379,79 @@ export async function saveAppBanner(cfg: Partial<AppBannerConfig>): Promise<void
 
 export async function uploadBannerImage(file: File): Promise<string> {
   return _cldUpload(file, "winggo/banners", "image");
+}
+
+
+// ─── DAILY WITHDRAWAL LIMIT (Admin) ─────────────────────────────────────────────
+
+/**
+ * Get today's date in YYYY-MM-DD format (UTC)
+ */
+function getTodayDate(): string {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Subscribe to daily withdrawal limit for a specific user
+ */
+export function subscribeUserDailyWithdrawLimit(
+  uid: string,
+  cb: (limit: DailyWithdrawLimit | null) => void
+): () => void {
+  if (!FIREBASE_ENABLED || !adminDb || !uid) {
+    cb(null);
+    return () => {};
+  }
+  
+  const docRef = doc(adminDb, "dailyWithdrawLimits", uid);
+  const today = getTodayDate();
+  
+  return onSnapshot(docRef, (snap) => {
+    if (!snap.exists()) {
+      cb(null);
+      return;
+    }
+    
+    const data = snap.data() as DailyWithdrawLimit;
+    
+    // Only return data if it's for today
+    if (data.date === today) {
+      cb(data);
+    } else {
+      cb(null);
+    }
+  }, () => cb(null));
+}
+
+/**
+ * Get daily withdrawal limit for a specific user (one-time fetch)
+ */
+export async function getUserDailyWithdrawLimit(uid: string): Promise<DailyWithdrawLimit | null> {
+  if (!FIREBASE_ENABLED || !adminDb || !uid) return null;
+  try {
+    const today = getTodayDate();
+    const docRef = doc(adminDb, "dailyWithdrawLimits", uid);
+    const snap = await getDoc(docRef);
+    
+    if (!snap.exists()) {
+      return null;
+    }
+    
+    const data = snap.data() as DailyWithdrawLimit;
+    
+    // Check if date is today
+    if (data.date !== today) {
+      return null;
+    }
+    
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 
