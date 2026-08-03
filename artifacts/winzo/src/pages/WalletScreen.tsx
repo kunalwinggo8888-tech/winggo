@@ -20,7 +20,7 @@ type WithdrawMethod = "upi" | "bank";
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const AMOUNT_PRESETS = [50, 100, 200, 500, 1000, 2000];
-const MIN_WITHDRAW = 100;
+const MIN_WITHDRAW = 10;
 const MAX_WITHDRAW = 10000;
 const DAILY_WITHDRAW_LIMIT = 2;
 

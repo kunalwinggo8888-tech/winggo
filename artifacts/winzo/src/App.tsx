@@ -15,7 +15,6 @@ import Dashboard from "@/pages/Dashboard";
 import SpinWheel from "@/pages/SpinWheel";
 import LudoFastGame from "@/pages/LudoFastGame";
 import SaanpSidiGame from "@/pages/SaanpSidiGame";
-import WorldWarGame from "@/pages/WorldWarGame";
 import CarromGame from "@/pages/CarromGame";
 import BubbleGame from "@/pages/BubbleGame";
 import CandyGame from "@/pages/CandyGame";
@@ -65,6 +64,8 @@ import ProfileScreen from "@/pages/ProfileScreen";
 import KYCScreen from "@/pages/KYCScreen";
 import LeaderboardScreen from "@/pages/LeaderboardScreen";
 import NotificationsScreen from "@/pages/NotificationsScreen";
+import SupportScreen from "@/pages/SupportScreen";
+import TermsScreen from "@/pages/TermsScreen";
 import FirebaseSetupGuide from "@/pages/FirebaseSetupGuide";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
 import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER } from "@/firebase/firestore.service";
@@ -75,7 +76,7 @@ const queryClient = new QueryClient();
 
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
-  | "spinwheel" | "ludo" | "saanpsidi" | "worldwar" | "carrom" | "bubble" | "candy"
+  | "spinwheel" | "ludo" | "saanpsidi" | "carrom" | "bubble" | "candy"
   | "chess" | "discfootball" | "rummy" | "callbreak" | "poker" | "solitaire" | "twenty1"
   | "axemaster" | "mrracer" | "bricksbreaker" | "slapfest" | "fruitchop"
   | "alienfusion" | "pool3d" | "crickettd20" | "sheepbattle" | "hexa2048"
@@ -84,7 +85,7 @@ type Screen =
   | "liquidsort" | "bottleshoot" | "flyme"
   | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
   | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
-  | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications";
+  | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications" | "support" | "terms";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
@@ -100,7 +101,6 @@ function AppInner() {
   const bannerShown = useRef(false);
   const [ludoFee, setLudoFee]           = useState(2);
   const [saanpSidiFee, setSaanpSidiFee] = useState(2);
-  const [worldWarFee, setWorldWarFee]   = useState<number | undefined>(undefined);
   const [carromFee, setCarromFee]     = useState(10);
   const [bubbleFee, setBubbleFee]         = useState(10);
   const [candyFee, setCandyFee]           = useState(10);
@@ -327,7 +327,6 @@ function AppInner() {
             onLudo={(fee) => { setLudoFee(fee ?? 2); setScreen("ludo"); }}
             onLudoFast={(fee) => { setLudoFee(fee ?? 2); setScreen("ludo"); }}
             onSaanpSidi={(fee) => { setSaanpSidiFee(fee ?? 2); setScreen("saanpsidi"); }}
-            onWorldWar={(fee) => { setWorldWarFee(fee); setScreen("worldwar"); }}
             onSnakes={(fee) => { setSaanpSidiFee(fee ?? 2); setScreen("saanpsidi"); }}
             onCarrom={(fee) => { setCarromFee(fee ?? 10); setScreen("carrom"); }}
             onBubble={(fee) => { setBubbleFee(fee ?? 10); setScreen("bubble"); }}
@@ -388,10 +387,6 @@ function AppInner() {
 
         {screen === "saanpsidi" && (
           <SaanpSidiGame key="saanpsidi" onBack={() => setScreen("dashboard")} initialFee={saanpSidiFee} />
-        )}
-
-        {screen === "worldwar" && (
-          <WorldWarGame key="worldwar" onBack={() => setScreen("dashboard")} initialFee={worldWarFee} />
         )}
 
         {screen === "carrom" && (
@@ -575,12 +570,22 @@ function AppInner() {
             onKYC={() => setScreen("kyc")}
             onRefer={() => setScreen("refer")}
             onWallet={() => setScreen("wallet")}
+            onSupport={() => setScreen("support")}
+            onTerms={() => setScreen("terms")}
             onLogout={handleLogout}
           />
         )}
 
         {screen === "kyc" && (
           <KYCScreen key="kyc" onBack={() => setScreen("profile")} />
+        )}
+
+        {screen === "support" && (
+          <SupportScreen key="support" onBack={() => setScreen("profile")} />
+        )}
+
+        {screen === "terms" && (
+          <TermsScreen key="terms" onBack={() => setScreen("profile")} />
         )}
       </AnimatePresence>
 

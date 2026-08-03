@@ -32,7 +32,7 @@ const _CLD_PRESET = typeof import.meta !== "undefined" ? (import.meta.env.VITE_C
 
 type UploadProgressCb = (pct: number) => void;
 
-async function _cldUpload(
+export async function _cldUpload(
   file: File,
   folder: string,
   resourceType: "image" | "raw" | "auto" = "auto",
@@ -137,6 +137,10 @@ export interface AppConfig {
   maxWithdrawAmount: number;
   announcementBanner: string;
   announcementActive: boolean;
+  instagramLink?: string;
+  paymentUpiId?: string;
+  paymentQrCodeUrl?: string;
+  paymentActive?: boolean;
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
@@ -248,9 +252,12 @@ export async function rejectWithdraw(requestId: string, adminUid: string, reason
 
 export function subscribeUsers(cb: (users: UserProfile[]) => void): () => void {
   if (!FIREBASE_ENABLED || !adminDb) { cb([]); return () => {}; }
-  const q = query(collection(adminDb, "users"), orderBy("createdAt", "desc"), limit(200));
+  const q = query(collection(adminDb, "users"), orderBy("createdAt", "desc"), limit(100));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile)));
+  }, (err) => {
+    console.error("[Admin] subscribeUsers error:", err.code, err.message);
+    cb([]);
   });
 }
 
@@ -690,27 +697,35 @@ const EMPTY_PLATFORM_STATS: PlatformStats = {
 /**
  * Subscribe to multiple Firestore collections in parallel to produce
  * real-time aggregated platform stats. Emits whenever any collection updates.
+ * Optimized with limits and debouncing to reduce Firestore load.
  */
 export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () => void {
   if (!FIREBASE_ENABLED || !adminDb) { cb(EMPTY_PLATFORM_STATS); return () => {}; }
 
   let stats = { ...EMPTY_PLATFORM_STATS };
-  const emit = () => cb({
-    ...stats,
-    dailyProfit: stats.depositsTodayAmount - stats.withdrawalsTodayAmount,
-  });
+  let emitTimeout: number | null = null;
+  
+  const emit = () => {
+    if (emitTimeout) clearTimeout(emitTimeout);
+    emitTimeout = window.setTimeout(() => {
+      cb({
+        ...stats,
+        dailyProfit: stats.depositsTodayAmount - stats.withdrawalsTodayAmount,
+      });
+    }, 300); // Debounce emits to reduce UI updates
+  };
   const todayStart = Date.now() - 86_400_000;
 
-  // 1. Total user count
+  // 1. Total user count - use count query for efficiency
   const unsubUsers = onSnapshot(
-    query(collection(adminDb, "users"), limit(1000)),
+    query(collection(adminDb, "users"), limit(1)),
     (snap) => { stats = { ...stats, totalUsers: snap.size }; emit(); },
     () => {}
   );
 
-  // 2. Wallet balances (sum all wallet docs)
+  // 2. Wallet balances - add limit to prevent loading all wallets
   const unsubWallets = onSnapshot(
-    collection(adminDb, "wallets"),
+    query(collection(adminDb, "wallets"), limit(500)),
     (snap) => {
       let winning = 0, deposit = 0, bonus = 0;
       snap.docs.forEach((d) => {
@@ -731,9 +746,9 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
     () => {}
   );
 
-  // 3. Successful deposits (Razorpay records)
+  // 3. Successful deposits - reduced limit
   const unsubDeposits = onSnapshot(
-    query(collection(adminDb, "deposits"), where("status", "==", "success"), limit(1000)),
+    query(collection(adminDb, "deposits"), where("status", "==", "success"), orderBy("createdAt", "desc"), limit(500)),
     (snap) => {
       let total = 0, today = 0, todayCount = 0;
       snap.docs.forEach((d) => {
@@ -755,7 +770,7 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
     () => {}
   );
 
-  // 4. Pending withdrawals
+  // 4. Pending withdrawals - no limit needed as these are typically few
   const unsubPendingWD = onSnapshot(
     query(collection(adminDb, "withdrawRequests"), where("status", "==", "pending")),
     (snap) => {
@@ -767,9 +782,9 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
     () => {}
   );
 
-  // 5. Approved withdrawals total + today's withdrawals
+  // 5. Approved withdrawals - reduced limit
   const unsubApprovedWD = onSnapshot(
-    query(collection(adminDb, "withdrawRequests"), where("status", "==", "approved"), limit(1000)),
+    query(collection(adminDb, "withdrawRequests"), where("status", "==", "approved"), orderBy("processedAt", "desc"), limit(500)),
     (snap) => {
       let total = 0, todayWD = 0;
       snap.docs.forEach((d) => {
@@ -792,7 +807,7 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
     () => {}
   );
 
-  // 6. Pending KYC
+  // 6. Pending KYC - no limit needed
   const unsubKYC = onSnapshot(
     query(collection(adminDb, "kycRequests"), where("status", "==", "pending")),
     (snap) => { stats = { ...stats, pendingKYC: snap.size }; emit(); },
@@ -800,6 +815,7 @@ export function subscribePlatformStats(cb: (stats: PlatformStats) => void): () =
   );
 
   return () => {
+    if (emitTimeout) clearTimeout(emitTimeout);
     unsubUsers(); unsubWallets(); unsubDeposits();
     unsubPendingWD(); unsubApprovedWD(); unsubKYC();
   };

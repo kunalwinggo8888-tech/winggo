@@ -61,61 +61,9 @@ const BANNERS = [
 ];
 
 const GAME_CATALOG = [
-  // Popular
+  // Popular - Only Ludo and Snakes & Ladders
   { id: "ludo",         name: "Ludo ⚡ Fast",      icon: "🎲", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "7.3L playing", minFee: "₹2" },
   { id: "saanpsidi",   name: "Snake & Ladder",    icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
-  { id: "carrom",       name: "Carrom",            icon: "🎯", gradient: "linear-gradient(135deg,#f7971e,#ffd200)", category: "Popular", players: "2.9L playing", minFee: "₹2" },
-  { id: "bubble",       name: "Bubble Shooter",    icon: "🫧", gradient: "linear-gradient(135deg,#f093fb,#f5576c)", category: "Popular", players: "2.4L playing", minFee: "₹1" },
-  { id: "pool3d",       name: "8 Ball Pool",       icon: "🎱", gradient: "linear-gradient(135deg,#166534,#14532d)", category: "Popular", players: "2.5L playing", minFee: "₹5" },
-  // Action
-  { id: "axemaster",    name: "Axe Master 3D",     icon: "🪓", gradient: "linear-gradient(135deg,#5c3d1e,#8B4513)", category: "Action",  players: "1.1L playing", minFee: "₹5" },
-  { id: "slapfest",     name: "Slap Fest",         icon: "👋", gradient: "linear-gradient(135deg,#FFD700,#ff8c00)", category: "Action",  players: "1.9L playing", minFee: "₹5" },
-  { id: "sheepbattle",  name: "Sheep Battle 3D",   icon: "🐑", gradient: "linear-gradient(135deg,#a3e635,#4d7c0f)", category: "Action",  players: "1.7L playing", minFee: "₹5" },
-  { id: "fruitchop",    name: "Fruit Chop 3D",     icon: "🍉", gradient: "linear-gradient(135deg,#22c55e,#15803d)", category: "Action",  players: "2.0L playing", minFee: "₹5" },
-  { id: "angrymonsters",name: "Angry Monsters",    icon: "👾", gradient: "linear-gradient(135deg,#ff0099,#493240)", category: "Action",  players: "1.2L playing", minFee: "₹5" },
-  // Sports
-  { id: "crickettd20",  name: "Cricket T20",       icon: "🏏", gradient: "linear-gradient(135deg,#ff8c00,#FFD700)", category: "Sports",  players: "4.8L playing", minFee: "₹5" },
-  { id: "pool3d",       name: "Pool 3D",           icon: "🎱", gradient: "linear-gradient(135deg,#166534,#14532d)", category: "Sports",  players: "2.5L playing", minFee: "₹5" },
-  { id: "archery",      name: "Archery",           icon: "🏹", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", category: "Sports",  players: "1.3L playing", minFee: "₹5" },
-  { id: "basketball",   name: "Basketball",        icon: "🏀", gradient: "linear-gradient(135deg,#ff6b35,#f7c59f)", category: "Sports",  players: "1.5L playing", minFee: "₹5" },
-  { id: "penalty",      name: "Penalty Shootout",  icon: "⚽", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Sports",  players: "2.1L playing", minFee: "₹5" },
-  { id: "stumpit",      name: "Stump It",          icon: "🏏", gradient: "linear-gradient(135deg,#FFD700,#ff4e00)", category: "Sports",  players: "1.1L playing", minFee: "₹5" },
-  // Racing
-  { id: "mrracer",      name: "Mr. Racer 3D",      icon: "🏎️", gradient: "linear-gradient(135deg,#ff3300,#ff8800)", category: "Racing",  players: "2.3L playing", minFee: "₹5" },
-  { id: "bikeracing",   name: "Bike Racing",       icon: "🏍️", gradient: "linear-gradient(135deg,#1a1a2e,#ff6600)", category: "Racing",  players: "1.4L playing", minFee: "₹5" },
-  { id: "gearup",       name: "Gear Up",           icon: "⚙️", gradient: "linear-gradient(135deg,#434343,#000000)", category: "Racing",  players: "1.0L playing", minFee: "₹5" },
-  { id: "hillclimber",  name: "Hill Climber",      icon: "🚙", gradient: "linear-gradient(135deg,#56ab2f,#a8e063)", category: "Racing",  players: "1.2L playing", minFee: "₹5" },
-  { id: "liquidsort",   name: "Liquid Sort",       icon: "🧪", gradient: "linear-gradient(135deg,#6a11cb,#2575fc)", category: "Puzzle",  players: "2.1L playing", minFee: "₹5" },
-  { id: "bottleshoot",  name: "Bottle Shoot",      icon: "🔫", gradient: "linear-gradient(135deg,#1c1c2e,#a8322d)", category: "Arcade",  players: "1.8L playing", minFee: "₹5" },
-  { id: "flyme",        name: "Fly Me",            icon: "🐦", gradient: "linear-gradient(135deg,#0f2027,#203a43,#2c5364)", category: "Arcade",  players: "2.4L playing", minFee: "₹5" },
-  { id: "streetfight",  name: "Street Fight 3D",   icon: "🥊", gradient: "linear-gradient(135deg,#0a0010,#ff3300)", category: "Action",  players: "3.1L playing", minFee: "₹2" },
-  { id: "shadowfighter",name: "Shadow Fighter",    icon: "⚔️", gradient: "linear-gradient(135deg,#050010,#7c3aed)", category: "Action",  players: "2.5L playing", minFee: "₹2" },
-  { id: "golfmaster",   name: "Golf Master 3D",    icon: "⛳", gradient: "linear-gradient(135deg,#0d2b0a,#22c55e)", category: "Sports",  players: "1.6L playing", minFee: "₹5" },
-  { id: "archeryking",  name: "Archery King",      icon: "🏹", gradient: "linear-gradient(135deg,#0a0a1f,#FFD700)", category: "Sports",  players: "2.0L playing", minFee: "₹5" },
-  { id: "tilematch3d",  name: "Tile Match 3D",     icon: "🧩", gradient: "linear-gradient(135deg,#1a0030,#9333ea)", category: "Puzzle",  players: "2.8L playing", minFee: "₹5" },
-  { id: "pipeconnect",  name: "Pipe Connect",      icon: "🔧", gradient: "linear-gradient(135deg,#002208,#22c55e)", category: "Puzzle",  players: "1.9L playing", minFee: "₹5" },
-  { id: "jellyshift",   name: "Jelly Shift 3D",    icon: "🟣", gradient: "linear-gradient(135deg,#0a0520,#a855f7)", category: "Arcade",  players: "3.4L playing", minFee: "₹5" },
-  { id: "goldminer3d",  name: "Gold Miner 3D",     icon: "⛏️", gradient: "linear-gradient(135deg,#0a0a1f,#b8860b)", category: "Arcade",  players: "2.2L playing", minFee: "₹5" },
-  // Arcade
-  { id: "candy",        name: "Candy Match",       icon: "🍬", gradient: "linear-gradient(135deg,#FF4081,#00E5FF)", category: "Arcade",  players: "1.6L playing", minFee: "₹5" },
-  { id: "bricksbreaker",name: "Bricks Breaker 3D", icon: "🧱", gradient: "linear-gradient(135deg,#00e5ff,#0077aa)", category: "Arcade",  players: "1.5L playing", minFee: "₹5" },
-  { id: "metrosurfer",  name: "Metro Surfer",      icon: "🏃", gradient: "linear-gradient(135deg,#1e3c72,#2a5298)", category: "Arcade",  players: "1.8L playing", minFee: "₹5" },
-  { id: "knifeup",      name: "Knife Up",          icon: "🗡️", gradient: "linear-gradient(135deg,#4facfe,#00f2fe)", category: "Arcade",  players: "1.8L playing", minFee: "₹5" },
-  { id: "flyme",        name: "Fly Me",            icon: "✈️", gradient: "linear-gradient(135deg,#a8edea,#fed6e3)", category: "Arcade",  players: "1.1L playing", minFee: "₹5" },
-  { id: "bottleshoot",  name: "Bottle Shoot",      icon: "🍾", gradient: "linear-gradient(135deg,#ffd89b,#19547b)", category: "Arcade",  players: "1.3L playing", minFee: "₹5" },
-  { id: "liquidsort",   name: "Liquid Sort",       icon: "🧪", gradient: "linear-gradient(135deg,#7F00FF,#E100FF)", category: "Arcade",  players: "1.2L playing", minFee: "₹5" },
-  { id: "bearrun",      name: "Bear Run",          icon: "🐻", gradient: "linear-gradient(135deg,#f7971e,#ffd200)", category: "Arcade",  players: "1.0L playing", minFee: "₹5" },
-  // Card
-  { id: "rummy",        name: "Rummy",             icon: "🃏", gradient: "linear-gradient(135deg,#ff6b6b,#c0392b)", category: "Card",    players: "3.5L playing", minFee: "₹5" },
-  { id: "poker",        name: "Poker",             icon: "♦️", gradient: "linear-gradient(135deg,#00c851,#007e33)", category: "Card",    players: "1.5L playing", minFee: "₹5" },
-  { id: "solitaire",    name: "Solitaire",         icon: "🃏", gradient: "linear-gradient(135deg,#e91e8c,#6a0050)", category: "Card",    players: "2.1L playing", minFee: "₹5" },
-  { id: "callbreak",    name: "Call Break",        icon: "♠️", gradient: "linear-gradient(135deg,#4169E1,#1a237e)", category: "Card",    players: "2.2L playing", minFee: "₹5" },
-  { id: "twenty1",      name: "21 Card",           icon: "🃏", gradient: "linear-gradient(135deg,#FFD700,#ff8c00)", category: "Card",    players: "2.8L playing", minFee: "₹5" },
-  // Puzzle
-  { id: "hexa2048",     name: "2048 Hexa 3D",      icon: "🔷", gradient: "linear-gradient(135deg,#FFD700,#b8860b)", category: "Puzzle",  players: "1.4L playing", minFee: "₹5" },
-  { id: "alienfusion",  name: "Alien Fusion",      icon: "👽", gradient: "linear-gradient(135deg,#a855f7,#6d28d9)", category: "Puzzle",  players: "1.3L playing", minFee: "₹5" },
-  { id: "watersort",    name: "Water Sort",        icon: "💧", gradient: "linear-gradient(135deg,#2980B9,#6DD5FA)", category: "Puzzle",  players: "1.1L playing", minFee: "₹5" },
-  { id: "bricksbreaker",name: "Bricks Breaker 3D", icon: "🧱", gradient: "linear-gradient(135deg,#00e5ff,#0077aa)", category: "Puzzle",  players: "1.5L playing", minFee: "₹5" },
 ] as const;
 
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category

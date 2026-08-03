@@ -8,6 +8,8 @@ interface ProfileScreenProps {
   onKYC?: () => void;
   onRefer?: () => void;
   onWallet?: () => void;
+  onSupport?: () => void;
+  onTerms?: () => void;
   onLogout?: () => void;
 }
 
@@ -43,7 +45,7 @@ const MENU_ITEMS = [
   { id: "terms",       icon: "📜", label: "Terms & Privacy",     sub: "Legal policies",           arrow: true },
 ];
 
-export default function ProfileScreen({ onKYC, onRefer, onWallet, onLogout }: ProfileScreenProps) {
+export default function ProfileScreen({ onKYC, onRefer, onWallet, onSupport, onTerms, onLogout }: ProfileScreenProps) {
   const { wallet, total } = useWallet();
   const { user } = useAuth();
   const kycStatus = getKycStatus();
@@ -58,6 +60,8 @@ export default function ProfileScreen({ onKYC, onRefer, onWallet, onLogout }: Pr
     if (id === "kyc")          onKYC?.();
     else if (id === "refer")   onRefer?.();
     else if (id === "transactions") onWallet?.();
+    else if (id === "support") onSupport?.();
+    else if (id === "terms")   onTerms?.();
   }
 
   return (

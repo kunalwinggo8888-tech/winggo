@@ -1,16 +1,57 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { subscribeAppConfig, updateAppConfig, _cldUpload } from "@/firebase/admin.service";
 
 export default function PageSettings() {
   const [maintenance, setMaintenance] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(false);
   const [appVersion, setAppVersion] = useState("2.4.1");
   const [minVersion, setMinVersion] = useState("2.2.0");
+  const [instagramLink, setInstagramLink] = useState("https://instagram.com/winggo_official");
+  const [paymentUpiId, setPaymentUpiId] = useState("");
+  const [paymentQrCodeUrl, setPaymentQrCodeUrl] = useState("");
+  const [paymentActive, setPaymentActive] = useState(true);
+  const [qrCodeFile, setQrCodeFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  function save() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
+  useEffect(() => {
+    const unsub = subscribeAppConfig((config) => {
+      setMaintenance(config.maintenanceMode);
+      setForceUpdate(config.forceUpdateVersion !== "1.0.0");
+      setAppVersion(config.forceUpdateVersion);
+      setInstagramLink(config.instagramLink || "https://instagram.com/winggo_official");
+      setPaymentUpiId(config.paymentUpiId || "");
+      setPaymentQrCodeUrl(config.paymentQrCodeUrl || "");
+      setPaymentActive(config.paymentActive !== false);
+    });
+    return unsub;
+  }, []);
+
+  async function save() {
+    setUploading(true);
+    try {
+      let qrUrl = paymentQrCodeUrl;
+      
+      if (qrCodeFile) {
+        qrUrl = await _cldUpload(qrCodeFile, "winggo/payment", "image");
+      }
+
+      await updateAppConfig({
+        maintenanceMode: maintenance,
+        forceUpdateVersion: appVersion,
+        instagramLink,
+        paymentUpiId,
+        paymentQrCodeUrl: qrUrl,
+        paymentActive,
+      });
+      
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1800);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+    }
+    setUploading(false);
   }
 
   const TOGGLES = [
@@ -36,6 +77,57 @@ export default function PageSettings() {
               />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Social Media Links */}
+      <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
+        <h3 className="text-white font-black text-sm mb-4">📸 Social Media Links</h3>
+        <div>
+          <label className="text-xs font-bold mb-1.5 block" style={{ color: "rgba(255,255,255,0.5)" }}>Instagram Profile URL</label>
+          <input value={instagramLink} onChange={e => setInstagramLink(e.target.value)}
+            className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,215,0,0.2)", caretColor: "#FFD700" }}
+            placeholder="https://instagram.com/winggo_official"
+          />
+          <p className="text-[10px] mt-2" style={{ color: "rgba(255,255,255,0.35)" }}>
+            This link will be shown in the Support Center and Terms page
+          </p>
+        </div>
+      </div>
+
+      {/* Payment Settings */}
+      <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,215,0,0.08)" }}>
+        <h3 className="text-white font-black text-sm mb-4">💳 Payment Settings</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-bold mb-1.5 block" style={{ color: "rgba(255,255,255,0.5)" }}>UPI ID</label>
+            <input value={paymentUpiId} onChange={e => setPaymentUpiId(e.target.value)}
+              className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,215,0,0.2)", caretColor: "#FFD700" }}
+              placeholder="example@upi"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold mb-1.5 block" style={{ color: "rgba(255,255,255,0.5)" }}>QR Code Image</label>
+            <input type="file" accept="image/*" onChange={e => setQrCodeFile(e.target.files?.[0] || null)}
+              className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,215,0,0.2)" }}
+            />
+            {paymentQrCodeUrl && (
+              <div className="mt-2">
+                <img src={paymentQrCodeUrl} alt="QR Code" className="w-32 h-32 object-contain rounded-lg" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <input type="checkbox" id="paymentActive" checked={paymentActive} onChange={e => setPaymentActive(e.target.checked)}
+              className="w-4 h-4 rounded"
+            />
+            <label htmlFor="paymentActive" className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+              Enable Payments
+            </label>
+          </div>
         </div>
       </div>
 
