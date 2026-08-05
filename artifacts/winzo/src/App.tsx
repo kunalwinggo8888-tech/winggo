@@ -63,6 +63,7 @@ const TileMatch3DGame = lazy(() => import("@/pages/TileMatch3DGame"));
 const PipeConnectGame = lazy(() => import("@/pages/PipeConnectGame"));
 const JellyShiftGame = lazy(() => import("@/pages/JellyShiftGame"));
 const GoldMinerGame = lazy(() => import("@/pages/GoldMinerGame"));
+const SuperLudoGame = lazy(() => import("@/pages/SuperLudoGame"));
 const AxeMasterGame = lazy(() => import("@/pages/AxeMasterGame"));
 const MrRacerGame = lazy(() => import("@/pages/MrRacerGame"));
 const BricksBreaker3DGame = lazy(() => import("@/pages/BricksBreaker3DGame"));
@@ -87,6 +88,7 @@ type Screen =
   | "liquidsort" | "bottleshoot" | "flyme"
   | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
   | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
+  | "superludo"
   | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications" | "support" | "terms";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -145,6 +147,7 @@ function AppInner() {
   const [pipeconnectFee, setPipeconnectFee]   = useState(10);
   const [jellyshiftFee, setJellyshiftFee]     = useState(10);
   const [goldminer3dFee, setGoldminer3dFee]   = useState(10);
+  const [superLudoFee,   setSuperLudoFee]     = useState(2);
   const [newUserName, setNewUserName]     = useState("");
 
   // Track whether the pending login was a new user signup
@@ -372,6 +375,7 @@ function AppInner() {
             onPipeConnect={(fee) => { setPipeconnectFee(fee ?? 10); setScreen("pipeconnect"); }}
             onJellyShift={(fee) => { setJellyshiftFee(fee ?? 10); setScreen("jellyshift"); }}
             onGoldMiner3D={(fee) => { setGoldminer3dFee(fee ?? 10); setScreen("goldminer3d"); }}
+            onSuperLudo={(fee) => { setSuperLudoFee(fee ?? 2); setScreen("superludo"); }}
             onWallet={() => setScreen("wallet")}
             onHistory={() => setScreen("history")}
             onLeaderboard={() => setScreen("leaderboard")}
@@ -638,6 +642,12 @@ function AppInner() {
       {screen === "jellyshift" && (
         <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <JellyShiftGame key="jellyshift" onBack={() => setScreen("dashboard")} initialFee={jellyshiftFee} />
+        </Suspense>
+      )}
+
+      {screen === "superludo" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background:"#0a1628"}}><span className="text-2xl text-white">Loading...</span></div>}>
+          <SuperLudoGame key="superludo" onBack={() => setScreen("dashboard")} initialFee={superLudoFee} />
         </Suspense>
       )}
 
