@@ -13,10 +13,10 @@
  *   56      = reached home (off the board)
  */
 
-export type PlayerId = "yellow" | "blue";
+export type PlayerId = "blue" | "green";
 
-export const PLAYER = "yellow";
-export const BOT = "blue";
+export const PLAYER = "blue";
+export const BOT = "green";
 
 // ─── Sizing ───────────────────────────────────────────────────────────────────
 
@@ -46,34 +46,37 @@ export const C = {
 // ─── Token colours ────────────────────────────────────────────────────────────
 
 export const TOKEN_COLORS: Record<PlayerId, { dark: string; light: string }> = {
-  yellow: { dark: C.yellowDark, light: "#fde68a" },
   blue: { dark: C.blueDark, light: "#93c5fd" },
+  green: { dark: C.greenDark, light: "#86efac" },
 };
 
 // ─── Movement paths (grid coords, 0-14) ──────────────────────────────────────
+// Blue starts at its base (bottom-left, [6,13]); green starts at its base
+// (top-right, [8,1]). Both trace the same 52-cell ring so cross-player
+// captures compare grid coordinates directly.
 
 export const PLAYER_PATHS: Record<PlayerId, [number, number][]> = {
-  yellow: [[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8]],
   blue: [[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14]],
+  green: [[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0]],
 };
 
 export const FINAL_PATHS: Record<PlayerId, [number, number][]> = {
-  yellow: [[13,7],[12,7],[11,7],[10,7],[9,7]],
   blue: [[7,13],[7,12],[7,11],[7,10],[7,9]],
+  green: [[7,1],[7,2],[7,3],[7,4],[7,5]],
 };
 
 export const HOME_POSITIONS: Record<PlayerId, [number, number][]> = {
-  yellow: [[10.5,10.5],[10.5,12.5],[12.5,10.5],[12.5,12.5]],
   blue: [[1.5,10.5],[1.5,12.5],[3.5,10.5],[3.5,12.5]],
+  green: [[10.5,1.5],[10.5,3.5],[12.5,1.5],[12.5,3.5]],
 };
 
 export const HOME_TRIANGLE_POSITIONS: Record<PlayerId, [number, number][]> = {
-  yellow: [[8.2,6.5],[8.2,7.5],[7.8,6.75],[7.8,7.25]],
   blue: [[6.5,8.2],[7.5,8.2],[6.75,7.8],[7.25,7.8]],
+  green: [[6.5,6.8],[7.5,6.8],[6.75,7.2],[7.25,7.2]],
 };
 
 export const SAFE_CELLS = [0, 8, 13, 21, 26, 34, 39, 47];
-export const START_CELLS: Record<PlayerId, number> = { yellow: 0, blue: 0 };
+export const START_CELLS: Record<PlayerId, number> = { blue: 0, green: 0 };
 
 // ─── Board decoration ─────────────────────────────────────────────────────────
 
@@ -85,24 +88,25 @@ const BASES: { x: number; y: number; color: string; light: string; label: string
   { x: 9, y: 9, color: C.yellow, light: C.yellowDark, label: "YELLOW" },
 ];
 
-// Final lanes for all four colours (decorative — red/green are unused by play).
+// Final lanes for all four colours (decorative — red/yellow are unused by play).
 const FINAL_LANES: { cells: [number, number][]; color: string }[] = [
   { cells: [[1,7],[2,7],[3,7],[4,7],[5,7]], color: C.red },
-  { cells: [[7,1],[7,2],[7,3],[7,4],[7,5]], color: C.green },
-  { cells: FINAL_PATHS.yellow, color: C.yellow },
+  { cells: FINAL_PATHS.green, color: C.green },
+  { cells: [[13,7],[12,7],[11,7],[10,7],[9,7]], color: C.yellow },
   { cells: FINAL_PATHS.blue, color: C.blue },
 ];
 
-// Start cells (visual markers) derived from each colour's ring entry square.
+// Start cells (visual markers) at each colour's ring entry square.
 const START_MARKERS: { cell: [number, number]; color: string }[] = [
-  { cell: PLAYER_PATHS.yellow[26], color: C.red },    // red's launch square (below red base)
-  { cell: PLAYER_PATHS.blue[26], color: C.green },    // green's launch square (left of green base)
-  { cell: PLAYER_PATHS.yellow[START_CELLS.yellow], color: C.yellow },
-  { cell: PLAYER_PATHS.blue[START_CELLS.blue], color: C.blue },
+  { cell: [1, 6], color: C.red },      // red's launch square (below red base)
+  { cell: [8, 1], color: C.green },    // green's launch square (left of green base)
+  { cell: [13, 8], color: C.yellow },  // yellow's launch square (left of yellow base)
+  { cell: [6, 13], color: C.blue },    // blue's launch square (above blue base)
 ];
 
-// Physical safe squares (mapped from the yellow path which defines the ring).
-const SAFE_GRID = SAFE_CELLS.map((i) => PLAYER_PATHS.yellow[i]);
+// Physical safe squares (star cells). The safe-cell index set is closed under
+// every player's path offset, so blue's indices resolve to the same 8 stars.
+const SAFE_GRID = SAFE_CELLS.map((i) => PLAYER_PATHS.blue[i]);
 
 // ─── Coordinate helpers ───────────────────────────────────────────────────────
 
@@ -250,7 +254,7 @@ export function drawSuperLudoBoard(ctx: CanvasRenderingContext2D, size: number) 
 
   // Main 52-square ring
   for (let i = 0; i < 52; i++) {
-    const g = PLAYER_PATHS.yellow[i];
+    const g = PLAYER_PATHS.blue[i];
     cellRect(ctx, g[0] * CELL, g[1] * CELL, CELL, C.pathFill);
   }
 
@@ -280,7 +284,7 @@ export function drawSuperLudoTokens(
   ctx.save();
   ctx.scale(scale, scale);
 
-  const players: PlayerId[] = ["yellow", "blue"];
+  const players: PlayerId[] = ["blue", "green"];
   players.forEach((player) => {
     const arr = screenPos[player] ?? [];
     const col = TOKEN_COLORS[player];

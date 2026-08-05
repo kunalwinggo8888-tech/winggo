@@ -5,7 +5,8 @@
  *   – Entry fee is deducted by GameEntrySheet before mounting
  *   – 8s real-player wait → bot auto-joins
  *   – 2-min match timer on top; below it "Your Score" & "Opponent Score"
- *   – Player (YELLOW) & Bot (BLUE) each have their own dice
+ *   – Player (BLUE) & Bot (GREEN) each have their own dice near their home base
+ *   – All 4 gotis start on the board; any dice 1–6 moves a goti
  *   – Winner gets wallet credit, match result saved to Firestore + local history
  */
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -16,7 +17,7 @@ import { getRandomBot, type BotPlayer } from "@/data/botDatabase";
 import { saveLudoMatchResult } from "@/firebase/firestore.service";
 import { useAuth } from "@/context/useAuth";
 import {
-  PLAYER, BOT, PLAYER_PATHS, FINAL_PATHS, HOME_POSITIONS, SAFE_CELLS, START_CELLS,
+  PLAYER, BOT, PLAYER_PATHS, FINAL_PATHS, SAFE_CELLS, START_CELLS,
   CELL, BOARD_SIZE, gridToCanvas, getTokenCanvasPos, drawSuperLudoBoard, drawSuperLudoTokens,
 } from "./SuperLudoBoard";
 import type { PlayerId } from "./SuperLudoBoard";
@@ -26,6 +27,11 @@ import type { PlayerId } from "./SuperLudoBoard";
 const HOME_SCORE = 25;
 const KILL_BONUS = 15;
 const EMOTES     = ["😂","👍","😤","🔥","🎉","💪","😱","🤙","👑","😎"];
+
+// Pink/purple gradient backdrop (replaces the dark background)
+const GRAD_BG = "linear-gradient(160deg,#3b0764 0%,#6d28d9 45%,#be185d 100%)";
+const PLAYER_COLOR = "#3b82f6";   // blue
+const BOT_COLOR    = "#22c55e";   // green
 
 // ─── SOUND ENGINE (Web Audio API) ─────────────────────────────────────────────
 
@@ -151,10 +157,10 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[28,24],[72,24],[28,50],[72,50],[28,76],[72,76]],
 };
 
-function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: {
-  value: number; rolling: boolean; onClick: () => void; disabled: boolean; playerColor?: string;
+function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308", size = 56 }: {
+  value: number; rolling: boolean; onClick: () => void; disabled: boolean; playerColor?: string; size?: number;
 }) {
-  const sz = 56;
+  const sz = size;
   const dots = PIPS[value] ?? PIPS[1];
   return (
     <motion.div
@@ -203,8 +209,7 @@ function chooseBotMove(bTokens: number[], pTokens: number[], value: number): num
   const valid: number[] = [];
   for (let i = 0; i < 4; i++) {
     const p = bTokens[i];
-    if (p === -1) { if (value === 6) valid.push(i); }
-    else if (p < 51) { if (p + value <= 56) valid.push(i); }
+    if (p < 51) { if (p + value <= 56) valid.push(i); }
     else if (p >= 51 && p < 56) { if (p + value <= 56) valid.push(i); }
   }
   if (valid.length === 0) return -1;
@@ -213,21 +218,20 @@ function chooseBotMove(bTokens: number[], pTokens: number[], value: number): num
   valid.forEach(i => {
     let score = 0;
     const pos = bTokens[i];
-    const newPos = pos === -1 ? 0 : pos + value;
+    const newPos = pos + value;
     if (newPos === 56) score += 100;
     if (newPos >= 0 && newPos < 51) {
-      const gp = PLAYER_PATHS.blue[newPos];
+      const gp = PLAYER_PATHS[BOT][newPos];
       for (let j = 0; j < 4; j++) {
         const o = pTokens[j];
         if (o >= 0 && o < 51) {
-          const og = PLAYER_PATHS.yellow[o];
+          const og = PLAYER_PATHS[PLAYER][o];
           if (gp[0] === og[0] && gp[1] === og[1]) score += 50;
         }
       }
       if (SAFE_CELLS.includes(newPos)) score += 10;
     }
     score += newPos;
-    if (pos === -1) score += 5;
     if (score > bestScore) { bestScore = score; best = i; }
   });
   return best;
@@ -258,8 +262,8 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const tokensRef = useRef<Record<PlayerId, number[]>>({
-    [PLAYER]: [-1, -1, -1, -1],
-    [BOT]:    [-1, -1, -1, -1],
+    [PLAYER]: [0, 0, 0, 0],
+    [BOT]:    [0, 0, 0, 0],
   });
   const screenPosRef = useRef<Record<PlayerId, { x: number; y: number }[]>>({
     [PLAYER]: [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }],
@@ -274,14 +278,14 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
     turn: "player" as "player" | "bot",
     rolling: false,
     validToks: [] as number[],
-    pTokens: [-1, -1, -1, -1] as number[],
-    bTokens: [-1, -1, -1, -1] as number[],
+    pTokens: [0, 0, 0, 0] as number[],
+    bTokens: [0, 0, 0, 0] as number[],
     emote: "",
     matchTimer: 120,
   });
 
-  const [pTokens, setPTokens] = useState([-1, -1, -1, -1]);
-  const [bTokens, setBTokens] = useState([-1, -1, -1, -1]);
+  const [pTokens, setPTokens] = useState([0, 0, 0, 0]);
+  const [bTokens, setBTokens] = useState([0, 0, 0, 0]);
   const [pScore, setPScore] = useState(0);
   const [bScore, setBScore] = useState(0);
   const [pMoves, setPMoves] = useState(0);
@@ -297,6 +301,24 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   const [killFlash, setKillFlash] = useState(false);
   const [turnTimer, setTurnTimer] = useState(15);
   const [matchTimer, setMatchTimer] = useState(120);
+  const forfeitedRef = useRef(false);
+  const [forfeitOpen, setForfeitOpen] = useState(false);
+  const [forfeitCountdown, setForfeitCountdown] = useState(0);
+
+  // ── Board geometry (for dice/profile overlays anchored to the home bases) ──
+  const boardWrapRef = useRef<HTMLDivElement>(null);
+  const [boardBox, setBoardBox] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const el = boardWrapRef.current;
+    if (!el) return;
+    const update = () => setBoardBox({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [phase]);
 
   const pushLog = (msg: string) => setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
   const flashKill = () => { setKillFlash(true); setTimeout(() => setKillFlash(false), 600); };
@@ -312,9 +334,12 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
     // Seed token screen positions from the current game state
     ([PLAYER, BOT] as PlayerId[]).forEach(player => {
-      const arr = tokensRef.current[player] ?? [-1, -1, -1, -1];
+      const arr = tokensRef.current[player] ?? [0, 0, 0, 0];
       screenPosRef.current[player] = arr.map((pos, idx) => getTokenCanvasPos(player, idx, pos));
     });
+    // Spread the 4 starting gotis around each start square
+    distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], 0, PLAYER);
+    distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], 0, BOT);
 
     const parent = canvas.parentElement as HTMLElement | null;
     const measure = () => {
@@ -411,12 +436,21 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
   // ── Timer end → result ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (matchTimer !== 0 || phase !== "playing" || scored.current) return;
+    if (matchTimer !== 0 || phase !== "playing" || scored.current || forfeitedRef.current) return;
     scored.current = true;
     setPhase("result");
     finishMatch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchTimer, phase]);
+
+  // ── Forfeit: 10s countdown → auto-loser (exit guard) ───────────────────────
+  useEffect(() => {
+    if (!forfeitOpen || forfeitedRef.current) return;
+    if (forfeitCountdown <= 0) { confirmForfeit(); return; }
+    const t = setTimeout(() => setForfeitCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forfeitOpen, forfeitCountdown]);
 
   // ── Win/lose sound on result ────────────────────────────────────────────────
   useEffect(() => {
@@ -455,7 +489,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
     Sounds.roll();
     setTimeout(() => {
       setRolling(false);
-      const valid = pTokens.map((s, ti) => ({ s, ti })).filter(({ s }) => s === -1 ? val === 6 : (s < 51 ? s + val <= 56 : s >= 51 && s + val <= 56)).map(({ ti }) => ti);
+      const valid = pTokens.map((s, ti) => ({ s, ti })).filter(({ s }) => (s < 51 ? s + val <= 56 : s >= 51 && s + val <= 56)).map(({ ti }) => ti);
       if (valid.length === 0) {
         pushLog(`Auto-roll ${val} — no valid move. Skipped!`);
         setTurn("bot");
@@ -523,7 +557,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
     setTimeout(() => {
       setRolling(false);
-      const valid = pTokens.map((s, ti) => ({ s, ti })).filter(({ s }) => s === -1 ? val === 6 : (s < 51 ? s + val <= 56 : s >= 51 && s + val <= 56)).map(({ ti }) => ti);
+      const valid = pTokens.map((s, ti) => ({ s, ti })).filter(({ s }) => (s < 51 ? s + val <= 56 : s >= 51 && s + val <= 56)).map(({ ti }) => ti);
 
       if (valid.length === 0) {
         pushLog(`Rolled ${val} — no valid move. Turn skipped!`);
@@ -639,16 +673,16 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
             const og = PLAYER_PATHS[BOT][oPos];
             if (og[0] === nPos[0] && og[1] === nPos[1] && !SAFE_CELLS.includes(ns) && ns !== START_CELLS[PLAYER]) {
               killPts = oPos;
-              botArr[i] = -1;
-              const hp = HOME_POSITIONS[BOT][i];
-              screenPosRef.current[BOT][i] = gridToCanvas(hp[0], hp[1]);
+              botArr[i] = 0;
+              const sg = PLAYER_PATHS[BOT][0];
+              screenPosRef.current[BOT][i] = gridToCanvas(sg[0], sg[1]);
               killed = true;
               playerKills.current++;
               Sounds.capture();
               flashKill();
               setEmote("💥");
               setTimeout(() => setEmote(""), 1200);
-              pushLog(`💥 KILL! ${botRef.current.name}'s token sent back! +${KILL_BONUS} pts`);
+              pushLog(`💥 KILL! ${botRef.current.name}'s goti sent back to start! +${KILL_BONUS} pts`);
               setBScore(s => Math.max(0, s - killPts));
             }
           }
@@ -660,7 +694,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       let pts = moved + (killed ? KILL_BONUS : 0);
       if (ns >= 56) {
         pts += HOME_SCORE;
-        pushLog(`🏠 Token ${ti + 1} HOME! +${moved + HOME_SCORE}${killed ? `+${KILL_BONUS}` : ""} pts! 🎉`);
+        pushLog(`🏠 Goti ${ti + 1} HOME! +${moved + HOME_SCORE}${killed ? `+${KILL_BONUS}` : ""} pts! 🎉`);
       } else if (!killed) {
         pushLog(`Rolled ${diceVal} → +${moved} pts${diceVal === 6 ? " 🎲 EXTRA TURN!" : ""}`);
       }
@@ -672,6 +706,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       // redistribute stack
       if (oldStep >= 0) distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], oldStep, PLAYER);
       distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], ns, PLAYER);
+      if (killed) distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], 0, BOT);
 
       if (ns >= 56 && tokensRef.current[PLAYER].every(t => t === 56)) {
         setPhase("result");
@@ -708,16 +743,16 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
             const og = PLAYER_PATHS[PLAYER][oPos];
             if (og[0] === nPos[0] && og[1] === nPos[1] && !SAFE_CELLS.includes(ns) && ns !== START_CELLS[BOT]) {
               killPts = oPos;
-              pArr[i] = -1;
-              const hp = HOME_POSITIONS[PLAYER][i];
-              screenPosRef.current[PLAYER][i] = gridToCanvas(hp[0], hp[1]);
+              pArr[i] = 0;
+              const sg = PLAYER_PATHS[PLAYER][0];
+              screenPosRef.current[PLAYER][i] = gridToCanvas(sg[0], sg[1]);
               killed = true;
               botKills.current++;
               Sounds.capture();
               flashKill();
               setEmote(EMOTES[Math.floor(Math.random() * EMOTES.length)]);
               setTimeout(() => setEmote(""), 1200);
-              pushLog(`💀 ${botRef.current.name} killed your token! +${KILL_BONUS} | You -${killPts} pts`);
+              pushLog(`💀 ${botRef.current.name} killed your goti! Sent back to start! +${KILL_BONUS} | You -${killPts} pts`);
               setPScore(s => Math.max(0, s - killPts));
             }
           }
@@ -729,7 +764,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       let pts = moved + (killed ? KILL_BONUS : 0);
       if (ns >= 56) {
         pts += HOME_SCORE;
-        pushLog(`🔵 ${botRef.current.name} token HOME! +${moved + HOME_SCORE} pts 🎉`);
+        pushLog(`🔵 ${botRef.current.name} goti HOME! +${moved + HOME_SCORE} pts 🎉`);
       } else if (!killed) {
         pushLog(`🔵 ${botRef.current.name} rolled ${diceVal} → +${pts} pts`);
       }
@@ -740,6 +775,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
       if (oldStep >= 0) distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], oldStep, BOT);
       distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], ns, BOT);
+      if (killed) distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], 0, PLAYER);
 
       if (ns >= 56 && tokensRef.current[BOT].every(t => t === 56)) {
         setPhase("result");
@@ -754,6 +790,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
   // ── Finish match: credit wallet + save result + history ────────────────────
   function finishMatch() {
+    if (forfeitedRef.current) return;
     const won = pScore > bScore;
     const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
     const duration = Math.floor((Date.now() - matchStartTime.current) / 1000);
@@ -794,6 +831,63 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   }
 
   const canRoll = turn === "player" && !rolling && !moveBusy.current && validToks.length === 0 && pMoves < 100 && phase === "playing";
+
+  // ── Forfeit / exit: 10s countdown → auto-loser ──────────────────────────────
+  function openForfeit() {
+    if (phase !== "playing" || forfeitedRef.current) return;
+    setForfeitCountdown(10);
+    setForfeitOpen(true);
+  }
+
+  function cancelForfeit() {
+    setForfeitOpen(false);
+    setForfeitCountdown(0);
+  }
+
+  function confirmForfeit() {
+    if (forfeitedRef.current) return;
+    forfeitedRef.current = true;
+    setForfeitOpen(false);
+    setForfeitCountdown(0);
+
+    const duration = Math.floor((Date.now() - matchStartTime.current) / 1000);
+
+    // Record the forfeited loss in Firestore (auto-loser)
+    if (user?.uid) {
+      saveLudoMatchResult({
+        uid: user.uid,
+        opponentName: botRef.current.name,
+        opponentIsBot: true,
+        playerScore: pScore,
+        opponentScore: bScore,
+        won: false,
+        entryFee: initialFee,
+        prizeAmount: 0,
+        tier,
+        duration,
+        moves: pMoves,
+        kills: playerKills.current,
+        forfeited: true,
+      }).catch(console.error);
+    }
+
+    // Entry fee is lost — no wallet credit on forfeit
+    addMatch({
+      gameId: "superludo",
+      gameName: isFreeMode ? "Super Ludo (Practice)" : "Super Ludo",
+      gameIcon: "🎲",
+      result: "loss",
+      entryFee: initialFee,
+      prize: 0,
+      userScore: pScore,
+      opponentScore: bScore,
+      opponentName: botRef.current.name,
+    });
+
+    pushLog("🚪 You forfeited the match.");
+    setPhase("result");
+  }
+
   const prize = (!isFreeMode && pScore > bScore) ? Math.floor(initialFee * 2 * 0.9) : 0;
 
   // Keep the render loop up-to-date with the latest React state
@@ -807,7 +901,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
     return (
       <div className="flex flex-col min-h-screen items-center justify-center px-5"
-        style={{ background: "linear-gradient(180deg,#06080f 0%,#120630 50%,#06080f 100%)", maxWidth: 480, margin: "0 auto" }}>
+        style={{ background: GRAD_BG, maxWidth: 480, margin: "0 auto" }}>
 
         <motion.div initial={{ opacity: 0, y: -18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
           className="mb-10 text-center">
@@ -841,19 +935,19 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
             className="flex flex-col items-center gap-3 flex-1">
             <div className="relative">
               <motion.div className="absolute rounded-full pointer-events-none"
-                style={{ inset: -7, border: "2.5px solid #eab308", borderRadius: "50%" }}
+                style={{ inset: -7, border: `2.5px solid ${PLAYER_COLOR}`, borderRadius: "50%" }}
                 animate={{ scale: [1, 1.14, 1], opacity: [0.75, 0.2, 0.75] }}
                 transition={{ duration: 1.9, repeat: Infinity }} />
               <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center text-3xl"
-                style={{ background: "linear-gradient(135deg,#eab308 0%,#92400e 100%)", border: "3.5px solid #eab308", boxShadow: "0 0 28px rgba(234,179,8,0.65),0 0 56px rgba(234,179,8,0.25)" }}>
+                style={{ background: `linear-gradient(135deg,${PLAYER_COLOR} 0%,#1e3a8a 100%)`, border: `3.5px solid ${PLAYER_COLOR}`, boxShadow: `0 0 28px ${PLAYER_COLOR}88,0 0 56px ${PLAYER_COLOR}33` }}>
                 🎲
               </div>
               <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full flex items-center justify-center"
-                style={{ background: "#22c55e", border: "2.5px solid #06080f" }} />
+                style={{ background: "#22c55e", border: "2.5px solid #1e1038" }} />
             </div>
             <div className="text-center">
               <div className="font-black text-white text-base leading-tight">YOU</div>
-              <div className="text-[11px] font-bold mt-0.5" style={{ color: "rgba(234,179,8,0.85)" }}>🟡 Yellow</div>
+              <div className="text-[11px] font-bold mt-0.5" style={{ color: `${PLAYER_COLOR}e0` }}>🔵 Blue</div>
             </div>
           </motion.div>
 
@@ -902,7 +996,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
                     style={{ background: `linear-gradient(135deg,${botRef.current.avatarColor}cc 0%,#1e1b4b 100%)`, border: `3.5px solid ${botRef.current.avatarColor}`, boxShadow: `0 0 28px ${botRef.current.avatarColor}99,0 0 56px ${botRef.current.avatarColor}33` }}>
                     <span className="font-black text-white" style={{ fontSize: 38, lineHeight: 1 }}>{botRef.current.initial}</span>
                   </div>
-                  <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full" style={{ background: "#22c55e", border: "2.5px solid #06080f" }} />
+                  <div className="absolute bottom-1 right-1 w-[18px] h-[18px] rounded-full" style={{ background: "#22c55e", border: "2.5px solid #1e1038" }} />
                 </div>
                 <div className="text-center">
                   <div className="font-black text-white text-base leading-tight">{botRef.current.name}</div>
@@ -949,9 +1043,12 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
   // ─── RESULT SCREEN ──────────────────────────────────────────────────────────
   if (phase === "result") {
-    const won = pScore > bScore;
-    const resultIcon = won ? "🏆" : "😔";
-    const resultText = won ? "VICTORY!" : "DEFEATED";
+    const forfeited = forfeitedRef.current;
+    const won = forfeited ? false : pScore > bScore;
+    const resultIcon = forfeited ? "🚪" : won ? "🏆" : "😔";
+    const resultText = forfeited ? "FORFEITED" : won ? "VICTORY!" : "DEFEATED";
+    const resultColor = forfeited ? "#f97316" : won ? "#FFD700" : "#ef4444";
+    const resultGlow = forfeited ? "rgba(249,115,22,0.7)" : won ? "rgba(255,215,0,0.9)" : "rgba(239,68,68,0.7)";
 
     return (
       <div className="flex flex-col min-h-screen items-center justify-center gap-5 px-5 relative"
@@ -960,15 +1057,22 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
         <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 200 }} className="text-8xl"
-          style={{ filter: `drop-shadow(0 0 30px ${won ? "rgba(255,215,0,0.9)" : "rgba(239,68,68,0.7)"})` }}>
+          style={{ filter: `drop-shadow(0 0 30px ${resultGlow})` }}>
           {resultIcon}
         </motion.div>
 
         <div className="text-center">
           <motion.h2 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="text-4xl font-black" style={{ color: won ? "#FFD700" : "#ef4444" }}>
+            className="text-4xl font-black" style={{ color: resultColor }}>
             {resultText}
           </motion.h2>
+          {forfeited && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+              className="mt-2 text-sm font-bold px-4 py-2 rounded-xl"
+              style={{ background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)", color: "#f97316" }}>
+              🚪 You left the match — counted as a loss
+            </motion.div>
+          )}
           {won && !isFreeMode && prize > 0 && (
             <>
               <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
@@ -992,14 +1096,14 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
         {/* Score breakdown */}
         <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
           <div className="flex">
-            <div className="flex-1 p-4 text-center" style={{ background: "rgba(234,179,8,0.1)", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
-              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(234,179,8,0.75)" }}>YOU 🟡</div>
-              <div className="text-3xl font-black" style={{ color: "#eab308" }}>{pScore}</div>
+            <div className="flex-1 p-4 text-center" style={{ background: `${PLAYER_COLOR}1a`, borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: `${PLAYER_COLOR}e0` }}>YOU 🔵</div>
+              <div className="text-3xl font-black" style={{ color: PLAYER_COLOR }}>{pScore}</div>
               <div className="text-[9px] font-bold mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>points</div>
             </div>
-            <div className="flex-1 p-4 text-center" style={{ background: "rgba(59,130,246,0.1)" }}>
-              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: "rgba(59,130,246,0.7)" }}>{botRef.current.name.slice(0, 8)}</div>
-              <div className="text-3xl font-black" style={{ color: "#3b82f6" }}>{bScore}</div>
+            <div className="flex-1 p-4 text-center" style={{ background: `${BOT_COLOR}1a` }}>
+              <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: `${BOT_COLOR}e0` }}>{botRef.current.name.slice(0, 8)}</div>
+              <div className="text-3xl font-black" style={{ color: BOT_COLOR }}>{bScore}</div>
               <div className="text-[9px] font-bold mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>points</div>
             </div>
           </div>
@@ -1011,7 +1115,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
           </div>
           {!isFreeMode && (
             <div className="px-4 py-2.5 flex justify-between items-center" style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>{won ? "You Won" : "You Lost"}</span>
+              <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>{won ? "You Won" : forfeited ? "You Forfeited" : "You Lost"}</span>
               <span className="text-sm font-black" style={{ color: won ? "#4ade80" : "#ef4444" }}>
                 {won ? `+₹${prize}` : `-₹${initialFee}`}
               </span>
@@ -1032,13 +1136,27 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   const tierColor = tier === "god" ? "#ff3b5c" : tier === "medium" ? "#f97316" : "#4ade80";
   const tierLabel = tier === "god" ? "⚡ GOD" : tier === "medium" ? "🔶 MED" : "🟢 EASY";
 
+  // Board square geometry + dice anchor points (home bases: blue = bottom-left,
+  // green = top-right). Blue base centre = cell (2.5,11.5) → (120,480); green
+  // base centre = cell (11.5,2.5) → (480,120) in the canonical 600×600 space.
+  const bs = Math.min(boardBox.w, boardBox.h);
+  const bx = (boardBox.w - bs) / 2;
+  const by = (boardBox.h - bs) / 2;
+  const sc = bs > 0 ? bs / 600 : 0;
+  const dsz = Math.max(38, Math.min(54, Math.round(bs * 0.085)));
+  const pAnchor = { x: bx + 120 * sc, y: by + 480 * sc };
+  const bAnchor = { x: bx + 480 * sc, y: by + 120 * sc };
+
+  const playerPhoto = user?.photoURL || "";
+  const playerInitial = (user?.displayName || "YOU").charAt(0).toUpperCase();
+
   return (
     <div className="flex flex-col min-h-screen"
-      style={{ background: "linear-gradient(180deg,#060b18 0%,#120630 100%)", maxWidth: 480, margin: "0 auto" }}>
+      style={{ background: GRAD_BG, maxWidth: 480, margin: "0 auto" }}>
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2 flex-shrink-0">
-        <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-xl cursor-pointer"
+        <button onClick={openForfeit} className="w-9 h-9 flex items-center justify-center rounded-xl cursor-pointer"
           style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", fontSize: 18 }}>
           ←
         </button>
@@ -1080,19 +1198,19 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       {/* ── Your Score / Opponent Score (below timer) ── */}
       <div className="px-3 pb-2 flex gap-2 flex-shrink-0">
         <motion.div className="flex-1 rounded-xl px-3 py-2 flex flex-col items-center"
-          animate={{ boxShadow: turn === "player" ? "0 0 24px rgba(234,179,8,0.8),0 0 48px rgba(234,179,8,0.35)" : "none" }}
-          style={{ background: turn === "player" ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.04)", border: `2px solid ${turn === "player" ? "#eab308" : "rgba(255,255,255,0.07)"}` }}>
-          <span className="text-[10px] font-black tracking-wider" style={{ color: "#eab308" }}>YOUR SCORE</span>
-          <motion.span key={pScore} className="text-2xl font-black leading-none" style={{ color: "#eab308", textShadow: "0 0 12px rgba(234,179,8,0.65)" }}
+          animate={{ boxShadow: turn === "player" ? `0 0 24px ${PLAYER_COLOR},0 0 48px ${PLAYER_COLOR}59` : "none" }}
+          style={{ background: turn === "player" ? `${PLAYER_COLOR}33` : "rgba(255,255,255,0.07)", border: `2px solid ${turn === "player" ? PLAYER_COLOR : "rgba(255,255,255,0.12)"}` }}>
+          <span className="text-[10px] font-black tracking-wider" style={{ color: PLAYER_COLOR }}>YOUR SCORE</span>
+          <motion.span key={pScore} className="text-2xl font-black leading-none" style={{ color: PLAYER_COLOR, textShadow: `0 0 12px ${PLAYER_COLOR}` }}
             initial={{ scale: 1.4 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }}>
             {pScore}
           </motion.span>
         </motion.div>
         <motion.div className="flex-1 rounded-xl px-3 py-2 flex flex-col items-center"
-          animate={{ boxShadow: turn === "bot" ? "0 0 24px rgba(59,130,246,0.8),0 0 48px rgba(59,130,246,0.35)" : "none" }}
-          style={{ background: turn === "bot" ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.04)", border: `2px solid ${turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.07)"}` }}>
-          <span className="text-[10px] font-black tracking-wider truncate max-w-full" style={{ color: "#3b82f6" }}>{botRef.current.name.slice(0, 10)}</span>
-          <motion.span key={bScore} className="text-2xl font-black leading-none" style={{ color: "#3b82f6", textShadow: "0 0 12px rgba(59,130,246,0.6)" }}
+          animate={{ boxShadow: turn === "bot" ? `0 0 24px ${BOT_COLOR},0 0 48px ${BOT_COLOR}59` : "none" }}
+          style={{ background: turn === "bot" ? `${BOT_COLOR}33` : "rgba(255,255,255,0.07)", border: `2px solid ${turn === "bot" ? BOT_COLOR : "rgba(255,255,255,0.12)"}` }}>
+          <span className="text-[10px] font-black tracking-wider truncate max-w-full" style={{ color: BOT_COLOR }}>{botRef.current.name.slice(0, 10)}</span>
+          <motion.span key={bScore} className="text-2xl font-black leading-none" style={{ color: BOT_COLOR, textShadow: `0 0 12px ${BOT_COLOR}` }}
             initial={{ scale: 1.4 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }}>
             {bScore}
           </motion.span>
@@ -1102,111 +1220,179 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       {/* ── Turn indicator strip ── */}
       <div className="flex items-center justify-between px-3 pb-2 flex-shrink-0">
         <div className="flex items-center gap-1.5">
-          <motion.div className="w-2.5 h-2.5 rounded-full" style={{ background: "#eab308", boxShadow: turn === "player" ? "0 0 8px #eab308" : "none" }}
+          <motion.div className="w-2.5 h-2.5 rounded-full" style={{ background: PLAYER_COLOR, boxShadow: turn === "player" ? `0 0 8px ${PLAYER_COLOR}` : "none" }}
             animate={turn === "player" ? { scale: [1, 1.35, 1] } : { scale: 1 }} transition={{ duration: 0.7, repeat: Infinity }} />
-          <span className="text-[10px] font-black" style={{ color: turn === "player" ? "#eab308" : "rgba(255,255,255,0.3)" }}>YOU 🟡</span>
+          <span className="text-[10px] font-black" style={{ color: turn === "player" ? PLAYER_COLOR : "rgba(255,255,255,0.4)" }}>YOU 🔵</span>
           {turn === "player" && (
-            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: "#eab308", color: "#000" }}>TURN</span>
+            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: PLAYER_COLOR, color: "#fff" }}>TURN</span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-black" style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.3)" }}>{botRef.current.name}</span>
+          <span className="text-[10px] font-black" style={{ color: turn === "bot" ? BOT_COLOR : "rgba(255,255,255,0.4)" }}>{botRef.current.name}</span>
           {turn === "bot" && (
-            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: "#3b82f6", color: "#fff" }}>TURN</span>
+            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: BOT_COLOR, color: "#fff" }}>TURN</span>
           )}
-          <motion.div className="w-2.5 h-2.5 rounded-full" style={{ background: "#3b82f6", boxShadow: turn === "bot" ? "0 0 8px #3b82f6" : "none" }}
+          <motion.div className="w-2.5 h-2.5 rounded-full" style={{ background: BOT_COLOR, boxShadow: turn === "bot" ? `0 0 8px ${BOT_COLOR}` : "none" }}
             animate={turn === "bot" ? { scale: [1, 1.35, 1] } : { scale: 1 }} transition={{ duration: 0.7, repeat: Infinity }} />
         </div>
       </div>
 
       {/* ── Canvas Ludo Board ── */}
-      <div className="flex-1 relative px-2 min-h-[340px]">
-        <AnimatePresence>
-          {killFlash && (
-            <motion.div className="absolute inset-0 rounded-xl pointer-events-none z-10"
-              initial={{ opacity: 0 }} animate={{ opacity: [0, 0.35, 0] }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}
-              style={{ background: "radial-gradient(circle,rgba(255,59,92,0.7) 0%,transparent 70%)" }} />
+      <div className="flex-1 px-2 min-h-[340px]">
+        <div ref={boardWrapRef} className="relative w-full h-full">
+          <AnimatePresence>
+            {killFlash && (
+              <motion.div className="absolute inset-0 rounded-xl pointer-events-none z-10"
+                initial={{ opacity: 0 }} animate={{ opacity: [0, 0.35, 0] }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}
+                style={{ background: "radial-gradient(circle,rgba(255,59,92,0.7) 0%,transparent 70%)" }} />
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {emote && (
+              <motion.div className="absolute top-1/2 left-1/2 z-20 pointer-events-none"
+                initial={{ scale: 0, opacity: 1, x: "-50%", y: "-50%" }} animate={{ scale: 2.5, opacity: 0, y: "-120%" }}
+                exit={{ opacity: 0 }} transition={{ duration: 1.0 }} style={{ fontSize: 32 }}>
+                {emote}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <canvas ref={canvasRef} className="w-full h-full rounded-2xl"
+            style={{ display: "block", touchAction: "none", background: "#0d1117", minHeight: 340 }} />
+
+          {/* ── Dice + profile photos anchored near the home bases ── */}
+          {boardBox.w > 0 && (
+            <>
+              {/* PLAYER (blue, bottom-left base) */}
+              <div className="absolute z-30 pointer-events-auto"
+                style={{ left: pAnchor.x, top: pAnchor.y, transform: "translate(-50%,-50%)" }}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, type: "spring", stiffness: 260, damping: 20 }}
+                  className="flex flex-col items-center">
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center"
+                    style={{ background: `linear-gradient(135deg,${PLAYER_COLOR},#1e3a8a)`, border: "2px solid #fff", boxShadow: `0 0 10px ${PLAYER_COLOR}` }}>
+                    {playerPhoto
+                      ? <img src={playerPhoto} alt="" className="w-full h-full object-cover" />
+                      : <span className="font-black text-white text-[11px]">{playerInitial}</span>}
+                  </div>
+                  <span className="text-[8px] font-black mt-0.5 px-1.5 rounded-full" style={{ background: "rgba(0,0,0,0.45)", color: turn === "player" ? PLAYER_COLOR : "rgba(255,255,255,0.6)" }}>
+                    YOU 🔵
+                  </span>
+                  <motion.div
+                    animate={{ boxShadow: turn === "player" ? `0 0 20px ${PLAYER_COLOR},0 0 40px ${PLAYER_COLOR}38` : "0 0 0 rgba(0,0,0,0)" }}
+                    style={{ borderRadius: 13, padding: 4, marginTop: 3, background: turn === "player" ? `${PLAYER_COLOR}26` : "rgba(255,255,255,0.06)", border: `1.5px solid ${turn === "player" ? `${PLAYER_COLOR}88` : "rgba(255,255,255,0.14)"}`, transition: "all 0.35s" }}>
+                    <Dice3D value={dice} rolling={rolling && turn === "player"} onClick={handleRoll} disabled={!canRoll} playerColor={PLAYER_COLOR} size={dsz} />
+                  </motion.div>
+                  <span className="text-[8px] font-black min-h-[11px]" style={{ color: canRoll ? PLAYER_COLOR : "rgba(255,255,255,0.4)" }}>
+                    {canRoll ? "TAP TO ROLL" : validToks.length > 0 ? "PICK TOKEN" : turn === "bot" ? "WAIT…" : ""}
+                  </span>
+                </motion.div>
+              </div>
+
+              {/* BOT (green, top-right base) */}
+              <div className="absolute z-30 pointer-events-auto"
+                style={{ left: bAnchor.x, top: bAnchor.y, transform: "translate(-50%,-50%)" }}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.45, type: "spring", stiffness: 260, damping: 20 }}
+                  className="flex flex-col items-center">
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center"
+                    style={{ background: `linear-gradient(135deg,${botRef.current.avatarColor},#14532d)`, border: "2px solid #fff", boxShadow: `0 0 10px ${BOT_COLOR}` }}>
+                    <span className="font-black text-white text-[11px]">{botRef.current.initial}</span>
+                  </div>
+                  <span className="text-[8px] font-black mt-0.5 px-1.5 rounded-full max-w-[76px] truncate" style={{ background: "rgba(0,0,0,0.45)", color: turn === "bot" ? BOT_COLOR : "rgba(255,255,255,0.6)" }}>
+                    🟢 {botRef.current.name}
+                  </span>
+                  <motion.div
+                    animate={{ boxShadow: turn === "bot" ? `0 0 20px ${BOT_COLOR},0 0 40px ${BOT_COLOR}38` : "0 0 0 rgba(0,0,0,0)" }}
+                    style={{ borderRadius: 13, padding: 4, marginTop: 3, background: turn === "bot" ? `${BOT_COLOR}26` : "rgba(255,255,255,0.06)", border: `1.5px solid ${turn === "bot" ? `${BOT_COLOR}88` : "rgba(255,255,255,0.14)"}`, transition: "all 0.35s" }}>
+                    <Dice3D value={dice} rolling={rolling && turn === "bot"} onClick={() => {}} disabled={true} playerColor={BOT_COLOR} size={dsz} />
+                  </motion.div>
+                  <span className="text-[8px] font-black min-h-[11px]" style={{ color: turn === "bot" && !rolling ? BOT_COLOR : "rgba(255,255,255,0.4)" }}>
+                    {turn === "bot" && rolling ? "ROLLING…" : turn === "bot" ? "THINKING…" : ""}
+                  </span>
+                </motion.div>
+              </div>
+            </>
           )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {emote && (
-            <motion.div className="absolute top-1/2 left-1/2 z-20 pointer-events-none"
-              initial={{ scale: 0, opacity: 1, x: "-50%", y: "-50%" }} animate={{ scale: 2.5, opacity: 0, y: "-120%" }}
-              exit={{ opacity: 0 }} transition={{ duration: 1.0 }} style={{ fontSize: 32 }}>
-              {emote}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <canvas ref={canvasRef} className="w-full h-full rounded-2xl"
-          style={{ display: "block", touchAction: "none", background: "#0d1117", minHeight: 340 }} />
-        {validToks.length > 0 && (
-          <div className="absolute bottom-2 inset-x-0 z-20 flex justify-center">
-            <div className="px-4 py-2 rounded-full text-xs font-black animate-pulse"
-              style={{ background: "rgba(234,179,8,0.9)", color: "#000", boxShadow: "0 0 20px rgba(234,179,8,0.6)" }}>
-              🎯 Tap a glowing token to move!
+
+          {validToks.length > 0 && (
+            <div className="absolute bottom-2 inset-x-0 z-20 flex justify-center pointer-events-none">
+              <div className="px-4 py-2 rounded-full text-xs font-black animate-pulse"
+                style={{ background: `${PLAYER_COLOR}e6`, color: "#fff", boxShadow: `0 0 20px ${PLAYER_COLOR}` }}>
+                🎯 Tap a glowing token to move!
+              </div>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Event log + turn timer (bottom) ── */}
+      <div className="flex-shrink-0 px-3 pb-4 pt-2">
+        <div className="rounded-xl px-3 py-2" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(6px)" }}>
+          <AnimatePresence mode="popLayout">
+            {logMsgs.slice(0, 2).map((msg, i) => (
+              <motion.div key={msg + i} initial={{ opacity: 0, y: -6 }} animate={{ opacity: i === 0 ? 1 : 0.4 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }} className="text-[10px] font-bold truncate"
+                style={{ color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)" }}>
+                {msg}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+        {turn === "player" && (
+          <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
+              <div className="h-full rounded-full" style={{ width: `${(turnTimer / 15) * 100}%`, background: turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444", transition: "width 0.9s linear" }} />
+            </div>
+            <span className="text-[9px] font-black flex-shrink-0" style={{ color: turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444" }}>{turnTimer}s</span>
           </div>
         )}
       </div>
 
-      {/* ── Two dice (Player left, Bot right) ── */}
-      <div className="flex-shrink-0 px-3 pb-4 pt-2">
-        <div className="flex items-end gap-2">
-          {/* YELLOW DICE (Player) */}
-          <div className="flex flex-col items-center gap-1 flex-shrink-0">
-            <span className="text-[8px] font-black uppercase tracking-wide" style={{ color: turn === "player" ? "#eab308" : "rgba(255,255,255,0.22)" }}>
-              🟡 YOU
-            </span>
+      {/* ── Forfeit confirmation modal (10s auto-loser) ── */}
+      <AnimatePresence>
+        {forfeitOpen && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: "rgba(5,5,12,0.85)", backdropFilter: "blur(6px)", maxWidth: 480, margin: "0 auto" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div
-              animate={{ boxShadow: turn === "player" ? "0 0 20px rgba(234,179,8,0.55),0 0 40px rgba(234,179,8,0.22)" : "none" }}
-              style={{ borderRadius: 13, padding: 5, background: turn === "player" ? "rgba(234,179,8,0.12)" : "rgba(255,255,255,0.03)", border: `1.5px solid ${turn === "player" ? "rgba(234,179,8,0.5)" : "rgba(255,255,255,0.07)"}`, transition: "all 0.35s" }}>
-              <Dice3D value={dice} rolling={rolling && turn === "player"} onClick={handleRoll} disabled={!canRoll} playerColor="#eab308" />
-            </motion.div>
-            <span className="text-[9px] font-black min-h-[13px]" style={{ color: canRoll ? "#eab308" : "rgba(255,255,255,0.22)" }}>
-              {canRoll ? "TAP ROLL" : validToks.length > 0 ? "PICK TOKEN" : turn === "bot" ? "WAIT…" : ""}
-            </span>
-          </div>
-
-          {/* Event log */}
-          <div className="flex-1 min-w-0">
-            <div className="rounded-xl px-3 py-2" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <AnimatePresence mode="popLayout">
-                {logMsgs.slice(0, 2).map((msg, i) => (
-                  <motion.div key={msg + i} initial={{ opacity: 0, y: -6 }} animate={{ opacity: i === 0 ? 1 : 0.4 }} exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }} className="text-[10px] font-bold truncate"
-                    style={{ color: i === 0 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.3)" }}>
-                    {msg}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-            {/* Turn timer bar */}
-            {turn === "player" && (
-              <div className="flex items-center gap-2 mt-1.5">
-                <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${(turnTimer / 15) * 100}%`, background: turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444", transition: "width 0.9s linear" }} />
-                </div>
-                <span className="text-[9px] font-black flex-shrink-0" style={{ color: turnTimer > 8 ? "#4ade80" : turnTimer > 4 ? "#f97316" : "#ef4444" }}>{turnTimer}s</span>
+              initial={{ scale: 0.85, y: 24 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 24 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              className="w-full rounded-3xl px-6 py-7 text-center"
+              style={{ background: "linear-gradient(180deg,#1a1026,#120a1c)", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <motion.div
+                className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-4xl font-black mb-4"
+                animate={{ scale: [1, 1.08, 1], boxShadow: ["0 0 0 rgba(249,115,22,0)", "0 0 30px rgba(249,115,22,0.45)", "0 0 0 rgba(249,115,22,0)"] }}
+                transition={{ duration: 1, repeat: Infinity }}
+                style={{ background: "rgba(249,115,22,0.12)", border: "2px solid rgba(249,115,22,0.45)", color: "#f97316" }}>
+                {forfeitCountdown}
+              </motion.div>
+              <h3 className="text-white font-black text-lg mb-1">Leaving the match?</h3>
+              <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.45)" }}>
+                Forfeiting counts as a <b style={{ color: "#f87171" }}>LOSS</b> — your entry fee {isFreeMode ? "" : <b style={{ color: "#f87171" }}>₹{initialFee}</b>} will not be refunded.
+              </p>
+              <div className="h-1.5 rounded-full overflow-hidden mb-5" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <motion.div className="h-full rounded-full" style={{ background: "linear-gradient(90deg,#f97316,#ef4444)" }}
+                  animate={{ width: `${(forfeitCountdown / 10) * 100}%` }} transition={{ ease: "linear", duration: 1 }} />
               </div>
-            )}
-          </div>
-
-          {/* BLUE DICE (Bot) */}
-          <div className="flex flex-col items-center gap-1 flex-shrink-0">
-            <span className="text-[8px] font-black uppercase tracking-wide" style={{ color: turn === "bot" ? "#3b82f6" : "rgba(255,255,255,0.22)" }}>
-              🔵 BOT
-            </span>
-            <motion.div
-              animate={{ boxShadow: turn === "bot" ? "0 0 20px rgba(59,130,246,0.55),0 0 40px rgba(59,130,246,0.22)" : "none" }}
-              style={{ borderRadius: 13, padding: 5, background: turn === "bot" ? "rgba(59,130,246,0.12)" : "rgba(255,255,255,0.03)", border: `1.5px solid ${turn === "bot" ? "rgba(59,130,246,0.5)" : "rgba(255,255,255,0.07)"}`, transition: "all 0.35s" }}>
-              <Dice3D value={dice} rolling={rolling && turn === "bot"} onClick={() => {}} disabled={true} playerColor="#3b82f6" />
+              <div className="flex gap-2.5">
+                <motion.button whileTap={{ scale: 0.97 }} onClick={cancelForfeit}
+                  className="flex-1 py-3.5 rounded-2xl font-black text-sm cursor-pointer"
+                  style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.35)", color: "#34d399" }}>
+                  ▶ KEEP PLAYING
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={() => confirmForfeit()}
+                  className="flex-1 py-3.5 rounded-2xl font-black text-sm cursor-pointer"
+                  style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)", border: "1px solid rgba(239,68,68,0.5)", color: "#fff", boxShadow: "0 0 18px rgba(239,68,68,0.35)" }}>
+                  🚪 FORFEIT
+                </motion.button>
+              </div>
+              <p className="text-[10px] mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>
+                Auto-forfeit in {forfeitCountdown}s if you don't act
+              </p>
             </motion.div>
-            <span className="text-[9px] font-black min-h-[13px]" style={{ color: turn === "bot" && !rolling ? "#3b82f6" : "rgba(255,255,255,0.22)" }}>
-              {turn === "bot" && rolling ? "ROLLING…" : turn === "bot" ? "THINKING…" : ""}
-            </span>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

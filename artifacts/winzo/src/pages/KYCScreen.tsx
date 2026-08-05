@@ -16,6 +16,29 @@ const STATUS_CFG = {
   rejected: { label: "Verification Failed",   color: "#f87171", bg: "rgba(248,113,113,0.12)", icon: "❌", desc: "Verification failed. Please try again." },
 };
 
+interface KYCHistoryEntry {
+  id: string;
+  phone: string;
+  status: string;
+  date: string;
+}
+
+const KYC_COUNTDOWN = 3; // 3-second auto-verify countdown
+
+function loadHistory(): KYCHistoryEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem("winggo_kyc_history") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries: KYCHistoryEntry[]) {
+  try {
+    localStorage.setItem("winggo_kyc_history", JSON.stringify(entries.slice(0, 20)));
+  } catch { /* non-fatal */ }
+}
+
 export default function KYCScreen({ onBack }: KYCScreenProps) {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
@@ -23,12 +46,13 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<KYCStatus>(() => {
     try {
-      const saved = localStorage.getItem("winggo_kyc_status");
-      return (saved as KYCStatus) || "pending";
+      const d = JSON.parse(localStorage.getItem("winggo_kyc") || "{}");
+      return d.status ?? "pending";
     } catch {
       return "pending";
     }
   });
+  const [history, setHistory] = useState<KYCHistoryEntry[]>(() => loadHistory());
   const [countdown, setCountdown] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -36,6 +60,7 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
 
   const statusCfg = STATUS_CFG[status];
 
+  // 3-second countdown → auto-submit
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (countdown > 0) {
@@ -43,7 +68,7 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
         setCountdown((prev) => prev - 1);
       }, 1000);
     } else if (countdown === 0 && submitted) {
-      // Auto-submit after countdown
+      // Auto-submit after countdown reaches 0
       handleSubmit();
     }
     return () => clearInterval(interval);
@@ -60,7 +85,8 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
 
   function startCountdown() {
     if (!validate()) return;
-    setCountdown(10);
+    setCountdown(KYC_COUNTDOWN);
+    setSubmitted(true);
   }
 
   async function handleSubmit() {
@@ -72,7 +98,7 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
     setUploading(true);
     setError("");
     try {
-      // Submit simplified KYC with only phone number
+      // Write to Firestore (kycRequests/{uid} + users/{uid}.kycStatus = submitted)
       await submitKYC(uid, {
         displayName: user?.displayName || "User",
         email: user?.email || "",
@@ -80,12 +106,28 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
         docNumber: phone.trim(),
       });
 
-      setStatus("pending");
-      localStorage.setItem("winggo_kyc_status", "pending");
+      // Verified status (persisted for ProfileScreen + this screen)
+      const now = new Date().toISOString();
+      setStatus("verified");
+      localStorage.setItem("winggo_kyc", JSON.stringify({ status: "verified", phone, date: now }));
+      localStorage.setItem("winggo_kyc_status", "verified");
       localStorage.setItem("winggo_kyc_phone", phone);
-      setSubmitted(true);
+
+      // KYC history
+      const entry: KYCHistoryEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        phone: phone.trim(),
+        status: "verified",
+        date: now,
+      };
+      const next = [entry, ...history].slice(0, 20);
+      saveHistory(next);
+      setHistory(next);
+
       setCountdown(0);
     } catch (err) {
+      setStatus("rejected");
+      localStorage.setItem("winggo_kyc", JSON.stringify({ status: "rejected", phone, date: new Date().toISOString() }));
       setError(
         err instanceof Error
           ? err.message
@@ -94,6 +136,12 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
     } finally {
       setUploading(false);
     }
+  }
+
+  function resetForm() {
+    setSubmitted(false);
+    setCountdown(0);
+    setError("");
   }
 
   return (
@@ -144,19 +192,30 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
 
         {/* ── Success animation ── */}
         <AnimatePresence>
-          {submitted && (
+          {submitted && status === "verified" && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
               className="w-full mb-6 px-4 py-6 rounded-2xl flex flex-col items-center gap-3 text-center"
               style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)" }}
             >
-              <motion.span className="text-5xl"
-                animate={{ scale: [1, 1.25, 1] }}
-                transition={{ duration: 0.6, repeat: 2 }}
-              >✅</motion.span>
+              <motion.div
+                className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(52,211,153,0.15)" }}
+                animate={{ scale: [1, 1.15, 1], boxShadow: ["0 0 0 rgba(52,211,153,0)", "0 0 40px rgba(52,211,153,0.5)", "0 0 0 rgba(52,211,153,0)"] }}
+                transition={{ duration: 1, repeat: 2 }}
+              >
+                <motion.span className="text-5xl"
+                  animate={{ scale: [1, 1.3, 1], rotate: [0, 8, -8, 0] }}
+                  transition={{ duration: 0.6, repeat: 2 }}
+                >✅</motion.span>
+              </motion.div>
               <div className="text-base font-black" style={{ color: "#34d399" }}>KYC Successfully Completed!</div>
               <div className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                Your mobile number {phone} has been verified successfully.
+                Your mobile number <b className="text-white">+91 {phone}</b> has been verified successfully.
+              </div>
+              <div className="px-3 py-1.5 rounded-lg text-[11px] font-black"
+                style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" }}>
+                ✅ VERIFIED · ACCESS UNLOCKED
               </div>
             </motion.div>
           )}
@@ -197,14 +256,15 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
               {error && <p className="text-[11px] mt-2 text-center" style={{ color: "#f87171" }}>{error}</p>}
             </div>
 
-            {/* Countdown Display */}
+            {/* 3-Second Countdown Display */}
             {countdown > 0 && (
               <div className="mb-4 text-center">
-                <div className="text-5xl font-black mb-2" style={{ color: "#FFD700" }}>
+                <motion.div key={countdown} initial={{ scale: 1.4, opacity: 0.4 }} animate={{ scale: 1, opacity: 1 }}
+                  className="text-5xl font-black mb-2" style={{ color: "#FFD700" }}>
                   {countdown}
-                </div>
+                </motion.div>
                 <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  Auto-submitting in {countdown} seconds...
+                  Auto-verifying in {countdown} second{countdown === 1 ? "" : "s"}...
                 </p>
               </div>
             )}
@@ -232,7 +292,7 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
                 letterSpacing: "0.04em",
               }}
             >
-              {countdown > 0 ? "⏳ Submitting..." : uploading ? "⏳ Processing..." : "📱 Verify Now"}
+              {countdown > 0 ? "⏳ Verifying..." : uploading ? "⏳ Processing..." : "📱 Verify Now"}
             </motion.button>
 
             {countdown > 0 && (
@@ -252,12 +312,58 @@ export default function KYCScreen({ onBack }: KYCScreenProps) {
           </div>
         )}
 
+        {/* ── Verify New Number (when already verified) ── */}
+        {submitted && status === "verified" && (
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={resetForm}
+            className="w-full max-w-sm py-3.5 rounded-2xl font-black text-sm cursor-pointer mb-6"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.7)",
+            }}
+          >
+            🔄 Verify Another Number
+          </motion.button>
+        )}
+
+        {/* ── Verification History ── */}
+        {history.length > 0 && (
+          <div className="w-full max-w-sm mt-2">
+            <div className="text-xs font-black mb-2" style={{ color: "rgba(255,255,255,0.5)" }}>
+              📜 Verification History
+            </div>
+            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+              {history.map((h, i) => (
+                <div key={h.id} className="flex items-center gap-3 px-4 py-3"
+                  style={{
+                    background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
+                    borderBottom: i < history.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                  }}>
+                  <span className="text-lg">📱</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-black text-white">+91 {h.phone}</p>
+                    <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      {new Date(h.date).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-black px-2 py-1 rounded-full"
+                    style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" }}>
+                    ✅ VERIFIED
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── SECURE NOTE ── */}
         <div className="w-full max-w-sm mt-6 px-4 py-3 rounded-2xl flex items-start gap-3"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
           <span className="text-lg mt-0.5">🔒</span>
           <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Your mobile number is encrypted and stored securely. We comply with all data protection guidelines.
+            Your mobile number is encrypted and stored securely in Firestore. We comply with all data protection guidelines.
             Your information is only used for identity verification.
           </p>
         </div>

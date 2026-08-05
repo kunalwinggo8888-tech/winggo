@@ -4,7 +4,7 @@
  * Provides addMatch() so any game screen can record outcomes.
  */
 import { createContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { saveMatchToFirestore } from "@/firebase/firestore.service";
+import { saveMatchToFirestore, updateLeaderboardPoints } from "@/firebase/firestore.service";
 import { useAuth } from "@/context/useAuth";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -88,7 +88,13 @@ export function MatchHistoryProvider({ children }: { children: ReactNode }) {
     });
     // Also save to Firestore so admin panel can read match history
     if (uid) saveMatchToFirestore(uid, record).catch(() => {/* non-fatal */});
-  }, [uid]);
+    // Auto-update live leaderboard after every finished match
+    if (uid) {
+      const points = Math.max(1, m.userScore ?? m.prize ?? 1);
+      updateLeaderboardPoints(uid, user?.displayName || "Player", user?.photoURL || "", points)
+        .catch(() => {/* non-fatal */});
+    }
+  }, [uid, user]);
 
   const clearHistory = useCallback(() => {
     setMatches([]);

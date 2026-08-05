@@ -138,10 +138,60 @@ export interface KYCRequest {
 
 export interface LeaderboardEntry {
   uid: string;
-  name: string;
-  score: number;
-  gamesPlayed?: number;
-  wins?: number;
+  username: string;
+  photoURL: string;
+  totalPoints: number;
+  updatedAt?: number;
+}
+
+const LEADERBOARD_COLLECTION = "leaderboard";
+
+/** Increment a user's leaderboard points after every finished match. */
+export async function updateLeaderboardPoints(
+  uid: string,
+  username: string,
+  photoURL: string,
+  points: number
+): Promise<void> {
+  if (!FIREBASE_ENABLED || !db || !uid || points <= 0) return;
+  try {
+    const ref = doc(db, LEADERBOARD_COLLECTION, uid);
+    await setDoc(ref, {
+      uid,
+      username: username || "Player",
+      photoURL: photoURL || "",
+      totalPoints: increment(points),
+      updatedAt: Date.now(),
+    }, { merge: true });
+  } catch {
+    /* silent — leaderboard must never break gameplay */
+  }
+}
+
+/** Live top-N leaderboard (auto-refreshes on every Firestore write). */
+export function subscribeLeaderboard(
+  limitN: number,
+  cb: (leaders: LeaderboardEntry[]) => void
+): () => void {
+  if (!FIREBASE_ENABLED || !db) { cb([]); return () => {}; }
+  try {
+    const q = query(
+      collection(db, LEADERBOARD_COLLECTION),
+      orderBy("totalPoints", "desc"),
+      limit(limitN)
+    );
+    return onSnapshot(
+      q,
+      (snap) => {
+        const rows = snap.docs.map((d) => d.data() as LeaderboardEntry).filter(Boolean);
+        cb(rows);
+      },
+      () => cb([])
+    );
+  } catch {
+    cb([]);
+    return () => {};
+  }
 }
 
 export async function getLeaderboard(gameType: string = "ludo"): Promise<LeaderboardEntry[]> {
@@ -149,13 +199,12 @@ export async function getLeaderboard(gameType: string = "ludo"): Promise<Leaderb
   try {
     const snap = await getDocs(
       query(
-        collection(db, "leaderboards"),
-        where("gameType", "==", gameType),
-        orderBy("score", "desc"),
+        collection(db, LEADERBOARD_COLLECTION),
+        orderBy("totalPoints", "desc"),
         limit(20)
       )
     );
-    return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as LeaderboardEntry));
+    return snap.docs.map((d) => d.data() as LeaderboardEntry).filter(Boolean);
   } catch {
     return [];
   }
@@ -753,26 +802,6 @@ export async function upsertGame(data: GameConfig): Promise<void> {
 export async function deleteGame(gameId: string): Promise<void> {
   if (!FIREBASE_ENABLED || !db) return;
   await deleteDoc(doc(db, "games", gameId));
-}
-
-// ─── LEADERBOARD ──────────────────────────────────────────────────────────────
-
-export interface LeaderboardEntry {
-  uid: string;
-  displayName: string;
-  photoURL: string;
-  totalWinnings: number;
-  gamesPlayed?: number;
-  rank?: number;
-}
-
-export async function updateLeaderboard(gameType: string, uid: string, winAmount: number): Promise<void> {
-  if (!FIREBASE_ENABLED || !db) return;
-  const ref = doc(db, "leaderboards", gameType, "players", uid);
-  await setDoc(ref, {
-    totalWinnings: increment(winAmount),
-    gamesPlayed: increment(1),
-  }, { merge: true });
 }
 
 // ─── ADMIN — WITHDRAW REQUESTS ───────────────────────────────────────────────

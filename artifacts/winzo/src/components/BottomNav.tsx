@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 const NAV_ITEMS = [
   { id: "home",        label: "Home",       icon: "🏠",  screen: "dashboard" },
   { id: "history",     label: "History",    icon: "📋",  screen: "history" },
-  { id: "worldwar",    label: "War",        icon: "⚔️",  screen: "worldwar",  featured: true },
+  { id: "leaderboard", label: "Leaderboard", icon: "🏆",  screen: "leaderboard", featured: true },
   { id: "wallet",      label: "Wallet",     icon: "💰",  screen: "wallet" },
   { id: "profile",     label: "Profile",    icon: "👤",  screen: "profile" },
 ] as const;
@@ -13,7 +13,7 @@ interface BottomNavProps {
   onNavigate: (screen: string) => void;
 }
 
-const SCREENS_WITH_NAV = ["dashboard", "history", "leaderboard", "worldwar", "wallet", "refer", "profile", "kyc"];
+const SCREENS_WITH_NAV = ["dashboard", "history", "leaderboard", "wallet", "refer", "profile", "kyc"];
 
 export { SCREENS_WITH_NAV };
 
@@ -21,8 +21,7 @@ export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) 
   const activeId =
     activeScreen === "dashboard"          ? "home"        :
     activeScreen === "history"            ? "history"     :
-    activeScreen === "leaderboard"        ? "history"     :
-    activeScreen === "worldwar"           ? "worldwar"    :
+    activeScreen === "leaderboard"        ? "leaderboard" :
     activeScreen === "wallet"             ? "wallet"      :
     activeScreen === "refer"              ? "refer"       :
     activeScreen === "profile" || activeScreen === "kyc" ? "profile" : "";
