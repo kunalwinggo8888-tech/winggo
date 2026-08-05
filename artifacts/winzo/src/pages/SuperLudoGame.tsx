@@ -1,7 +1,7 @@
 /**
- * SuperLudoGame – WINGGO Super Ludo (3D)
- * 3D Ludo board (Three.js) ported from the standalone Ludo 3D build.
- * Money-match flow mirrors the app's Fast Ludo:
+ * SuperLudoGame – WINGGO Super Ludo
+ * 2D canvas Ludo board (ported from the original WINGGO canvas Ludo board)
+ * with the app's money-match flow:
  *   – Entry fee is deducted by GameEntrySheet before mounting
  *   – 8s real-player wait → bot auto-joins
  *   – 2-min match timer on top; below it "Your Score" & "Opponent Score"
@@ -10,72 +10,22 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useWallet } from "@/context/useWallet";
 import { useMatchHistory } from "@/context/useMatchHistory";
 import { getRandomBot, type BotPlayer } from "@/data/botDatabase";
 import { saveLudoMatchResult } from "@/firebase/firestore.service";
 import { useAuth } from "@/context/useAuth";
+import {
+  PLAYER, BOT, PLAYER_PATHS, FINAL_PATHS, HOME_POSITIONS, SAFE_CELLS, START_CELLS,
+  CELL, BOARD_SIZE, gridToCanvas, getTokenCanvasPos, drawSuperLudoBoard, drawSuperLudoTokens,
+} from "./SuperLudoBoard";
+import type { PlayerId } from "./SuperLudoBoard";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const HOME_SCORE = 25;
 const KILL_BONUS = 15;
 const EMOTES     = ["😂","👍","😤","🔥","🎉","💪","😱","🤙","👑","😎"];
-
-const COLORS = {
-  red: 0xea4330, redDark: 0xa32011, redLight: 0xd22915,
-  green: 0x34a853, greenDark: 0x1c5a2d, greenLight: 0x288140,
-  blue: 0x4285f4, blueDark: 0x0b51c5, blueLight: 0x1266f1,
-  yellow: 0xfbbc05, yellowDark: 0x987102, yellowLight: 0xca9703,
-  white: 0xffffff, gray: 0xaaaaaa, border: 0x666666,
-};
-
-const CELL_SIZE = 40, BOARD_TOTAL = 600, BASE_SIZE = 240;
-const BOARD_THICKNESS = 8, TOKEN_RADIUS = 14, TOKEN_HEIGHT = 8;
-
-// Player = YELLOW (bottom-right base), Bot = BLUE (bottom-left base)
-const PLAYER = "yellow";
-const BOT    = "blue";
-
-// Movement paths (grid coords) — 52 cells each
-const PLAYER_PATHS: Record<string, [number, number][]> = {
-  yellow: [[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7]],
-  blue: [[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14]],
-};
-
-const FINAL_PATHS: Record<string, [number, number][]> = {
-  yellow: [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],
-  blue: [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
-};
-
-const HOME_POSITIONS: Record<string, [number, number][]> = {
-  yellow: [[10.5,10.5],[10.5,12.5],[12.5,10.5],[12.5,12.5]],
-  blue: [[1.5,10.5],[1.5,12.5],[3.5,10.5],[3.5,12.5]],
-};
-
-const HOME_TRIANGLE_POSITIONS: Record<string, [number, number][]> = {
-  yellow: [[8.2,6.5],[8.2,7.5],[7.8,6.75],[7.8,7.25]],
-  blue: [[6.5,8.2],[7.5,8.2],[6.75,7.8],[7.25,7.8]],
-};
-
-const SAFE_CELLS = [0, 8, 13, 21, 26, 34, 39, 47];
-const START_CELLS = { yellow: 26, blue: 39 };
-
-const raceCellPositions: [number, number][] = [
-  [1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],
-  [9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],
-  [8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],
-];
-const startCells: Record<number, number> = { 1: COLORS.red, 14: COLORS.green, 27: COLORS.yellow, 40: COLORS.blue };
-const safeZones = [1, 9, 14, 22, 27, 35, 40, 48];
-const safeZoneColors: Record<number, number> = { 1: 0xef6d5e, 9: 0xcccccc, 14: 0x48c76a, 22: 0xcccccc, 27: 0xfcc937, 35: 0xcccccc, 40: 0x72a4f7, 48: 0xcccccc };
-
-function gridToWorld(gx: number, gy: number) {
-  const offset = BOARD_TOTAL / 2 - CELL_SIZE / 2;
-  return { x: gx * CELL_SIZE - offset, z: gy * CELL_SIZE - offset };
-}
 
 // ─── SOUND ENGINE (Web Audio API) ─────────────────────────────────────────────
 
@@ -245,273 +195,6 @@ function Dice3D({ value, rolling, onClick, disabled, playerColor = "#eab308" }: 
   );
 }
 
-// ─── 3D BOARD BUILDER ─────────────────────────────────────────────────────────
-
-type World = {
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  controls: OrbitControls;
-  raycaster: THREE.Raycaster;
-  mouse: THREE.Vector2;
-  boardGroup: THREE.Group;
-  tokenMeshes: Record<string, THREE.Group[]>;
-  raf: number;
-};
-
-function buildBoard(world: World) {
-  const bg = world.boardGroup;
-
-  const boardGeo = new THREE.BoxGeometry(BOARD_TOTAL, BOARD_THICKNESS, BOARD_TOTAL);
-  const boardMat = new THREE.MeshStandardMaterial({ color: COLORS.white, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 });
-  const board = new THREE.Mesh(boardGeo, boardMat);
-  board.position.y = -BOARD_THICKNESS / 2 - 2;
-  board.receiveShadow = true;
-  bg.add(board);
-
-  createBase(bg, 0, 0, COLORS.red);
-  createBase(bg, 9, 0, COLORS.green);
-  createBase(bg, 0, 9, COLORS.blue);
-  createBase(bg, 9, 9, COLORS.yellow);
-
-  raceCellPositions.forEach((pos, idx) => {
-    const cellNum = idx + 1;
-    const wp = gridToWorld(pos[0], pos[1]);
-    let cellColor = COLORS.white;
-    if (startCells[cellNum]) cellColor = startCells[cellNum];
-    const cellGeo = new THREE.BoxGeometry(CELL_SIZE - 1, 1, CELL_SIZE - 1);
-    const cellMat = new THREE.MeshStandardMaterial({ color: cellColor });
-    const cell = new THREE.Mesh(cellGeo, cellMat);
-    cell.position.set(wp.x, 0.6, wp.z);
-    cell.receiveShadow = true;
-    bg.add(cell);
-    const edges = new THREE.EdgesGeometry(cellGeo);
-    const lineMat = new THREE.LineBasicMaterial({ color: COLORS.border });
-    const wire = new THREE.LineSegments(edges, lineMat);
-    wire.position.set(wp.x, 0.6, wp.z);
-    bg.add(wire);
-    if (safeZones.includes(cellNum)) createStar(bg, wp.x, wp.z, safeZoneColors[cellNum]);
-  });
-
-  const finalPaths = [
-    { cells: [[1,7],[2,7],[3,7],[4,7],[5,7]] as [number,number][], color: COLORS.red },
-    { cells: [[7,1],[7,2],[7,3],[7,4],[7,5]] as [number,number][], color: COLORS.green },
-    { cells: [[13,7],[12,7],[11,7],[10,7],[9,7]] as [number,number][], color: COLORS.yellow },
-    { cells: [[7,13],[7,12],[7,11],[7,10],[7,9]] as [number,number][], color: COLORS.blue },
-  ];
-  finalPaths.forEach(p => {
-    p.cells.forEach(c => {
-      const wp = gridToWorld(c[0], c[1]);
-      const geo = new THREE.BoxGeometry(CELL_SIZE - 1, 1, CELL_SIZE - 1);
-      const mat = new THREE.MeshStandardMaterial({ color: p.color });
-      const cell = new THREE.Mesh(geo, mat);
-      cell.position.set(wp.x, 0.6, wp.z);
-      cell.receiveShadow = true;
-      bg.add(cell);
-      const edges = new THREE.EdgesGeometry(geo);
-      const lineMat = new THREE.LineBasicMaterial({ color: COLORS.border });
-      const wire = new THREE.LineSegments(edges, lineMat);
-      wire.position.set(wp.x, 0.6, wp.z);
-      bg.add(wire);
-    });
-  });
-
-  // Center home (4 triangles)
-  const centerSize = 3 * CELL_SIZE, halfSize = centerSize / 2;
-  const triangles = [
-    { color: COLORS.red, rotation: 0 },
-    { color: COLORS.green, rotation: -Math.PI / 2 },
-    { color: COLORS.yellow, rotation: Math.PI },
-    { color: COLORS.blue, rotation: Math.PI / 2 },
-  ];
-  triangles.forEach(({ color, rotation }) => {
-    const shape = new THREE.Shape();
-    shape.moveTo(-halfSize, -halfSize);
-    shape.lineTo(0, 0);
-    shape.lineTo(-halfSize, halfSize);
-    shape.lineTo(-halfSize, -halfSize);
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false });
-    const mat = new THREE.MeshStandardMaterial({ color });
-    const tri = new THREE.Mesh(geo, mat);
-    tri.rotation.x = -Math.PI / 2;
-    tri.rotation.z = rotation;
-    tri.position.y = 0.1;
-    bg.add(tri);
-  });
-}
-
-function createBase(group: THREE.Group, gx: number, gy: number, color: number) {
-  const outerGeo = new THREE.BoxGeometry(BASE_SIZE, 0.5, BASE_SIZE);
-  const outerMat = new THREE.MeshStandardMaterial({ color });
-  const outer = new THREE.Mesh(outerGeo, outerMat);
-  outer.position.y = 0.25;
-  outer.receiveShadow = true;
-  group.add(outer);
-
-  const innerSize = BASE_SIZE - 80;
-  const innerGeo = new THREE.BoxGeometry(innerSize, 0.6, innerSize);
-  const innerMat = new THREE.MeshStandardMaterial({ color: COLORS.white });
-  const inner = new THREE.Mesh(innerGeo, innerMat);
-  inner.position.y = 0.55;
-  inner.receiveShadow = true;
-  group.add(inner);
-
-  const pos = gridToWorld(gx + 2.5, gy + 2.5);
-  group.position.set(pos.x, 0.1, pos.z);
-}
-
-function createStar(group: THREE.Group, x: number, z: number, color: number) {
-  const shape = new THREE.Shape();
-  const outerR = 12, innerR = 5, points = 5;
-  for (let i = 0; i < points * 2; i++) {
-    const r = i % 2 === 0 ? outerR : innerR;
-    const angle = (i * Math.PI) / points - Math.PI / 2;
-    const px = Math.cos(angle) * r, py = Math.sin(angle) * r;
-    i === 0 ? shape.moveTo(px, py) : shape.lineTo(px, py);
-  }
-  shape.closePath();
-  const geo = new THREE.ShapeGeometry(shape);
-  const mat = new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide });
-  const star = new THREE.Mesh(geo, mat);
-  star.rotation.x = -Math.PI / 2;
-  star.position.set(x, 1.2, z);
-  group.add(star);
-}
-
-function createToken(color: number, colorLight: number): THREE.Group {
-  const group = new THREE.Group();
-  const outerGeo = new THREE.CylinderGeometry(TOKEN_RADIUS, TOKEN_RADIUS, TOKEN_HEIGHT, 32);
-  const outerMat = new THREE.MeshStandardMaterial({ color });
-  const outer = new THREE.Mesh(outerGeo, outerMat);
-  outer.castShadow = true;
-  group.add(outer);
-  const innerGeo = new THREE.CylinderGeometry(TOKEN_RADIUS - 3, TOKEN_RADIUS - 3, TOKEN_HEIGHT + 0.5, 32);
-  const innerMat = new THREE.MeshStandardMaterial({ color: colorLight });
-  const inner = new THREE.Mesh(innerGeo, innerMat);
-  inner.position.y = 0.25;
-  inner.castShadow = true;
-  group.add(inner);
-  group.position.y = TOKEN_HEIGHT / 2 + 0.8;
-  return group;
-}
-
-function createPlayerTokens(world: World, players: string[]) {
-  const colorMap: Record<string, { dark: number; light: number }> = {
-    yellow: { dark: COLORS.yellowDark, light: COLORS.yellowLight },
-    blue: { dark: COLORS.blueDark, light: COLORS.blueLight },
-  };
-  players.forEach(player => {
-    world.tokenMeshes[player] = [];
-    for (let i = 0; i < 4; i++) {
-      const token = createToken(colorMap[player].dark, colorMap[player].light);
-      const hp = HOME_POSITIONS[player][i];
-      const wp = gridToWorld(hp[0], hp[1]);
-      token.position.set(wp.x, token.position.y, wp.z);
-      token.userData = { player, index: i };
-      world.boardGroup.add(token);
-      world.tokenMeshes[player].push(token);
-    }
-  });
-}
-
-function getPositionForStep(player: string, tokenIndex: number, pos: number): { x: number; z: number } {
-  if (pos === 56) {
-    const htp = HOME_TRIANGLE_POSITIONS[player][tokenIndex];
-    return gridToWorld(htp[0], htp[1]);
-  } else if (pos >= 51) {
-    const fp = FINAL_PATHS[player][pos - 51];
-    return gridToWorld(fp[0], fp[1]);
-  } else if (pos >= 0) {
-    const pp = PLAYER_PATHS[player][pos];
-    return gridToWorld(pp[0], pp[1]);
-  } else {
-    const hp = HOME_POSITIONS[player][tokenIndex];
-    return gridToWorld(hp[0], hp[1]);
-  }
-}
-
-function animateTokenMove(world: World, player: string, tokenIndex: number, oldPos: number, newPos: number, callback: () => void) {
-  const mesh = world.tokenMeshes[player][tokenIndex];
-  const stepDuration = 150, pauseDuration = 50;
-  const positions: number[] = [];
-  if (oldPos === -1) {
-    positions.push(0);
-  } else {
-    for (let p = oldPos + 1; p <= newPos; p++) positions.push(p);
-  }
-  let currentStep = 0;
-
-  function animateStep() {
-    if (currentStep >= positions.length) { callback(); return; }
-    Sounds.hop();
-    const target = getPositionForStep(player, tokenIndex, positions[currentStep]);
-    const startPos = mesh.position.clone();
-    const endPos = new THREE.Vector3(target.x, mesh.position.y, target.z);
-    const startTime = performance.now();
-
-    function stepAnim(now: number) {
-      const t = Math.min((now - startTime) / stepDuration, 1);
-      const easeT = 1 - Math.pow(1 - t, 3);
-      mesh.position.lerpVectors(startPos, endPos, easeT);
-      const hopHeight = 8;
-      const hopProgress = Math.sin(t * Math.PI);
-      mesh.position.y = (TOKEN_HEIGHT / 2 + 0.8) + hopProgress * hopHeight;
-      if (t < 1) {
-        requestAnimationFrame(stepAnim);
-      } else {
-        currentStep++;
-        setTimeout(animateStep, pauseDuration);
-      }
-    }
-    requestAnimationFrame(stepAnim);
-  }
-  animateStep();
-}
-
-function distributeTokensOnCell(world: World, tokens: Record<string, number[]>, players: string[], pos: number, fromPlayer: string) {
-  let targetGridPos: [number, number] | null = null;
-  if (pos === 56) return;
-  else if (pos >= 51 && pos < 56) targetGridPos = FINAL_PATHS[fromPlayer][pos - 51];
-  else if (pos >= 0 && pos < 51) targetGridPos = PLAYER_PATHS[fromPlayer][pos];
-  else return;
-  if (!targetGridPos) return;
-
-  const tokensOnCell: { player: string; index: number; gridPos: [number, number] }[] = [];
-  players.forEach(p => {
-    tokens[p].forEach((tPos, idx) => {
-      if (tPos < 0) return;
-      let gridPos: [number, number];
-      if (tPos === 56) gridPos = [7, 7];
-      else if (tPos >= 51 && tPos < 56) gridPos = FINAL_PATHS[p][tPos - 51];
-      else if (tPos >= 0 && tPos < 51) gridPos = PLAYER_PATHS[p][tPos];
-      else return;
-      if (gridPos[0] === targetGridPos![0] && gridPos[1] === targetGridPos![1]) {
-        tokensOnCell.push({ player: p, index: idx, gridPos });
-      }
-    });
-  });
-
-  const spacing = 12;
-  const count = tokensOnCell.length;
-  tokensOnCell.forEach((tok, i) => {
-    const basePos = gridToWorld(tok.gridPos[0], tok.gridPos[1]);
-    const mesh = world.tokenMeshes[tok.player][tok.index];
-    let offsetX = 0, offsetZ = 0;
-    if (count === 1) { offsetX = 0; offsetZ = 0; }
-    else if (count === 2) { offsetX = (i - 0.5) * spacing; }
-    else if (count === 3) {
-      if (i === 0) { offsetX = -spacing * 0.7; offsetZ = -spacing * 0.4; }
-      else if (i === 1) { offsetX = spacing * 0.7; offsetZ = -spacing * 0.4; }
-      else { offsetZ = spacing * 0.6; }
-    } else if (count >= 4) {
-      offsetX = (i % 2 === 0 ? -1 : 1) * spacing * 0.5;
-      offsetZ = (Math.floor(i / 2) % 2 === 0 ? -1 : 1) * spacing * 0.5;
-    }
-    mesh.position.x = basePos.x + offsetX;
-    mesh.position.z = basePos.z + offsetZ;
-  });
-}
-
 // ─── BOT AI ────────────────────────────────────────────────────────────────────
 
 type BotTier = "easy" | "medium" | "god";
@@ -552,6 +235,8 @@ function chooseBotMove(bTokens: number[], pTokens: number[], value: number): num
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
+type Phase = "matchmaking" | "playing" | "result";
+
 interface Props { onBack: () => void; initialFee?: number }
 
 export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
@@ -570,16 +255,30 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   const botKills = useRef(0);
   const moveBusy = useRef(false);
 
-  const mountRef = useRef<HTMLDivElement>(null);
-  const worldRef = useRef<World | null>(null);
-  const tokensRef = useRef<Record<string, number[]>>({
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const tokensRef = useRef<Record<PlayerId, number[]>>({
     [PLAYER]: [-1, -1, -1, -1],
     [BOT]:    [-1, -1, -1, -1],
   });
-  const currentPlayerRef = useRef<string>(PLAYER);
+  const screenPosRef = useRef<Record<PlayerId, { x: number; y: number }[]>>({
+    [PLAYER]: [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }],
+    [BOT]:    [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }],
+  });
+  const currentPlayerRef = useRef<PlayerId>(PLAYER);
   const lastRollRef = useRef(0);
   const highlightedRef = useRef<number[]>([]);
   const validMovesRef = useRef<number[]>([]);
+  const renderStateRef = useRef({
+    phase: "matchmaking" as Phase,
+    turn: "player" as "player" | "bot",
+    rolling: false,
+    validToks: [] as number[],
+    pTokens: [-1, -1, -1, -1] as number[],
+    bTokens: [-1, -1, -1, -1] as number[],
+    emote: "",
+    matchTimer: 120,
+  });
 
   const [pTokens, setPTokens] = useState([-1, -1, -1, -1]);
   const [bTokens, setBTokens] = useState([-1, -1, -1, -1]);
@@ -592,7 +291,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   const [turn, setTurn] = useState<"player" | "bot">("player");
   const [validToks, setValidToks] = useState<number[]>([]);
   const [logMsgs, setLogMsgs] = useState<string[]>(["🎮 Match started! Roll to move!"]);
-  const [phase, setPhase] = useState<"matchmaking" | "playing" | "result">("matchmaking");
+  const [phase, setPhase] = useState<Phase>("matchmaking");
   const [mmStage, setMmStage] = useState<"searching" | "found">("searching");
   const [emote, setEmote] = useState("");
   const [killFlash, setKillFlash] = useState(false);
@@ -602,108 +301,97 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   const pushLog = (msg: string) => setLogMsgs(prev => [msg, ...prev.slice(0, 5)]);
   const flashKill = () => { setKillFlash(true); setTimeout(() => setKillFlash(false), 600); };
 
-  // ── Three.js scene setup ────────────────────────────────────────────────────
+  // ── Canvas board: setup, render loop, and click-to-move ────────────────────
   useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) return;
+    if (phase !== "playing") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctxRef.current = ctx;
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a1628);
-    const w = mount.clientWidth, h = mount.clientHeight;
-    const camera = new THREE.PerspectiveCamera(45, w / h, 1, 2000);
-    camera.position.set(0, 650, 550);
-    camera.lookAt(0, 0, 0);
+    // Seed token screen positions from the current game state
+    ([PLAYER, BOT] as PlayerId[]).forEach(player => {
+      const arr = tokensRef.current[player] ?? [-1, -1, -1, -1];
+      screenPosRef.current[player] = arr.map((pos, idx) => getTokenCanvasPos(player, idx, pos));
+    });
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-    renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    mount.appendChild(renderer.domElement);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2.2;
-    controls.minDistance = 300;
-    controls.maxDistance = 1400;
-
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(200, 400, 200);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-
-    const boardGroup = new THREE.Group();
-    scene.add(boardGroup);
-
-    const world: World = {
-      scene, camera, renderer, controls,
-      raycaster: new THREE.Raycaster(),
-      mouse: new THREE.Vector2(),
-      boardGroup,
-      tokenMeshes: {},
-      raf: 0,
+    const parent = canvas.parentElement as HTMLElement | null;
+    const measure = () => {
+      const W = Math.max(parent?.clientWidth || 320, 280);
+      const H = Math.max(parent?.clientHeight || 360, 300);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { W, H };
     };
-    worldRef.current = world;
 
-    buildBoard(world);
-    createPlayerTokens(world, [PLAYER, BOT]);
+    let size = measure();
+    let raf = 0;
 
-    const animate = () => {
-      world.raf = requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      const st = renderStateRef.current;
+      ctx.clearRect(0, 0, size.W, size.H);
+      const boardSize = Math.min(size.W, size.H);
+      const offX = (size.W - boardSize) / 2;
+      const offY = (size.H - boardSize) / 2;
+      ctx.save();
+      ctx.translate(offX, offY);
+      drawSuperLudoBoard(ctx, boardSize);
+      drawSuperLudoTokens(
+        ctx,
+        boardSize,
+        screenPosRef.current,
+        st.validToks,
+        st.turn === "player" ? PLAYER : BOT,
+        now / 1000,
+      );
+      ctx.restore();
     };
-    animate();
+    raf = requestAnimationFrame(loop);
 
-    const onResize = () => {
-      const ww = mount.clientWidth, hh = mount.clientHeight;
-      if (ww === 0 || hh === 0) return;
-      camera.aspect = ww / hh;
-      camera.updateProjectionMatrix();
-      renderer.setSize(ww, hh);
-    };
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      cancelAnimationFrame(world.raf);
-      window.removeEventListener("resize", onResize);
-      controls.dispose();
-      renderer.dispose();
-      if (renderer.domElement.parentElement === mount) {
-        mount.removeChild(renderer.domElement);
-      }
-      worldRef.current = null;
-    };
-  }, []);
-
-  // ── Board click → move selected token ───────────────────────────────────────
-  useEffect(() => {
-    const world = worldRef.current;
-    if (!world) return;
-    const onClick = (event: MouseEvent) => {
-      if (phase !== "playing" || turn !== "player" || rolling || moveBusy.current) return;
-      if (highlightedRef.current.length === 0) return;
-      const rect = world.renderer.domElement.getBoundingClientRect();
-      world.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      world.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      world.raycaster.setFromCamera(world.mouse, world.camera);
-      const meshes = world.tokenMeshes[PLAYER].filter((_, i) => highlightedRef.current.includes(i));
-      const intersects = world.raycaster.intersectObjects(meshes, true);
-      if (intersects.length > 0) {
-        let obj: THREE.Object3D | null = intersects[0].object;
-        while (obj && obj.parent && obj.parent !== world.boardGroup) obj = obj.parent;
-        const pd = obj?.userData as { player?: string; index?: number } | undefined;
-        if (pd && pd.player === PLAYER && typeof pd.index === "number") {
-          movePlayerToken(pd.index, lastRollRef.current);
+    const onClick = (ev: { clientX: number; clientY: number }) => {
+      const st = renderStateRef.current;
+      if (st.phase !== "playing" || st.turn !== "player" || st.rolling || moveBusy.current) return;
+      if (!st.validToks || st.validToks.length === 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const boardSize = Math.min(rect.width, rect.height);
+      if (boardSize <= 0) return;
+      const offX = (rect.width - boardSize) / 2;
+      const offY = (rect.height - boardSize) / 2;
+      const px = (ev.clientX - rect.left - offX) * (BOARD_SIZE / boardSize);
+      const py = (ev.clientY - rect.top - offY) * (BOARD_SIZE / boardSize);
+      const arr = screenPosRef.current[PLAYER];
+      for (const i of st.validToks) {
+        const p = arr[i];
+        if (p && Math.hypot(px - p.x, py - p.y) <= CELL * 0.6) {
+          movePlayerToken(i, lastRollRef.current);
+          return;
         }
       }
     };
-    world.renderer.domElement.addEventListener("click", onClick);
-    return () => world.renderer.domElement.removeEventListener("click", onClick);
+    const onTouch = (ev: TouchEvent) => {
+      if (ev.touches.length === 0) return;
+      const t = ev.touches[0];
+      onClick({ clientX: t.clientX, clientY: t.clientY });
+    };
+
+    const onResize = () => { size = measure(); };
+    window.addEventListener("resize", onResize);
+    canvas.addEventListener("click", onClick);
+    canvas.addEventListener("touchend", onTouch, { passive: true });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("touchend", onTouch);
+      ctxRef.current = null;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, turn, rolling, pTokens]);
+  }, [phase]);
 
   // ── Matchmaking: 8s real-player wait → bot auto-joins ──────────────────────
   useEffect(() => {
@@ -854,6 +542,76 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rolling, turn, pTokens, validToks]);
 
+  // ── Canvas token helpers ────────────────────────────────────────────────────
+
+  function animateTokenMove(player: PlayerId, ti: number, oldStep: number, newStep: number, cb: () => void) {
+    const steps: number[] = [];
+    if (oldStep === -1) steps.push(0);
+    else for (let p = oldStep + 1; p <= newStep; p++) steps.push(p);
+    const dur = 150, pause = 50;
+    let i = 0;
+
+    const next = () => {
+      if (i >= steps.length) { cb(); return; }
+      Sounds.hop();
+      const from = { ...screenPosRef.current[player][ti] };
+      const to = getTokenCanvasPos(player, ti, steps[i]);
+      const t0 = performance.now();
+      const hop = (now: number) => {
+        const t = Math.min((now - t0) / dur, 1);
+        const e = 1 - Math.pow(1 - t, 3);
+        screenPosRef.current[player][ti] = {
+          x: from.x + (to.x - from.x) * e,
+          y: from.y + (to.y - from.y) * e,
+        };
+        if (t < 1) requestAnimationFrame(hop);
+        else { i++; setTimeout(next, pause); }
+      };
+      requestAnimationFrame(hop);
+    };
+    next();
+  }
+
+  function distributeTokensCanvas(tokens: Record<PlayerId, number[]>, players: PlayerId[], pos: number, fromPlayer: PlayerId) {
+    let targetGrid: [number, number] | null = null;
+    if (pos === 56) return;
+    if (pos >= 51 && pos < 56) targetGrid = FINAL_PATHS[fromPlayer][pos - 51];
+    else if (pos >= 0 && pos < 51) targetGrid = PLAYER_PATHS[fromPlayer][pos];
+    else return;
+    if (!targetGrid) return;
+
+    const onCell: { player: PlayerId; index: number; gridPos: [number, number] }[] = [];
+    players.forEach(p => {
+      tokens[p].forEach((tPos, idx) => {
+        if (tPos < 0) return;
+        let gp: [number, number] | null = null;
+        if (tPos === 56) gp = [7, 7];
+        else if (tPos >= 51 && tPos < 56) gp = FINAL_PATHS[p][tPos - 51];
+        else if (tPos >= 0 && tPos < 51) gp = PLAYER_PATHS[p][tPos];
+        else return;
+        if (gp && gp[0] === targetGrid![0] && gp[1] === targetGrid![1]) onCell.push({ player: p, index: idx, gridPos: gp });
+      });
+    });
+
+    const spacing = 12;
+    const count = onCell.length;
+    onCell.forEach((tok, i) => {
+      const base = gridToCanvas(tok.gridPos[0], tok.gridPos[1]);
+      let ox = 0, oy = 0;
+      if (count === 1) { /* centered */ }
+      else if (count === 2) ox = (i - 0.5) * spacing;
+      else if (count === 3) {
+        if (i === 0) { ox = -spacing * 0.7; oy = -spacing * 0.4; }
+        else if (i === 1) { ox = spacing * 0.7; oy = -spacing * 0.4; }
+        else { oy = spacing * 0.6; }
+      } else if (count >= 4) {
+        ox = (i % 2 === 0 ? -1 : 1) * spacing * 0.5;
+        oy = (Math.floor(i / 2) % 2 === 0 ? -1 : 1) * spacing * 0.5;
+      }
+      screenPosRef.current[tok.player][tok.index] = { x: base.x + ox, y: base.y + oy };
+    });
+  }
+
   // ── Move player token ───────────────────────────────────────────────────────
   function movePlayerToken(ti: number, diceVal: number) {
     setValidToks([]);
@@ -872,7 +630,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
     let killPts = 0;
     const nPos = ns >= 0 && ns < 51 ? PLAYER_PATHS[PLAYER][ns] : null;
 
-    animateTokenMove(worldRef.current!, PLAYER, ti, oldStep, ns, () => {
+    animateTokenMove(PLAYER, ti, oldStep, ns, () => {
       if (nPos) {
         const botArr = tokensRef.current[BOT];
         for (let i = 0; i < botArr.length; i++) {
@@ -883,8 +641,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
               killPts = oPos;
               botArr[i] = -1;
               const hp = HOME_POSITIONS[BOT][i];
-              const wp = gridToWorld(hp[0], hp[1]);
-              worldRef.current!.tokenMeshes[BOT][i].position.set(wp.x, worldRef.current!.tokenMeshes[BOT][i].position.y, wp.z);
+              screenPosRef.current[BOT][i] = gridToCanvas(hp[0], hp[1]);
               killed = true;
               playerKills.current++;
               Sounds.capture();
@@ -913,8 +670,8 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       moveBusy.current = false;
 
       // redistribute stack
-      if (oldStep >= 0) distributeTokensOnCell(worldRef.current!, tokensRef.current, [PLAYER, BOT], oldStep, PLAYER);
-      distributeTokensOnCell(worldRef.current!, tokensRef.current, [PLAYER, BOT], ns, PLAYER);
+      if (oldStep >= 0) distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], oldStep, PLAYER);
+      distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], ns, PLAYER);
 
       if (ns >= 56 && tokensRef.current[PLAYER].every(t => t === 56)) {
         setPhase("result");
@@ -942,7 +699,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
     let killPts = 0;
     const nPos = ns >= 0 && ns < 51 ? PLAYER_PATHS[BOT][ns] : null;
 
-    animateTokenMove(worldRef.current!, BOT, ti, oldStep, ns, () => {
+    animateTokenMove(BOT, ti, oldStep, ns, () => {
       if (nPos) {
         const pArr = tokensRef.current[PLAYER];
         for (let i = 0; i < pArr.length; i++) {
@@ -953,8 +710,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
               killPts = oPos;
               pArr[i] = -1;
               const hp = HOME_POSITIONS[PLAYER][i];
-              const wp = gridToWorld(hp[0], hp[1]);
-              worldRef.current!.tokenMeshes[PLAYER][i].position.set(wp.x, worldRef.current!.tokenMeshes[PLAYER][i].position.y, wp.z);
+              screenPosRef.current[PLAYER][i] = gridToCanvas(hp[0], hp[1]);
               killed = true;
               botKills.current++;
               Sounds.capture();
@@ -978,12 +734,12 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
         pushLog(`🔵 ${botRef.current.name} rolled ${diceVal} → +${pts} pts`);
       }
 
-      setBScore(s => s + pts + (killed ? KILL_BONUS : 0));
+      setBScore(s => s + pts);
       setBMoves(m => m + 1);
       moveBusy.current = false;
 
-      if (oldStep >= 0) distributeTokensOnCell(worldRef.current!, tokensRef.current, [PLAYER, BOT], oldStep, BOT);
-      distributeTokensOnCell(worldRef.current!, tokensRef.current, [PLAYER, BOT], ns, BOT);
+      if (oldStep >= 0) distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], oldStep, BOT);
+      distributeTokensCanvas(tokensRef.current, [PLAYER, BOT], ns, BOT);
 
       if (ns >= 56 && tokensRef.current[BOT].every(t => t === 56)) {
         setPhase("result");
@@ -998,7 +754,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
   // ── Finish match: credit wallet + save result + history ────────────────────
   function finishMatch() {
-    const won = !scored.current ? pScore > bScore : pScore > bScore;
+    const won = pScore > bScore;
     const prize = (!isFreeMode && won) ? Math.floor(initialFee * 2 * 0.9) : 0;
     const duration = Math.floor((Date.now() - matchStartTime.current) / 1000);
 
@@ -1039,6 +795,9 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
 
   const canRoll = turn === "player" && !rolling && !moveBusy.current && validToks.length === 0 && pMoves < 100 && phase === "playing";
   const prize = (!isFreeMode && pScore > bScore) ? Math.floor(initialFee * 2 * 0.9) : 0;
+
+  // Keep the render loop up-to-date with the latest React state
+  renderStateRef.current = { phase, turn, rolling, validToks, pTokens, bTokens, emote, matchTimer };
 
   // ─── MATCHMAKING SCREEN ─────────────────────────────────────────────────────
   if (phase === "matchmaking") {
@@ -1360,7 +1119,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
         </div>
       </div>
 
-      {/* ── 3D Board ── */}
+      {/* ── Canvas Ludo Board ── */}
       <div className="flex-1 relative px-2 min-h-[340px]">
         <AnimatePresence>
           {killFlash && (
@@ -1378,8 +1137,8 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
             </motion.div>
           )}
         </AnimatePresence>
-        <div ref={mountRef} className="w-full h-full rounded-2xl overflow-hidden"
-          style={{ background: "#0a1628", border: "1px solid rgba(255,255,255,0.08)", minHeight: 340, boxShadow: "0 0 40px rgba(0,0,0,0.6)" }} />
+        <canvas ref={canvasRef} className="w-full h-full rounded-2xl"
+          style={{ display: "block", touchAction: "none", background: "#0d1117", minHeight: 340 }} />
         {validToks.length > 0 && (
           <div className="absolute bottom-2 inset-x-0 z-20 flex justify-center">
             <div className="px-4 py-2 rounded-full text-xs font-black animate-pulse"
