@@ -274,7 +274,7 @@ export async function getLudoStats(): Promise<{
       const match = d.data() as LudoMatchResult;
       const ts = typeof match.playedAt === "number"
         ? match.playedAt
-        : (match.playedAt as Timestamp)?.seconds * 1000 ?? 0;
+        : ((match.playedAt as Timestamp | undefined)?.seconds ?? 0) * 1000;
       if (ts > todayStart) todayMatches++;
       if (match.opponentIsBot) {
         botPlayers++;
@@ -289,7 +289,7 @@ export async function getLudoStats(): Promise<{
       const match = d.data() as LudoMatchResult;
       const ts = typeof match.playedAt === "number"
         ? match.playedAt
-        : (match.playedAt as Timestamp)?.seconds * 1000 ?? 0;
+        : ((match.playedAt as Timestamp | undefined)?.seconds ?? 0) * 1000;
       return now - ts < 300000; // 5 minutes
     }).length;
     
@@ -762,7 +762,7 @@ export interface LeaderboardEntry {
   displayName: string;
   photoURL: string;
   totalWinnings: number;
-  gamesPlayed: number;
+  gamesPlayed?: number;
   rank?: number;
 }
 
@@ -904,7 +904,7 @@ export async function getDepositStats(): Promise<{ total: number; count: number;
       total += dep.amount;
       const ts = typeof dep.createdAt === "number"
         ? dep.createdAt
-        : (dep.createdAt as Timestamp)?.seconds * 1000 ?? 0;
+        : ((dep.createdAt as Timestamp | undefined)?.seconds ?? 0) * 1000;
       if (ts > todayStart) today += dep.amount;
     });
     return { total, count: snap.size, today };
@@ -1107,6 +1107,7 @@ export async function seedGamesIfEmpty(): Promise<void> {
 
 export const DEFAULT_GAMES: GameConfig[] = [
   { id: "ludo",    name: "Ludo Classic",     category: "board",   thumbnail: "🎲", entryFees: [1,5,10,50], prizeMultiplier: 1.8, maxPlayers: 4, isActive: true,  isBotEnabled: true, botJoinDelaySec: 15 },
+  { id: "superludo", name: "Super Ludo",     category: "board",   thumbnail: "🎲", entryFees: [2,5,10,20,50,100], prizeMultiplier: 1.8, maxPlayers: 2, isActive: true, isBotEnabled: true, botJoinDelaySec: 8 },
 
   { id: "carrom",  name: "Carrom",            category: "board",   thumbnail: "🎯", entryFees: [5,10,25],   prizeMultiplier: 1.8, maxPlayers: 2, isActive: true,  isBotEnabled: true, botJoinDelaySec: 15 },
   { id: "snakes",  name: "Snake & Ladder",    category: "board",   thumbnail: "🐍", entryFees: [2,5,10],    prizeMultiplier: 1.8, maxPlayers: 4, isActive: true,  isBotEnabled: true, botJoinDelaySec: 12 },

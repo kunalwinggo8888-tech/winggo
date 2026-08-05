@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/context/useWallet";
 import { useMatchHistory } from "@/context/useMatchHistory";
 import { getRandomBot, type BotPlayer } from "@/data/botDatabase";
-import { saveLudoMatchResult, firestoreAddWinning, firestoreDeductEntryFee } from "@/firebase/firestore.service";
+import { saveLudoMatchResult, firestoreDeductEntryFee } from "@/firebase/firestore.service";
 import { useAuth } from "@/context/useAuth";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -796,10 +796,7 @@ export default function LudoFastGame({ onBack, initialFee = 10 }: Props) {
     
     // Add winnings to wallet
     if (!isFreeMode && won) {
-      addWinning(prize);
-      if (user?.uid) {
-        firestoreAddWinning(user.uid, prize, "Ludo Fast Win").catch(console.error);
-      }
+      addWinning(prize, "Ludo Fast Win");
     }
     
     addMatch({

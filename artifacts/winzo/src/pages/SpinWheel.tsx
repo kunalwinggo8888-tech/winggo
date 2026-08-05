@@ -434,7 +434,7 @@ export default function SpinWheel({ onBack }: SpinWheelProps) {
                 {winner.label}
               </div>
 
-              {winner.cashValue > 0 && (
+              {(winner.cashValue ?? 0) > 0 && (
                 <p className="text-zinc-400 text-xs mb-5">
                   ₹{winner.cashValue} added to your wallet automatically
                 </p>

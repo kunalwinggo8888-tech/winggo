@@ -61,14 +61,16 @@ const BANNERS = [
 ];
 
 const GAME_CATALOG = [
-  // Only Ludo Classic and Snakes & Ladders
+  // Only Ludo Classic, Super Ludo and Snakes & Ladders
   { id: "ludo",         name: "Ludo Classic",      icon: "🎲", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "7.3L playing", minFee: "₹2" },
+  { id: "superludo",    name: "Super Ludo",        icon: "🎲", gradient: "linear-gradient(135deg,#7c3aed,#a855f7)", category: "Popular", players: "2.6L playing", minFee: "₹2" },
   { id: "saanpsidi",    name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
 ] as const;
 
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
 const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: string; category: string; icon: string }> = {
   ludo:     { gradient: "linear-gradient(135deg, #ff6e00 0%, #ffe000 100%)", players: "7.3L playing", prize: "₹5,000",    category: "Popular",   icon: "🎲" },
+  superludo:{ gradient: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)", players: "2.6L playing", prize: "₹12,000",   category: "Popular",   icon: "🎲" },
   saanpsidi:{ gradient: "linear-gradient(135deg, #134e5e 0%, #71b280 100%)", players: "4.2L playing", prize: "₹8,000",    category: "Popular",   icon: "🐍" },
 
   carrom:   { gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)", players: "2.9L playing", prize: "₹3,000",    category: "Board",     icon: "🎯" },
@@ -100,6 +102,7 @@ interface DashboardProps {
   onSpin?: () => void;
   onLudo?: (fee?: number) => void;
   onLudoFast?: (fee?: number) => void;
+  onSuperLudo?: (fee?: number) => void;
   onSaanpSidi?: (fee?: number) => void;
   onWorldWar?: (fee?: number) => void;
   onSnakes?: (fee?: number) => void;
@@ -152,10 +155,10 @@ interface DashboardProps {
   appConfig?: import("@/firebase/firestore.service").AppConfig;
 }
 
-// Only Ludo Classic and Snakes & Ladders are active — all other games show "Coming Soon"
-const IMPLEMENTED_GAMES = new Set(["ludo", "saanpsidi"]);
+// Only Ludo Classic, Super Ludo and Snakes & Ladders are active — all other games show "Coming Soon"
+const IMPLEMENTED_GAMES = new Set(["ludo", "superludo", "saanpsidi"]);
 
-export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, onNotifications, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, onNotifications, onSuperLudo, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -181,6 +184,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
     // Fee is deducted by GameEntrySheet on PLAY NOW — games must NOT deduct internally
 
     if (gameId === "saanpsidi" || gameId === "2")     { onSaanpSidi?.(fee); return; }
+    if (gameId === "superludo")                        { onSuperLudo?.(fee); return; }
     if (gameId === "carrom"    || gameId === "3")  { onCarrom?.(fee);   return; }
     if (gameId === "bubble"    || gameId === "1")  { onBubble?.(fee);   return; }
     if (gameId === "candy"       || gameId === "9")   { onCandy?.(fee);        return; }
@@ -552,11 +556,12 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         <div className="mt-5 px-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-bold text-base">🔥 Popular Games</h3>
-            <span className="text-xs font-bold" style={{ color: "#FFD700" }}>2 Games Live</span>
+            <span className="text-xs font-bold" style={{ color: "#FFD700" }}>3 Games Live</span>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar gpu">
             {[
               { id: "ludo",      name: "Ludo Classic",   icon: "🎲", gradient: "linear-gradient(135deg, #ff6e00, #ffe000)", minFee: "₹2" },
+              { id: "superludo", name: "Super Ludo",     icon: "🎲", gradient: "linear-gradient(135deg, #7c3aed, #a855f7)", minFee: "₹2" },
               { id: "saanpsidi", name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg, #134e5e, #71b280)", minFee: "₹2" },
             ].map((g) => {
               return (

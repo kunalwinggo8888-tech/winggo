@@ -10,7 +10,7 @@
  *
  * The Razorpay Key Secret NEVER touches the client.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/useAuth";
 import { firestoreDeposit } from "@/firebase/firestore.service";
@@ -72,6 +72,11 @@ export default function RazorpayGateway({ amount, bonusPct, onSuccess, onClose }
   const [phase, setPhase]     = useState<Phase>("idle");
   const [errMsg, setErrMsg]   = useState("");
   const [payId, setPayId]     = useState("");
+
+  // Keep the latest phase available to the Razorpay modal dismiss callback,
+  // which is created once while phase is "idle" (closing over a stale value).
+  const phaseRef = useRef<Phase>("idle");
+  phaseRef.current = phase;
 
   // Pre-load Razorpay SDK as soon as component mounts
   useEffect(() => { loadRazorpayScript(); }, []);
@@ -172,7 +177,7 @@ export default function RazorpayGateway({ amount, bonusPct, onSuccess, onClose }
 
       modal: {
         ondismiss: () => {
-          if (phase === "paying") {
+          if (phaseRef.current === "paying") {
             setPhase("idle");
           }
         },

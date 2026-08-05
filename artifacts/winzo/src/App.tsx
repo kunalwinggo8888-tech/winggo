@@ -30,6 +30,7 @@ import AppBannerModal from "@/components/AppBannerModal";
 
 // Lazy load game components for better performance
 const LudoFastGame = lazy(() => import("@/pages/LudoFastGame"));
+const SuperLudoGame = lazy(() => import("@/pages/SuperLudoGame"));
 const SaanpSidiGame = lazy(() => import("@/pages/SaanpSidiGame"));
 const CarromGame = lazy(() => import("@/pages/CarromGame"));
 const BubbleGame = lazy(() => import("@/pages/BubbleGame"));
@@ -78,7 +79,7 @@ const queryClient = new QueryClient();
 
 type Screen =
   | "splash" | "login" | "transition" | "dashboard"
-  | "spinwheel" | "ludo" | "saanpsidi" | "carrom" | "bubble" | "candy"
+  | "spinwheel" | "ludo" | "superludo" | "saanpsidi" | "carrom" | "bubble" | "candy"
   | "chess" | "discfootball" | "rummy" | "callbreak" | "poker" | "solitaire" | "twenty1"
   | "axemaster" | "mrracer" | "bricksbreaker" | "slapfest" | "fruitchop"
   | "alienfusion" | "pool3d" | "crickettd20" | "sheepbattle" | "hexa2048"
@@ -102,6 +103,7 @@ function AppInner() {
   const [bannerCfg,   setBannerCfg]  = useState<AppBannerConfig>(DEFAULT_APP_BANNER);
   const bannerShown = useRef(false);
   const [ludoFee, setLudoFee]           = useState(2);
+  const [superLudoFee, setSuperLudoFee] = useState(10);
   const [saanpSidiFee, setSaanpSidiFee] = useState(2);
   const [carromFee, setCarromFee]     = useState(10);
   const [bubbleFee, setBubbleFee]         = useState(10);
@@ -328,6 +330,7 @@ function AppInner() {
             onSpin={() => setScreen("spinwheel")}
             onLudo={(fee) => { setLudoFee(fee ?? 2); setScreen("ludo"); }}
             onLudoFast={(fee) => { setLudoFee(fee ?? 2); setScreen("ludo"); }}
+            onSuperLudo={(fee) => { setSuperLudoFee(fee ?? 10); setScreen("superludo"); }}
             onSaanpSidi={(fee) => { setSaanpSidiFee(fee ?? 2); setScreen("saanpsidi"); }}
             onSnakes={(fee) => { setSaanpSidiFee(fee ?? 2); setScreen("saanpsidi"); }}
             onCarrom={(fee) => { setCarromFee(fee ?? 10); setScreen("carrom"); }}
@@ -386,6 +389,12 @@ function AppInner() {
         {screen === "ludo" && (
         <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <LudoFastGame key="ludo" onBack={() => setScreen("dashboard")} initialFee={ludoFee} />
+        </Suspense>
+      )}
+
+      {screen === "superludo" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
+          <SuperLudoGame key="superludo" onBack={() => setScreen("dashboard")} initialFee={superLudoFee} />
         </Suspense>
       )}
 

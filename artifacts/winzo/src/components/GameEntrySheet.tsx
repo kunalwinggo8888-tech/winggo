@@ -48,6 +48,14 @@ const GAME_MAP: Record<string, GameCfg> = {
     defaultFees: [2,5,10,20,50,100], bigTitle: "LUDO",
   },
 
+  /* ── Super Ludo (3D) ── */
+  superludo: {
+    accent: "#a855f7", headerGrad: "linear-gradient(135deg,#2e1065,#6b21a8,#a855f7)",
+    mainGrad: "linear-gradient(180deg,#160532 0%,#0e0220 100%)",
+    assets: ["🎲","🟡","🔵","⭐","🎲","🟡","🔵","⭐"],
+    defaultFees: [2,5,10,20,50,100], bigTitle: "SUPER LUDO",
+  },
+
   /* ── Carrom ── */
   carrom: {
     accent: "#f97316", headerGrad: "linear-gradient(135deg,#7c2d12,#c2410c,#f97316)",
