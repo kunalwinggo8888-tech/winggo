@@ -62,13 +62,15 @@ const BANNERS = [
 
 const GAME_CATALOG = [
   // Only Ludo Classic and Snakes & Ladders
-  { id: "ludo",         name: "Ludo Classic",      icon: "🎲", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "7.3L playing", minFee: "₹2" },
-  { id: "saanpsidi",    name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
+  { id: "ludo",      name: "Ludo Classic",    icon: "🎲", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "7.3L playing", minFee: "₹2" },
+  { id: "superludo", name: "Super Ludo 3D",  icon: "🎮", gradient: "linear-gradient(135deg,#ea4330,#4285f4)", category: "Popular", players: "5.1L playing", minFee: "₹2" },
+  { id: "saanpsidi", name: "Snakes & Ladders",icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
 ] as const;
 
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
 const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: string; category: string; icon: string }> = {
-  ludo:     { gradient: "linear-gradient(135deg, #ff6e00 0%, #ffe000 100%)", players: "7.3L playing", prize: "₹5,000",    category: "Popular",   icon: "🎲" },
+  ludo:      { gradient: "linear-gradient(135deg, #ff6e00 0%, #ffe000 100%)", players: "7.3L playing", prize: "₹5,000",  category: "Popular",   icon: "🎲" },
+  superludo: { gradient: "linear-gradient(135deg, #ea4330 0%, #4285f4 50%, #34a853 100%)", players: "5.1L playing", prize: "₹10,000", category: "Popular", icon: "🎮" },
   saanpsidi:{ gradient: "linear-gradient(135deg, #134e5e 0%, #71b280 100%)", players: "4.2L playing", prize: "₹8,000",    category: "Popular",   icon: "🐍" },
 
   carrom:   { gradient: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)", players: "2.9L playing", prize: "₹3,000",    category: "Board",     icon: "🎯" },
@@ -145,6 +147,7 @@ interface DashboardProps {
   onPipeConnect?: (fee?: number) => void;
   onJellyShift?: (fee?: number) => void;
   onGoldMiner3D?: (fee?: number) => void;
+  onSuperLudo?: (fee?: number) => void;
   onWallet?: () => void;
   onHistory?: () => void;
   onLeaderboard?: () => void;
@@ -153,9 +156,9 @@ interface DashboardProps {
 }
 
 // Only Ludo Classic and Snakes & Ladders are active — all other games show "Coming Soon"
-const IMPLEMENTED_GAMES = new Set(["ludo", "saanpsidi"]);
+const IMPLEMENTED_GAMES = new Set(["ludo", "saanpsidi", "superludo"]);
 
-export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, onNotifications, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onSuperLudo, onWallet, onHistory, onLeaderboard, onNotifications, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -223,6 +226,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
     if (gameId === "pipeconnect")                      { onPipeConnect?.(fee);  return; }
     if (gameId === "jellyshift")                       { onJellyShift?.(fee);   return; }
     if (gameId === "goldminer3d")                      { onGoldMiner3D?.(fee);  return; }
+    if (gameId === "superludo")                        { onSuperLudo?.(fee);    return; }
     // ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }
