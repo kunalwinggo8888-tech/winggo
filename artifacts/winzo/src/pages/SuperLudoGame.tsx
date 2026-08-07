@@ -1249,10 +1249,10 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       </div>
 
       {/* ── BOARD + SIDE PANELS: player (left) · board (center) · bot (right) ── */}
-      <div className="flex-1 min-h-[300px] flex items-center gap-1.5 px-2">
+      <div className="flex-1 min-h-[300px] flex items-stretch gap-1.5 px-2">
 
         {/* ── LEFT: White panel — player profile photo (top) + white dice ── */}
-        <div className="flex flex-col items-center justify-center shrink-0 rounded-2xl px-2 py-4"
+        <div className="flex flex-col items-center justify-between shrink-0 rounded-2xl px-2 py-3"
           style={{ width: "clamp(74px, 18vw, 92px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
           <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 240, damping: 20 }}
@@ -1277,6 +1277,8 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
               style={{ background: turn === "player" ? `${PLAYER_COLOR}1a` : "rgba(15,23,42,0.05)", color: turn === "player" ? PLAYER_COLOR : "#64748b", border: `1px solid ${turn === "player" ? PLAYER_COLOR + "66" : "rgba(15,23,42,0.10)"}` }}>
               YOU 🔵
             </span>
+          </motion.div>
+          <div className="flex flex-col items-center gap-1.5">
             <motion.div
               animate={turn === "player" && !rolling ? { scale: [1, 1.07, 1] } : { scale: 1 }}
               transition={{ duration: 1.2, repeat: turn === "player" && !rolling ? Infinity : 0 }}>
@@ -1285,7 +1287,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
             <span className="text-[9px] font-black min-h-[12px]" style={{ color: canRoll ? PLAYER_COLOR : "#94a3b8" }}>
               {canRoll ? "TAP TO ROLL" : validToks.length > 0 ? "PICK TOKEN" : turn === "bot" ? "WAIT…" : ""}
             </span>
-          </motion.div>
+          </div>
         </div>
 
         {/* ── CENTER: Canvas Ludo Board (kept square + centred) ── */}
@@ -1320,7 +1322,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
         </div>
 
         {/* ── RIGHT: White panel — bot profile photo (top) + white dice ── */}
-        <div className="flex flex-col items-center justify-center shrink-0 rounded-2xl px-2 py-4"
+        <div className="flex flex-col items-center justify-between shrink-0 rounded-2xl px-2 py-3"
           style={{ width: "clamp(74px, 18vw, 92px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
           <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.35, type: "spring", stiffness: 240, damping: 20 }}
@@ -1341,6 +1343,8 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
               style={{ background: turn === "bot" ? `${BOT_COLOR}1a` : "rgba(15,23,42,0.05)", color: turn === "bot" ? BOT_COLOR : "#64748b", border: `1px solid ${turn === "bot" ? BOT_COLOR + "66" : "rgba(15,23,42,0.10)"}` }}>
               🟢 {botRef.current.name}
             </span>
+          </motion.div>
+          <div className="flex flex-col items-center gap-1.5">
             <motion.div
               animate={turn === "bot" && !rolling ? { scale: [1, 1.07, 1] } : { scale: 1 }}
               transition={{ duration: 1.2, repeat: turn === "bot" && !rolling ? Infinity : 0 }}>
@@ -1349,7 +1353,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
             <span className="text-[9px] font-black min-h-[12px]" style={{ color: turn === "bot" && !rolling ? BOT_COLOR : "#94a3b8" }}>
               {turn === "bot" && rolling ? "ROLLING…" : turn === "bot" ? "THINKING…" : ""}
             </span>
-          </motion.div>
+          </div>
         </div>
       </div>
 
