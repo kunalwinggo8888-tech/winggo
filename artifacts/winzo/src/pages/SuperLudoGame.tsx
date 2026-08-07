@@ -1156,7 +1156,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
   // Board square geometry drives the side-dice size. Dice + profile photos live
   // OUTSIDE the board (left = player, right = bot) so the board stays centred.
   const bs = Math.min(boardBox.w, boardBox.h);
-  const dsz = Math.max(40, Math.min(60, Math.round(bs * 0.11)));
+  const dsz = Math.max(32, Math.min(50, Math.round(bs * 0.1)));
 
   const playerPhoto = user?.photoURL || "";
   const playerInitial = (user?.displayName || "YOU").charAt(0).toUpperCase();
@@ -1166,7 +1166,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       style={{ background: GRAD_BG, maxWidth: 480, margin: "0 auto" }}>
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2 flex-shrink-0">
+      <div className="flex items-center justify-between px-3 pt-2 pb-1.5 flex-shrink-0">
         <button onClick={openForfeit} className="w-9 h-9 flex items-center justify-center rounded-xl cursor-pointer"
           style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", fontSize: 18 }}>
           ←
@@ -1184,7 +1184,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       </div>
 
       {/* ── 2-MIN TIMER (top) ── */}
-      <div className="px-3 pb-2 flex-shrink-0">
+      <div className="px-3 pb-1.5 flex-shrink-0">
         <div className="rounded-2xl px-3 py-2 flex items-center justify-center relative"
           style={{ background: "rgba(76,29,149,0.45)", border: "1px solid rgba(255,255,255,0.12)" }}>
           <span className="text-[9px] font-black tracking-widest mr-2" style={{ color: "rgba(255,255,255,0.35)" }}>⏱</span>
@@ -1207,7 +1207,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       </div>
 
       {/* ── Your Score / Opponent Score (below timer) ── */}
-      <div className="px-3 pb-2 flex gap-2 flex-shrink-0">
+      <div className="px-3 pb-1.5 flex gap-2 flex-shrink-0">
         <motion.div className="flex-1 rounded-xl px-3 py-2 flex flex-col items-center"
           animate={{ boxShadow: turn === "player" ? `0 0 24px ${PLAYER_COLOR},0 0 48px ${PLAYER_COLOR}59` : "none" }}
           style={{ background: turn === "player" ? `${PLAYER_COLOR}33` : "rgba(255,255,255,0.07)", border: `2px solid ${turn === "player" ? PLAYER_COLOR : "rgba(255,255,255,0.12)"}` }}>
@@ -1229,7 +1229,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       </div>
 
       {/* ── Turn indicator strip ── */}
-      <div className="flex items-center justify-between px-3 pb-2 flex-shrink-0">
+      <div className="flex items-center justify-between px-3 pb-1.5 flex-shrink-0">
         <div className="flex items-center gap-1.5">
           <motion.div className="w-2.5 h-2.5 rounded-full" style={{ background: PLAYER_COLOR, boxShadow: turn === "player" ? `0 0 8px ${PLAYER_COLOR}` : "none" }}
             animate={turn === "player" ? { scale: [1, 1.35, 1] } : { scale: 1 }} transition={{ duration: 0.7, repeat: Infinity }} />
@@ -1249,15 +1249,15 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       </div>
 
       {/* ── BOARD + SIDE PANELS: player (left) · board (center) · bot (right) ── */}
-      <div className="flex-1 min-h-[300px] flex items-stretch gap-1.5 px-2">
+      <div className="flex-1 min-h-[260px] flex items-stretch gap-1 px-1.5">
 
         {/* ── LEFT: White panel — player profile photo (top) + white dice ── */}
-        <div className="flex flex-col items-center justify-between shrink-0 rounded-2xl px-2 py-3"
-          style={{ width: "clamp(74px, 18vw, 92px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
+        <div className="flex flex-col items-center justify-between shrink-0 rounded-2xl px-1 py-3"
+          style={{ width: "clamp(46px, 12vw, 58px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
           <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 240, damping: 20 }}
-            className="flex flex-col items-center gap-1.5">
-            <div className="relative" style={{ width: 62, height: 62 }}>
+            className="flex flex-col items-center gap-1">
+            <div className="relative" style={{ width: 42, height: 42 }}>
               <motion.div className="absolute rounded-full pointer-events-none"
                 style={{ inset: -4, background: `conic-gradient(from 0deg, ${PLAYER_COLOR}, #ec4899, #a855f7, ${PLAYER_COLOR})`, outline: "1px solid rgba(15,23,42,0.10)" }}
                 animate={turn === "player"
@@ -1268,17 +1268,17 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
                 style={{ border: "3px solid #ffffff", boxShadow: "0 0 0 1px rgba(15,23,42,0.15)", background: `linear-gradient(135deg,${PLAYER_COLOR},#1e3a8a)` }}>
                 {playerPhoto
                   ? <img src={playerPhoto} alt="" className="w-full h-full object-cover" />
-                  : <span className="font-black text-white" style={{ fontSize: 22 }}>{playerInitial}</span>}
+                  : <span className="font-black text-white" style={{ fontSize: 15 }}>{playerInitial}</span>}
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-black"
                 style={{ background: "#22c55e", border: "2px solid #ffffff", color: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>✓</span>
             </div>
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-full truncate max-w-[78px]"
+            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full truncate max-w-[52px]"
               style={{ background: turn === "player" ? `${PLAYER_COLOR}1a` : "rgba(15,23,42,0.05)", color: turn === "player" ? PLAYER_COLOR : "#64748b", border: `1px solid ${turn === "player" ? PLAYER_COLOR + "66" : "rgba(15,23,42,0.10)"}` }}>
               YOU 🔵
             </span>
           </motion.div>
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1">
             <motion.div
               animate={turn === "player" && !rolling ? { scale: [1, 1.07, 1] } : { scale: 1 }}
               transition={{ duration: 1.2, repeat: turn === "player" && !rolling ? Infinity : 0 }}>
@@ -1322,12 +1322,12 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
         </div>
 
         {/* ── RIGHT: White panel — bot profile photo (top) + white dice ── */}
-        <div className="flex flex-col items-center justify-between shrink-0 rounded-2xl px-2 py-3"
-          style={{ width: "clamp(74px, 18vw, 92px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
+        <div className="flex flex-col items-center justify-between shrink-0 rounded-2xl px-1 py-3"
+          style={{ width: "clamp(46px, 12vw, 58px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
           <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.35, type: "spring", stiffness: 240, damping: 20 }}
-            className="flex flex-col items-center gap-1.5">
-            <div className="relative" style={{ width: 62, height: 62 }}>
+            className="flex flex-col items-center gap-1">
+            <div className="relative" style={{ width: 42, height: 42 }}>
               <motion.div className="absolute rounded-full pointer-events-none"
                 style={{ inset: -4, background: `conic-gradient(from 0deg, ${BOT_COLOR}, #f472b6, #a855f7, ${BOT_COLOR})`, outline: "1px solid rgba(15,23,42,0.10)" }}
                 animate={turn === "bot"
@@ -1336,15 +1336,15 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
                 transition={{ duration: 1.4, repeat: turn === "bot" ? Infinity : 0 }} />
               <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center"
                 style={{ border: "3px solid #ffffff", boxShadow: "0 0 0 1px rgba(15,23,42,0.15)", background: `linear-gradient(135deg,${botRef.current.avatarColor},#14532d)` }}>
-                <span className="font-black text-white" style={{ fontSize: 22 }}>{botRef.current.initial}</span>
+                <span className="font-black text-white" style={{ fontSize: 15 }}>{botRef.current.initial}</span>
               </div>
             </div>
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-full truncate max-w-[78px]"
+            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full truncate max-w-[52px]"
               style={{ background: turn === "bot" ? `${BOT_COLOR}1a` : "rgba(15,23,42,0.05)", color: turn === "bot" ? BOT_COLOR : "#64748b", border: `1px solid ${turn === "bot" ? BOT_COLOR + "66" : "rgba(15,23,42,0.10)"}` }}>
               🟢 {botRef.current.name}
             </span>
           </motion.div>
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1">
             <motion.div
               animate={turn === "bot" && !rolling ? { scale: [1, 1.07, 1] } : { scale: 1 }}
               transition={{ duration: 1.2, repeat: turn === "bot" && !rolling ? Infinity : 0 }}>

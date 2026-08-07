@@ -27,9 +27,9 @@ export const BOARD_SIZE = GRID * CELL;
 // ─── Palette (canvas-friendly) ───────────────────────────────────────────────
 
 export const C = {
-  bg: "#0d1117",
-  border: "rgba(255,255,255,0.14)",
-  pathFill: "rgba(255,255,255,0.06)",
+  bg: "#ffffff",
+  border: "rgba(148,163,184,0.5)",
+  pathFill: "rgba(226,232,240,0.9)",
   safe: "#f59e0b",
   star: "#fbbf24",
   red: "#ef4444",
@@ -171,7 +171,7 @@ function drawBase(ctx: CanvasRenderingContext2D, b: { x: number; y: number; colo
 
   ctx.fillStyle = b.color;
   ctx.fillRect(x, y, w, w);
-  ctx.strokeStyle = "rgba(255,255,255,0.28)";
+  ctx.strokeStyle = "rgba(15,23,42,0.2)";
   ctx.lineWidth = 2;
   ctx.strokeRect(x + 1, y + 1, w - 2, w - 2);
 
@@ -195,13 +195,13 @@ function drawBase(ctx: CanvasRenderingContext2D, b: { x: number; y: number; colo
     ctx.arc(cx, cy, CELL * 0.78, 0, Math.PI * 2);
     ctx.fillStyle = b.color;
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.strokeStyle = "rgba(15,23,42,0.2)";
     ctx.lineWidth = 1.5;
     ctx.stroke();
   });
 
   // Small label in the base corner
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillStyle = "rgba(15,23,42,0.6)";
   ctx.font = `bold ${Math.round(CELL * 0.55)}px system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -229,7 +229,7 @@ function drawCenter(ctx: CanvasRenderingContext2D) {
     ctx.closePath();
     ctx.fillStyle = t.color;
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.strokeStyle = "rgba(15,23,42,0.2)";
     ctx.lineWidth = 1;
     ctx.stroke();
   });
