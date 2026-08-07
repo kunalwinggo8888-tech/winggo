@@ -24,9 +24,11 @@ import SupportScreen from "@/pages/SupportScreen";
 import TermsScreen from "@/pages/TermsScreen";
 import FirebaseSetupGuide from "@/pages/FirebaseSetupGuide";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
+import PwaUpdater from "@/components/PwaUpdater";
 import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 import AppBannerModal from "@/components/AppBannerModal";
+import { captureReferralFromUrl, trackReferralClick } from "@/firebase/referral.service";
 
 // Lazy load game components for better performance
 const LudoFastGame = lazy(() => import("@/pages/LudoFastGame"));
@@ -162,6 +164,13 @@ function AppInner() {
     return subscribeAppBanner(setBannerCfg);
   }, []);
 
+  // Capture a ?ref=CODE referral from the URL once at boot + count the click
+  useEffect(() => {
+    const code = captureReferralFromUrl();
+    if (code) trackReferralClick(code).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Show banner once per session when dashboard first appears
   useEffect(() => {
     if (screen !== "dashboard") return;
@@ -287,24 +296,25 @@ function AppInner() {
 
       {/* ── Force Update Overlay ── */}
       <AnimatePresence>
-        {appConfig.forceUpdateVersion && appConfig.forceUpdateVersion !== "1.0.0" && !appConfig.maintenanceMode && (
-          <motion.div
-            className="fixed inset-0 z-[9998] flex flex-col items-center justify-center text-center px-6"
-            style={{ background: "rgba(7,5,16,0.97)", backdropFilter: "blur(20px)", maxWidth: 480, margin: "0 auto" }}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <span className="text-6xl">🚀</span>
-            <h2 className="text-white font-black text-2xl mt-5">New Version Available</h2>
-            <p className="mt-2 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-              Version {appConfig.forceUpdateVersion} is out with exciting new features.
-            </p>
-            <motion.a href="https://play.google.com/store" target="_blank" rel="noreferrer"
-              whileTap={{ scale: 0.96 }}
-              className="mt-6 w-full py-4 rounded-2xl font-black text-base cursor-pointer block"
-              style={{ background: "linear-gradient(135deg, #FFD700, #ff8c00)", color: "#000", boxShadow: "0 0 30px rgba(255,215,0,0.4)" }}>
-              ⬇️ Update Now
-            </motion.a>
-          </motion.div>
-        )}
+{appConfig.forceUpdateEnabled && appConfig.forceUpdateVersion && appConfig.forceUpdateVersion !== "1.0.0" && !appConfig.maintenanceMode && (
+            <motion.div
+              className="fixed inset-0 z-[9998] flex flex-col items-center justify-center text-center px-6"
+              style={{ background: "rgba(7,5,16,0.97)", backdropFilter: "blur(20px)", maxWidth: 480, margin: "0 auto" }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <span className="text-6xl">🚀</span>
+              <h2 className="text-white font-black text-2xl mt-5">New Version Available</h2>
+              <p className="mt-2 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
+                {appConfig.updateMessage || `Version ${appConfig.forceUpdateVersion} is out with exciting new features.`}
+              </p>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => window.location.reload()}
+                className="mt-6 w-full py-4 rounded-2xl font-black text-base cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #FFD700, #ff8c00)", color: "#000", boxShadow: "0 0 30px rgba(255,215,0,0.4)" }}>
+                ⬇️ {appConfig.updateButtonText || "Update Now"}
+              </motion.button>
+            </motion.div>
+          )}
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
@@ -737,6 +747,9 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <AppInner />
+          {/* PWA layer — install prompt + update detection. Mounted at the root so
+              it works on every screen (incl. the Firebase setup guide). */}
+          <PwaUpdater />
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

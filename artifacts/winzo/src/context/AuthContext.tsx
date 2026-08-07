@@ -25,6 +25,7 @@ import {
 } from "@/firebase/firestore.service";
 import { goOnline } from "@/firebase/rtdb.service";
 import { requestNotificationPermission } from "@/firebase/messaging.service";
+import { claimReferral } from "@/firebase/referral.service";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firebaseUser.displayName  ?? `Player${firebaseUser.uid.slice(-4).toUpperCase()}`,
         firebaseUser.photoURL     ?? "",
       ).catch(() => {});
+
+      // If this user opened the app through a ?ref=CODE link, attribute them to
+      // the referrer and credit the referrer's bonus (idempotent, no-op later).
+      claimReferral(firebaseUser.uid, "").catch(() => {});
 
       // ── BACKGROUND: Subscribe to Firestore profile (hydrates silently) ───────
       // Also do one getDoc so we get the latest data immediately on first load

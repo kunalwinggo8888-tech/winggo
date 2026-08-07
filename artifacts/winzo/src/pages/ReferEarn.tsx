@@ -51,6 +51,7 @@ export default function ReferEarn({ onBack }: Props) {
   const [shareFlash, setShareFlash] = useState(false);
 
   const referralCode = user?.referralCode || stats.referralCode || "WINGGO50";
+  const referralLink = `${window.location.origin}${window.location.pathname}?ref=${encodeURIComponent(referralCode)}`;
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -59,13 +60,13 @@ export default function ReferEarn({ onBack }: Props) {
   }, [user?.uid]);
 
   const handleCopy = useCallback(() => {
-    const text = `Join WINGGO with my code ${referralCode} and get ₹50 free! 🎮 https://winggo.app`;
+    const text = `Join WINGGO with my code ${referralCode} and get ₹50 free! 🎮 ${referralLink}`;
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [referralCode]);
+  }, [referralCode, referralLink]);
 
   const handleShare = useCallback(() => {
     setShareFlash(true);
@@ -74,10 +75,10 @@ export default function ReferEarn({ onBack }: Props) {
       (navigator as Navigator & { share: (d: object) => Promise<void> }).share({
         title: "WINGGO — Play More Win More",
         text: `Join WINGGO with my code ${referralCode} and get ₹50 free! India's #1 gaming platform. 🎮`,
-        url: "https://winggo.app",
+        url: referralLink,
       }).catch(() => {});
     }
-  }, [referralCode]);
+  }, [referralCode, referralLink]);
 
   const STAT_STRIP = [
     { label: "Total Earned",   value: `₹${stats.totalReferralEarnings.toLocaleString("en-IN")}`, color: "#FFD700" },
