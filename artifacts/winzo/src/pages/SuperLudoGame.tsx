@@ -1251,30 +1251,30 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
       {/* ── BOARD + SIDE PANELS: player (left) · board (center) · bot (right) ── */}
       <div className="flex-1 min-h-[300px] flex items-center gap-1.5 px-2">
 
-        {/* ── LEFT: Player profile photo (round, premium) + white dice ── */}
-        <div className="flex flex-col items-center justify-center gap-1.5 shrink-0"
-          style={{ width: "clamp(64px, 17vw, 84px)" }}>
+        {/* ── LEFT: White panel — player profile photo (top) + white dice ── */}
+        <div className="flex flex-col items-center justify-center shrink-0 rounded-2xl px-2 py-4"
+          style={{ width: "clamp(74px, 18vw, 92px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
           <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 240, damping: 20 }}
             className="flex flex-col items-center gap-1.5">
             <div className="relative" style={{ width: 62, height: 62 }}>
               <motion.div className="absolute rounded-full pointer-events-none"
-                style={{ inset: -4, background: `conic-gradient(from 0deg, ${PLAYER_COLOR}, #ec4899, #a855f7, ${PLAYER_COLOR})` }}
+                style={{ inset: -4, background: `conic-gradient(from 0deg, ${PLAYER_COLOR}, #ec4899, #a855f7, ${PLAYER_COLOR})`, outline: "1px solid rgba(15,23,42,0.10)" }}
                 animate={turn === "player"
                   ? { boxShadow: [`0 0 10px ${PLAYER_COLOR}66`, `0 0 26px ${PLAYER_COLOR}bb`, `0 0 10px ${PLAYER_COLOR}66`] }
-                  : { boxShadow: "0 0 10px rgba(0,0,0,0.25)" }}
+                  : { boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }}
                 transition={{ duration: 1.4, repeat: turn === "player" ? Infinity : 0 }} />
               <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center"
-                style={{ border: "3px solid #ffffff", background: `linear-gradient(135deg,${PLAYER_COLOR},#1e3a8a)` }}>
+                style={{ border: "3px solid #ffffff", boxShadow: "0 0 0 1px rgba(15,23,42,0.15)", background: `linear-gradient(135deg,${PLAYER_COLOR},#1e3a8a)` }}>
                 {playerPhoto
                   ? <img src={playerPhoto} alt="" className="w-full h-full object-cover" />
                   : <span className="font-black text-white" style={{ fontSize: 22 }}>{playerInitial}</span>}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
-                style={{ background: "#22c55e", border: "2px solid #fff", color: "#fff" }}>✓</span>
+                style={{ background: "#22c55e", border: "2px solid #ffffff", color: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>✓</span>
             </div>
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-full truncate max-w-[76px]"
-              style={{ background: "rgba(255,255,255,0.12)", color: turn === "player" ? "#ffffff" : "rgba(255,255,255,0.6)", border: `1px solid ${turn === "player" ? PLAYER_COLOR + "88" : "rgba(255,255,255,0.12)"}` }}>
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-full truncate max-w-[78px]"
+              style={{ background: turn === "player" ? `${PLAYER_COLOR}1a` : "rgba(15,23,42,0.05)", color: turn === "player" ? PLAYER_COLOR : "#64748b", border: `1px solid ${turn === "player" ? PLAYER_COLOR + "66" : "rgba(15,23,42,0.10)"}` }}>
               YOU 🔵
             </span>
             <motion.div
@@ -1282,7 +1282,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
               transition={{ duration: 1.2, repeat: turn === "player" && !rolling ? Infinity : 0 }}>
               <Dice3D value={dice} rolling={rolling && turn === "player"} onClick={handleRoll} disabled={!canRoll} size={dsz} />
             </motion.div>
-            <span className="text-[9px] font-black min-h-[12px]" style={{ color: canRoll ? "#ffffff" : "rgba(255,255,255,0.5)" }}>
+            <span className="text-[9px] font-black min-h-[12px]" style={{ color: canRoll ? PLAYER_COLOR : "#94a3b8" }}>
               {canRoll ? "TAP TO ROLL" : validToks.length > 0 ? "PICK TOKEN" : turn === "bot" ? "WAIT…" : ""}
             </span>
           </motion.div>
@@ -1319,26 +1319,26 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
           )}
         </div>
 
-        {/* ── RIGHT: Bot profile photo (round, premium) + white dice ── */}
-        <div className="flex flex-col items-center justify-center gap-1.5 shrink-0"
-          style={{ width: "clamp(64px, 17vw, 84px)" }}>
+        {/* ── RIGHT: White panel — bot profile photo (top) + white dice ── */}
+        <div className="flex flex-col items-center justify-center shrink-0 rounded-2xl px-2 py-4"
+          style={{ width: "clamp(74px, 18vw, 92px)", background: "linear-gradient(180deg,#ffffff 0%,#eef2f7 100%)", border: "1px solid rgba(15,23,42,0.08)", boxShadow: "0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 #ffffff" }}>
           <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.35, type: "spring", stiffness: 240, damping: 20 }}
             className="flex flex-col items-center gap-1.5">
             <div className="relative" style={{ width: 62, height: 62 }}>
               <motion.div className="absolute rounded-full pointer-events-none"
-                style={{ inset: -4, background: `conic-gradient(from 0deg, ${BOT_COLOR}, #f472b6, #a855f7, ${BOT_COLOR})` }}
+                style={{ inset: -4, background: `conic-gradient(from 0deg, ${BOT_COLOR}, #f472b6, #a855f7, ${BOT_COLOR})`, outline: "1px solid rgba(15,23,42,0.10)" }}
                 animate={turn === "bot"
                   ? { boxShadow: [`0 0 10px ${BOT_COLOR}66`, `0 0 26px ${BOT_COLOR}bb`, `0 0 10px ${BOT_COLOR}66`] }
-                  : { boxShadow: "0 0 10px rgba(0,0,0,0.25)" }}
+                  : { boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }}
                 transition={{ duration: 1.4, repeat: turn === "bot" ? Infinity : 0 }} />
               <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center"
-                style={{ border: "3px solid #ffffff", background: `linear-gradient(135deg,${botRef.current.avatarColor},#14532d)` }}>
+                style={{ border: "3px solid #ffffff", boxShadow: "0 0 0 1px rgba(15,23,42,0.15)", background: `linear-gradient(135deg,${botRef.current.avatarColor},#14532d)` }}>
                 <span className="font-black text-white" style={{ fontSize: 22 }}>{botRef.current.initial}</span>
               </div>
             </div>
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-full truncate max-w-[76px]"
-              style={{ background: "rgba(255,255,255,0.12)", color: turn === "bot" ? "#ffffff" : "rgba(255,255,255,0.6)", border: `1px solid ${turn === "bot" ? BOT_COLOR + "88" : "rgba(255,255,255,0.12)"}` }}>
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-full truncate max-w-[78px]"
+              style={{ background: turn === "bot" ? `${BOT_COLOR}1a` : "rgba(15,23,42,0.05)", color: turn === "bot" ? BOT_COLOR : "#64748b", border: `1px solid ${turn === "bot" ? BOT_COLOR + "66" : "rgba(15,23,42,0.10)"}` }}>
               🟢 {botRef.current.name}
             </span>
             <motion.div
@@ -1346,7 +1346,7 @@ export default function SuperLudoGame({ onBack, initialFee = 10 }: Props) {
               transition={{ duration: 1.2, repeat: turn === "bot" && !rolling ? Infinity : 0 }}>
               <Dice3D value={dice} rolling={rolling && turn === "bot"} onClick={() => {}} disabled={true} size={dsz} />
             </motion.div>
-            <span className="text-[9px] font-black min-h-[12px]" style={{ color: turn === "bot" && !rolling ? "#ffffff" : "rgba(255,255,255,0.5)" }}>
+            <span className="text-[9px] font-black min-h-[12px]" style={{ color: turn === "bot" && !rolling ? BOT_COLOR : "#94a3b8" }}>
               {turn === "bot" && rolling ? "ROLLING…" : turn === "bot" ? "THINKING…" : ""}
             </span>
           </motion.div>
