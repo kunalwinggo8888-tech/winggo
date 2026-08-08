@@ -69,6 +69,13 @@ const GAME_CATALOG = [
   { id: "superfruitninja", name: "Super Fruit Ninja", icon: "🍉", gradient: "linear-gradient(135deg,#22c55e,#16a34a)", category: "Arcade", players: "4.1L playing", minFee: "₹2" },
 ] as const;
 
+// Quick "Popular" strip at the top of Home (filtered by homeVisibleGames)
+const POPULAR_STRIP = [
+  { id: "ludo",        name: "Ludo Classic",     icon: "🎲", gradient: "linear-gradient(135deg, #ff6e00, #ffe000)", minFee: "₹2" },
+  { id: "superludo",   name: "Super Ludo",       icon: "🎲", gradient: "linear-gradient(135deg, #7c3aed, #a855f7)", minFee: "₹2" },
+  { id: "saanpsidi",   name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg, #134e5e, #71b280)", minFee: "₹2" },
+];
+
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
 const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: string; category: string; icon: string }> = {
   ludo:     { gradient: "linear-gradient(135deg, #ff6e00 0%, #ffe000 100%)", players: "7.3L playing", prize: "₹5,000",    category: "Popular",   icon: "🎲" },
@@ -259,7 +266,14 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
 
   // Featured game for hero card (from Firestore)
   // worldwar is intentionally excluded — it shows only in the Upcoming section
-  const featuredGame = liveGames.find((g) => g.isFeatured && g.isActive && g.id !== "worldwar");
+  const featuredGame = liveGames.find((g) => g.isFeatured && g.isActive && g.id !== "worldwar" && isHomeVisible(g.id));
+
+  // Home visibility filter — only these game ids are listed on Home (driven by AppConfig).
+  // Empty array (config/app.homeVisibleGames = []) => show ALL games again.
+  const homeVisibleIds = appConfig?.homeVisibleGames ?? ["superludo"];
+  const isHomeVisible = (id?: string) =>
+    homeVisibleIds.length === 0 || (id != null && homeVisibleIds.includes(id));
+  const visiblePopular = POPULAR_STRIP.filter((g) => isHomeVisible(g.id));
 
   return (
     <div
@@ -564,14 +578,10 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         <div className="mt-5 px-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-bold text-base">🔥 Popular Games</h3>
-            <span className="text-xs font-bold" style={{ color: "#FFD700" }}>3 Games Live</span>
+            <span className="text-xs font-bold" style={{ color: "#FFD700" }}>{visiblePopular.length} Game{visiblePopular.length === 1 ? "" : "s"} Live</span>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar gpu">
-            {[
-              { id: "ludo",      name: "Ludo Classic",   icon: "🎲", gradient: "linear-gradient(135deg, #ff6e00, #ffe000)", minFee: "₹2" },
-              { id: "superludo", name: "Super Ludo",     icon: "🎲", gradient: "linear-gradient(135deg, #7c3aed, #a855f7)", minFee: "₹2" },
-              { id: "saanpsidi", name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg, #134e5e, #71b280)", minFee: "₹2" },
-            ].map((g) => {
+            {visiblePopular.map((g) => {
               return (
                 <motion.div
                   key={g.id}
@@ -626,6 +636,7 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
         </div>
 
         {/* ─── UPCOMING GAMES ─── */}
+        {isHomeVisible("worldwar") && (
         <div className="mt-7">
           <div className="flex items-center justify-between px-4 mb-3">
             <h3 className="text-white font-bold text-base">⏳ Upcoming Games</h3>
@@ -685,10 +696,12 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
           </div>
           <div className="mx-4 mt-2 h-px" style={{ background: "rgba(255,255,255,0.05)" }} />
         </div>
+        )}
 
         {/* ─── ALL GAME CATEGORIES ─── */}
         {CATEGORY_SECTIONS.map((section) => {
-          const sectionGames = GAME_CATALOG.filter((g) => g.category === section.key);
+          const sectionGames = GAME_CATALOG.filter((g) => g.category === section.key && isHomeVisible(g.id));
+          if (sectionGames.length === 0) return null;
           return (
             <div key={section.key} className="mt-7 cv-auto">
               {/* Section header */}

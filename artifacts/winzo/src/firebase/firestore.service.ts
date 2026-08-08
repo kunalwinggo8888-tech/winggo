@@ -1009,6 +1009,10 @@ export interface AppConfig {
   maxWithdrawAmount: number;
   announcementBanner: string;
   announcementActive: boolean;
+  // Home-screen visibility control. When non-empty, ONLY these game ids are listed on Home
+  // (hero, popular strip, upcoming, category strips). Empty array = show all games again
+  // (admin re-enables by setting this to [] in Firestore config/app).
+  homeVisibleGames: string[];
 }
 
 export interface SupportConfig {
@@ -1052,6 +1056,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   maxWithdrawAmount: 10000,
   announcementBanner: "🏆 Play & Win Real Cash! Grand Ludo Tournament every Sunday at 8 PM IST",
   announcementActive: true,
+  // Temporary: only Super Ludo is visible on Home. Admin re-enables games by setting
+  // config/app.homeVisibleGames to [] (or a wider list) in Firestore.
+  homeVisibleGames: ["superludo"],
 };
 
 export function subscribeAppConfig(cb: (c: AppConfig) => void): () => void {
