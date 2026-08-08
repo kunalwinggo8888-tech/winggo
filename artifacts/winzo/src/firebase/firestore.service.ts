@@ -1145,6 +1145,8 @@ export const DEFAULT_GAMES: GameConfig[] = [
   { id: "superludo", name: "Super Ludo",     category: "board",   thumbnail: "🎲", entryFees: [2,5,10,20,50,100], prizeMultiplier: 1.8, maxPlayers: 2, isActive: true, isBotEnabled: true, botJoinDelaySec: 8 },
 
   { id: "carrom",  name: "Carrom",            category: "board",   thumbnail: "🎯", entryFees: [5,10,25],   prizeMultiplier: 1.8, maxPlayers: 2, isActive: true,  isBotEnabled: true, botJoinDelaySec: 15 },
+  { id: "supersubway", name: "Super Subway Surfers", category: "arcade", thumbnail: "🚇", entryFees: [2,5,10,20], prizeMultiplier: 1.8, maxPlayers: 2, isActive: true, isBotEnabled: true, botJoinDelaySec: 6 },
+  { id: "superfruitninja", name: "Super Fruit Ninja", category: "arcade", thumbnail: "🍉", entryFees: [2,5,10,20], prizeMultiplier: 1.8, maxPlayers: 2, isActive: true, isBotEnabled: true, botJoinDelaySec: 6 },
   { id: "snakes",  name: "Snake & Ladder",    category: "board",   thumbnail: "🐍", entryFees: [2,5,10],    prizeMultiplier: 1.8, maxPlayers: 4, isActive: true,  isBotEnabled: true, botJoinDelaySec: 12 },
   { id: "bubble",  name: "Bubble Shooter",    category: "arcade",  thumbnail: "🫧", entryFees: [5,10],      prizeMultiplier: 1.7, maxPlayers: 2, isActive: true,  isBotEnabled: true, botJoinDelaySec: 20 },
   { id: "cricket", name: "Cricket Fantasy",   category: "sports",  thumbnail: "🏏", entryFees: [25,50,100], prizeMultiplier: 2.0, maxPlayers: 6, isActive: false, isBotEnabled: false,botJoinDelaySec: 30 },

@@ -146,6 +146,22 @@ const GAME_MAP: Record<string, GameCfg> = {
     assets: ["🏏","🎯","🏆","🏏","🎯","🏏","🎯","🏆"],
     defaultFees: [5,10,20,50], bigTitle: "CRICKET",
   },
+
+  /* ── Super Subway Surfers ── */
+  supersubway: {
+    accent: "#38bdf8", headerGrad: "linear-gradient(135deg,#082f49,#0c4a6e,#38bdf8)",
+    mainGrad: "linear-gradient(180deg,#020c16 0%,#010609 100%)",
+    assets: ["🚇","🛹","🪙","🚇","🛹","💨","🚇","🛹"],
+    defaultFees: [2,5,10,20], bigTitle: "SUBWAY SURFERS",
+  },
+
+  /* ── Super Fruit Ninja ── */
+  superfruitninja: {
+    accent: "#22c55e", headerGrad: "linear-gradient(135deg,#052e16,#14532d,#22c55e)",
+    mainGrad: "linear-gradient(180deg,#020e05 0%,#010704 100%)",
+    assets: ["🍉","🍌","🍓","🍊","🍇","🍉","🍌","🍓"],
+    defaultFees: [2,5,10,20], bigTitle: "FRUIT NINJA",
+  },
 };
 
 const DEFAULT_CFG: GameCfg = {

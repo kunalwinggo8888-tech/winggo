@@ -76,6 +76,8 @@ const Pool3DGame = lazy(() => import("@/pages/Pool3DGame"));
 const CricketT20Game = lazy(() => import("@/pages/CricketT20Game"));
 const SheepBattleGame = lazy(() => import("@/pages/SheepBattleGame"));
 const Hexa2048Game = lazy(() => import("@/pages/Hexa2048Game"));
+const SuperSubwayGame = lazy(() => import("@/pages/SuperSubwayGame"));
+const SuperFruitNinjaGame = lazy(() => import("@/pages/SuperFruitNinjaGame"));
 
 const queryClient = new QueryClient();
 
@@ -90,6 +92,7 @@ type Screen =
   | "liquidsort" | "bottleshoot" | "flyme"
   | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
   | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
+  | "supersubway" | "superfruitninja"
   | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications" | "support" | "terms";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -149,6 +152,8 @@ function AppInner() {
   const [pipeconnectFee, setPipeconnectFee]   = useState(10);
   const [jellyshiftFee, setJellyshiftFee]     = useState(10);
   const [goldminer3dFee, setGoldminer3dFee]   = useState(10);
+  const [supersubwayFee, setSupersubwayFee]     = useState(10);
+  const [superfruitninjaFee, setSuperfruitninjaFee] = useState(10);
   const [newUserName, setNewUserName]     = useState("");
 
   // Track whether the pending login was a new user signup
@@ -385,6 +390,8 @@ function AppInner() {
             onPipeConnect={(fee) => { setPipeconnectFee(fee ?? 10); setScreen("pipeconnect"); }}
             onJellyShift={(fee) => { setJellyshiftFee(fee ?? 10); setScreen("jellyshift"); }}
             onGoldMiner3D={(fee) => { setGoldminer3dFee(fee ?? 10); setScreen("goldminer3d"); }}
+            onSuperSubway={(fee) => { setSupersubwayFee(fee ?? 10); setScreen("supersubway"); }}
+            onSuperFruitNinja={(fee) => { setSuperfruitninjaFee(fee ?? 10); setScreen("superfruitninja"); }}
             onWallet={() => setScreen("wallet")}
             onHistory={() => setScreen("history")}
             onLeaderboard={() => setScreen("leaderboard")}
@@ -663,6 +670,18 @@ function AppInner() {
       {screen === "goldminer3d" && (
         <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <GoldMinerGame key="goldminer3d" onBack={() => setScreen("dashboard")} initialFee={goldminer3dFee} />
+        </Suspense>
+      )}
+
+      {screen === "supersubway" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
+          <SuperSubwayGame key="supersubway" onBack={() => setScreen("dashboard")} initialFee={supersubwayFee} />
+        </Suspense>
+      )}
+
+      {screen === "superfruitninja" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
+          <SuperFruitNinjaGame key="superfruitninja" onBack={() => setScreen("dashboard")} initialFee={superfruitninjaFee} />
         </Suspense>
       )}
 

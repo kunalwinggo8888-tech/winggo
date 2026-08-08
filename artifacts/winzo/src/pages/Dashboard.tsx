@@ -65,6 +65,8 @@ const GAME_CATALOG = [
   { id: "ludo",         name: "Ludo Classic",      icon: "🎲", gradient: "linear-gradient(135deg,#ff6e00,#ffe000)", category: "Popular", players: "7.3L playing", minFee: "₹2" },
   { id: "superludo",    name: "Super Ludo",        icon: "🎲", gradient: "linear-gradient(135deg,#7c3aed,#a855f7)", category: "Popular", players: "2.6L playing", minFee: "₹2" },
   { id: "saanpsidi",    name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
+  { id: "supersubway", name: "Super Subway Surfers", icon: "🚇", gradient: "linear-gradient(135deg,#38bdf8,#0ea5e9)", category: "Arcade", players: "3.6L playing", minFee: "₹2" },
+  { id: "superfruitninja", name: "Super Fruit Ninja", icon: "🍉", gradient: "linear-gradient(135deg,#22c55e,#16a34a)", category: "Arcade", players: "4.1L playing", minFee: "₹2" },
 ] as const;
 
 // Visual overrides per Firestore game ID — gradient, players, prize text, display category
@@ -94,6 +96,8 @@ const GAME_VISUALS: Record<string, { gradient: string; players: string; prize: s
   crickettd20:  { gradient: "linear-gradient(135deg, #ff8c00 0%, #FFD700 100%)", players: "4.8L playing", prize: "₹30,000",  category: "Cricket",    icon: "🏏" },
   sheepbattle:  { gradient: "linear-gradient(135deg, #a3e635 0%, #4d7c0f 100%)", players: "1.7L playing", prize: "₹13,000",  category: "Battle",     icon: "🐑" },
   hexa2048:     { gradient: "linear-gradient(135deg, #FFD700 0%, #b8860b 100%)", players: "1.4L playing", prize: "₹8,000",   category: "Puzzle",     icon: "🔷" },
+  supersubway: { gradient: "linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)", players: "3.6L playing", prize: "₹16,000",  category: "Arcade",     icon: "🚇" },
+  superfruitninja: { gradient: "linear-gradient(135deg, #22c55e 0%, #15803d 100%)", players: "4.1L playing", prize: "₹14,000", category: "Arcade",     icon: "🍉" },
 };
 
 const FALLBACK_GRADIENT = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)";
@@ -148,6 +152,8 @@ interface DashboardProps {
   onPipeConnect?: (fee?: number) => void;
   onJellyShift?: (fee?: number) => void;
   onGoldMiner3D?: (fee?: number) => void;
+  onSuperSubway?: (fee?: number) => void;
+  onSuperFruitNinja?: (fee?: number) => void;
   onWallet?: () => void;
   onHistory?: () => void;
   onLeaderboard?: () => void;
@@ -156,9 +162,9 @@ interface DashboardProps {
 }
 
 // Only Ludo Classic, Super Ludo and Snakes & Ladders are active — all other games show "Coming Soon"
-const IMPLEMENTED_GAMES = new Set(["ludo", "superludo", "saanpsidi"]);
+const IMPLEMENTED_GAMES = new Set(["ludo", "superludo", "saanpsidi", "supersubway", "superfruitninja"]);
 
-export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onWallet, onHistory, onLeaderboard, onNotifications, onSuperLudo, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onSuperSubway, onSuperFruitNinja, onWallet, onHistory, onLeaderboard, onNotifications, onSuperLudo, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -227,6 +233,8 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
     if (gameId === "pipeconnect")                      { onPipeConnect?.(fee);  return; }
     if (gameId === "jellyshift")                       { onJellyShift?.(fee);   return; }
     if (gameId === "goldminer3d")                      { onGoldMiner3D?.(fee);  return; }
+    if (gameId === "supersubway")                      { onSuperSubway?.(fee);  return; }
+    if (gameId === "superfruitninja")                  { onSuperFruitNinja?.(fee); return; }
     // ludo + all unrecognised → ludo handler
     onLudo?.(fee);
   }
