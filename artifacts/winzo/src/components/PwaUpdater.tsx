@@ -24,7 +24,7 @@ export default function PwaUpdater() {
   // NOTE: vite-plugin-pwa@1.3.0 returns needRefresh/offlineReady as tuples
   // [state, setter] (not plain booleans). Destructure the boolean values.
   const {
-    needRefresh: [needRefresh],
+    needRefresh: [needRefresh, setNeedRefresh],
     offlineReady: [offlineReady],
     updateServiceWorker,
   } = useRegisterSW({ immediate: true });
@@ -77,6 +77,13 @@ export default function PwaUpdater() {
 
   const showInstall = !isInstalled && installEvt !== null;
 
+  const handleUpdate = async () => {
+    // Dismiss the popup immediately so it never lingers/re-fires on this view,
+    // then activate the waiting service worker (skipWaiting -> control -> reload).
+    setNeedRefresh(false);
+    await updateServiceWorker();
+  };
+
   return (
     <>
       {/* ── New Update Available popup ── */}
@@ -112,7 +119,7 @@ export default function PwaUpdater() {
               </div>
               <motion.button
                 whileTap={{ scale: 0.97 }}
-                onClick={() => updateServiceWorker()}
+                onClick={() => handleUpdate()}
                 className="mt-4 w-full py-3.5 rounded-2xl font-black text-base cursor-pointer"
                 style={{ background: "linear-gradient(135deg,#FFD700,#ff8c00)", color: "#000", boxShadow: "0 0 30px rgba(255,215,0,0.4)" }}
               >
