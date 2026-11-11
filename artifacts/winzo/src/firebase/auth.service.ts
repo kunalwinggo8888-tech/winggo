@@ -2,9 +2,16 @@
  * Firebase Authentication Service — WINGGO
  *
  * Providers:
- *  Email / Password : signInWithEmail, signUpWithEmail, resetPassword
- *  Google           : signInWithGoogle   (GoogleAuthProvider + signInWithPopup)
  *  Facebook         : signInWithFacebook (FacebookAuthProvider + signInWithPopup)
+ *                     — the ONLY social login in the app.
+ *  One-time linking : linkOldAccountGoogle / linkOldAccountPassword
+ *                     Only used when a returning user's email already exists
+ *                     under a different provider (auth/account-exists-with-
+ *                     different-credential). Links the Facebook credential to
+ *                     their EXISTING Firebase account so the UID never changes
+ *                     and all Firestore data (wallet, KYC, referral, games)
+ *                     stays intact. Google/email sign-in is never shown in the
+ *                     normal UI.
  *
  * PERFORMANCE NOTE:
  * We intentionally do NOT await Firestore calls inside auth functions.
@@ -13,7 +20,7 @@
  * AuthContext hydrate the Firestore profile in the background.
  *
  * Demo mode:
- *  - FIREBASE_ENABLED=false  → demo (any email / password "demo1234")
+ *  - FIREBASE_ENABLED=false  → demo login via the Facebook button
  *  - Runtime credential error → auto-flip to demo (_demoFallback)
  *
  * Facebook setup requirements:
@@ -23,20 +30,22 @@
  */
 import {
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
   User,
   updateProfile as fbUpdateProfile,
   GoogleAuthProvider,
   FacebookAuthProvider,
+  AuthCredential,
+  AuthError,
   signInWithPopup,
+  linkWithCredential,
+  fetchSignInMethodsForEmail,
   getAdditionalUserInfo,
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db, FIREBASE_ENABLED } from "./config";
-import { createUserProfile, initWallet } from "./firestore.service";
+import { initWallet } from "./firestore.service";
 
 let _demoFallback = false;
 
@@ -72,6 +81,8 @@ function friendlyError(err: unknown): string {
     case "auth/operation-not-allowed":            return "This sign-in method is not enabled. Enable it in Firebase Console.";
     case "auth/account-exists-with-different-credential":
       return "An account already exists with the same email. Try a different sign-in method.";
+    case "auth/unauthorized-domain":
+      return "This domain is not authorized for login. Add it in Firebase Console → Authentication → Settings.";
     case "auth/popup-blocked":                    return "Popup blocked by browser. Please allow popups for this site.";
     default:
       return err instanceof Error ? err.message : "Something went wrong. Try again.";
@@ -84,6 +95,19 @@ export type AuthResult = {
   isNewUser?: boolean;
   demo?: boolean;
   error?: string;
+  /**
+   * Set ONLY for Facebook logins whose email already belongs to an existing
+   * Firebase account (auth/account-exists-with-different-credential).
+   * LoginScreen shows a one-time "protect your old account" flow:
+   * link the Facebook credential to the existing account instead of creating
+   * a duplicate. The AuthCredential object is kept in React state (no
+   * serialization needed).
+   */
+  link?: {
+    email: string;
+    methods: string[];
+    fbCred: AuthCredential;
+  };
 };
 
 // ─── Firestore profile upsert after social login ─────────────────────────────
@@ -116,111 +140,29 @@ async function upsertSocialProfile(user: User, isNewUser: boolean): Promise<void
   }
 }
 
-// ─── Email / Password ─────────────────────────────────────────────────────────
-
-/** Sign up with name + email + password */
-export async function signUpWithEmail(
-  name: string,
-  email: string,
-  password: string,
-): Promise<AuthResult> {
-  if (isDemoMode()) {
-    return { success: true, uid: `demo-${Date.now()}`, isNewUser: true, demo: true };
-  }
-  try {
-    const cred = await createUserWithEmailAndPassword(auth!, email, password);
-    await fbUpdateProfile(cred.user, { displayName: name });
-
-    // Fire-and-forget: does NOT block the login response.
-    createUserProfile(cred.user.uid, {
-      email,
-      displayName: name,
-      photoURL: "",
-      createdAt: Date.now(),
-      kycStatus: "pending",
-      referralCode: generateReferralCode(),
-      referredBy: null,
-      deviceInfo: navigator.userAgent,
-    }).catch(() => {});
-
-    return { success: true, uid: cred.user.uid, isNewUser: true, demo: false };
-  } catch (err: unknown) {
-    if (isCredentialError(err)) {
-      _demoFallback = true;
-      return { success: true, uid: `demo-${Date.now()}`, isNewUser: true, demo: true };
-    }
-    return { success: false, error: friendlyError(err) };
-  }
-}
-
-/** Sign in with email + password */
-export async function signInWithEmail(
-  email: string,
-  password: string,
-): Promise<AuthResult> {
-  if (isDemoMode()) {
-    if (password !== "demo1234") {
-      return { success: false, error: 'Demo mode — use password "demo1234"' };
-    }
-    return { success: true, uid: `demo-${Date.now()}`, isNewUser: false, demo: true };
-  }
-  try {
-    const cred = await signInWithEmailAndPassword(auth!, email, password);
-    return { success: true, uid: cred.user.uid, isNewUser: false, demo: false };
-  } catch (err: unknown) {
-    if (isCredentialError(err)) {
-      _demoFallback = true;
-      return { success: false, error: 'Demo mode active — password is "demo1234"' };
-    }
-    return { success: false, error: friendlyError(err) };
-  }
-}
-
-/** Send password reset email */
-export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: true };
-  try {
-    await sendPasswordResetEmail(auth!, email);
-    return { success: true };
-  } catch (err: unknown) {
-    return { success: false, error: friendlyError(err) };
-  }
-}
+// ─── Facebook-only authentication ─────────────────────────────────────────────
+// Email/password login & signup were removed — the app is Facebook-only.
+// (signInWithEmailAndPassword is still used by linkOldAccountPassword below.)
 
 // ─── Social Login ─────────────────────────────────────────────────────────────
 
-/** Google Sign-In via popup */
-export async function signInWithGoogle(): Promise<AuthResult> {
-  if (isDemoMode()) {
-    return { success: true, uid: `demo-google-${Date.now()}`, isNewUser: false, demo: true };
-  }
-  try {
-    const provider = new GoogleAuthProvider();
-    provider.addScope("email");
-    provider.addScope("profile");
-    const cred        = await signInWithPopup(auth!, provider);
-    const extra       = getAdditionalUserInfo(cred);
-    const isNewUser   = extra?.isNewUser ?? false;
-
-    // Fire-and-forget Firestore upsert — name + photo from Google account
-    upsertSocialProfile(cred.user, isNewUser).catch(() => {});
-
-    return { success: true, uid: cred.user.uid, isNewUser, demo: false };
-  } catch (err: unknown) {
-    if (isCredentialError(err)) {
-      _demoFallback = true;
-      return { success: true, uid: `demo-google-${Date.now()}`, demo: true };
-    }
-    const code = (err as { code?: string }).code ?? "";
-    // Silent cancel — user closed the popup themselves
-    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-      return { success: false, error: "" };
-    }
-    return { success: false, error: friendlyError(err) };
-  }
-}
-
-/** Facebook Sign-In via popup */
+/**
+ * Facebook Sign-In via popup — the app's ONLY login / signup method.
+ *
+ * PROFILE SYNC (required behaviour):
+ *  Firebase populates displayName + photoURL from the Facebook public_profile
+ *  automatically. upsertSocialProfile() then saves those into the user's
+ *  Firestore profile doc, so the Winggo Profile/Dashboard show the same name
+ *  and picture on every login without any manual upload.
+ *
+ * EXISTING ACCOUNTS:
+ *  If the Facebook email matches an existing Firebase account created with a
+ *  different provider, we do NOT create a duplicate. We return the pending
+ *  credential + sign-in methods so LoginScreen can run the one-time "link your
+ *  old account" flow (see linkOldAccountGoogle / linkOldAccountPassword).
+ *  Linking preserves the original UID — wallet, KYC, referral and game data
+ *  all stay exactly where they are.
+ */
 export async function signInWithFacebook(): Promise<AuthResult> {
   if (isDemoMode()) {
     return { success: true, uid: `demo-fb-${Date.now()}`, isNewUser: false, demo: true };
@@ -245,6 +187,83 @@ export async function signInWithFacebook(): Promise<AuthResult> {
     if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
       return { success: false, error: "" };
     }
+    // Email already registered with a different provider → offer one-time linking
+    if (code === "auth/account-exists-with-different-credential") {
+      const fbCred = FacebookAuthProvider.credentialFromError(err as AuthError);
+      const email  = ((err as AuthError).customData?.email as string) || "";
+      if (fbCred && email) {
+        const methods = await fetchSignInMethodsForEmail(auth!, email).catch(() => [] as string[]);
+        // Never create a duplicate account for an existing user
+        return { success: false, error: "", link: { email, methods, fbCred } };
+      }
+    }
+    return { success: false, error: friendlyError(err) };
+  }
+}
+
+// ─── One-time old-account linking (edge case, never shown in normal UI) ──────
+
+/**
+ * Sign in to the user's EXISTING Google-backed Firebase account and link the
+ * pending Facebook credential to it. The UID does not change, so every piece
+ * of Firestore data (users doc, wallet, KYC, referral, matches) is preserved.
+ */
+export async function linkOldAccountGoogle(fbCred: AuthCredential): Promise<AuthResult> {
+  if (isDemoMode()) {
+    return { success: true, uid: `demo-fb-${Date.now()}`, isNewUser: false, demo: true };
+  }
+  try {
+    const gProvider = new GoogleAuthProvider();
+    gProvider.addScope("email");
+    gProvider.addScope("profile");
+    const res = await signInWithPopup(auth!, gProvider);
+    try {
+      await linkWithCredential(res.user, fbCred);
+    } catch (linkErr: unknown) {
+      // "credential-already-in-use" / "provider-already-linked" → Facebook is
+      // already attached to this account, which is exactly what we wanted.
+      const lcode = (linkErr as { code?: string }).code ?? "";
+      if (lcode !== "auth/credential-already-in-use" && lcode !== "auth/provider-already-linked") {
+        throw linkErr;
+      }
+    }
+    // Sync the (possibly new) Facebook name/photo into the existing profile
+    upsertSocialProfile(res.user, false).catch(() => {});
+    return { success: true, uid: res.user.uid, isNewUser: false, demo: false };
+  } catch (err: unknown) {
+    const code = (err as { code?: string }).code ?? "";
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      return { success: false, error: "" };
+    }
+    return { success: false, error: friendlyError(err) };
+  }
+}
+
+/**
+ * Sign in to the user's EXISTING email/password Firebase account and link the
+ * pending Facebook credential to it (same UID → same data).
+ */
+export async function linkOldAccountPassword(
+  email: string,
+  password: string,
+  fbCred: AuthCredential,
+): Promise<AuthResult> {
+  if (isDemoMode()) {
+    return { success: true, uid: `demo-fb-${Date.now()}`, isNewUser: false, demo: true };
+  }
+  try {
+    const cred = await signInWithEmailAndPassword(auth!, email, password);
+    try {
+      await linkWithCredential(cred.user, fbCred);
+    } catch (linkErr: unknown) {
+      const lcode = (linkErr as { code?: string }).code ?? "";
+      if (lcode !== "auth/credential-already-in-use" && lcode !== "auth/provider-already-linked") {
+        throw linkErr;
+      }
+    }
+    upsertSocialProfile(cred.user, false).catch(() => {});
+    return { success: true, uid: cred.user.uid, isNewUser: false, demo: false };
+  } catch (err: unknown) {
     return { success: false, error: friendlyError(err) };
   }
 }

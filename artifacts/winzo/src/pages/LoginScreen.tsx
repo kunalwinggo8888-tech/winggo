@@ -1,25 +1,34 @@
 /**
- * LoginScreen — Firebase Email / Password Authentication
- * Modes: Login | Sign Up | Forgot Password
- * Premium WinZO-style dark gold UI, mobile-first 480px
+ * LoginScreen — Facebook-Only Authentication
+ * Facebook login/signup in one flow (Firebase FacebookAuthProvider).
+ * Premium WinZO-style dark gold UI, mobile-first 480px.
+ *
+ * DESIGN NOTE:
+ * The visual language (background, glows, badges, card, logo, buttons, footer)
+ * is kept identical to the previous login screen. The email/password form and
+ * the Google button were removed — Facebook is the only way in.
+ *
+ * ONE-TIME ACCOUNT LINKING (edge case only):
+ * If a returning user's Facebook email belongs to an existing Firebase
+ * account (created earlier via Google or email/password), Firebase throws
+ * auth/account-exists-with-different-credential. Instead of creating a
+ * duplicate account, we show a one-time "protect your old account" screen
+ * that signs the user into their EXISTING account and links Facebook to it —
+ * the UID never changes, so wallet, KYC, referral and game data all survive.
+ * Google/email sign-in is NEVER offered as a normal login option.
  */
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FIREBASE_ENABLED } from "@/firebase/config";
-import { signInWithEmail, signUpWithEmail, resetPassword, signInWithGoogle, signInWithFacebook, isDemoMode } from "@/firebase/auth.service";
+import {
+  signInWithFacebook,
+  linkOldAccountGoogle,
+  linkOldAccountPassword,
+  isDemoMode,
+  AuthResult,
+} from "@/firebase/auth.service";
 
-// ── Official social-provider SVG icons ────────────────────────────────────────
-
-function GoogleSVG() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Google">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
-  );
-}
+// ── Official social-provider SVG icon ────────────────────────────────────────
 
 function FacebookSVG() {
   return (
@@ -34,79 +43,22 @@ interface LoginScreenProps {
   onLogin?: (uid: string, email: string, isNewUser?: boolean) => void;
 }
 
-type Mode = "login" | "signup" | "forgot";
+type Mode = "login" | "link";
 
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
-  const [mode, setMode]             = useState<Mode>("login");
-  const [loading, setLoading]       = useState(false);
-  const [success, setSuccess]       = useState(false);
-  const [error, setError]           = useState("");
-  const [showPw, setShowPw]         = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [resetSent, setResetSent]   = useState(false);
-  const [inDemoMode, setInDemoMode] = useState(!FIREBASE_ENABLED);
-  const [socialLoading, setSocialLoading] = useState<"google" | "facebook" | null>(null);
+  const [mode, setMode]               = useState<Mode>("login");
+  const [loading, setLoading]         = useState(false);
+  const [success, setSuccess]         = useState(false);
+  const [error, setError]             = useState("");
+  const [inDemoMode, setInDemoMode]   = useState(!FIREBASE_ENABLED);
+  const [socialLoading, setSocialLoading] = useState<"facebook" | "link" | null>(null);
 
-  // Login fields
-  const [loginEmail, setLoginEmail]   = useState("");
-  const [loginPw, setLoginPw]         = useState("");
+  // One-time old-account linking state (edge case)
+  const [linkInfo, setLinkInfo]     = useState<NonNullable<AuthResult["link"]> | null>(null);
+  const [linkEmail, setLinkEmail]   = useState("");
+  const [linkPw, setLinkPw]         = useState("");
 
-  // Signup fields
-  const [signupName, setSignupName]   = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPw, setSignupPw]       = useState("");
-  const [signupConfirm, setSignupConfirm] = useState("");
-
-  // Forgot password
-  const [forgotEmail, setForgotEmail] = useState("");
-
-  function switchMode(m: Mode) {
-    setMode(m);
-    setError("");
-    setResetSent(false);
-  }
-
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!loginEmail.trim()) { setError("Enter your email address."); return; }
-    if (!loginPw)            { setError("Enter your password."); return; }
-    setLoading(true);
-    const res = await signInWithEmail(loginEmail.trim(), loginPw);
-    setLoading(false);
-    if (res.demo) setInDemoMode(true);
-    if (res.success && res.uid) {
-      setSuccess(true);
-      setTimeout(() => onLogin?.(res.uid!, loginEmail.trim(), res.isNewUser), 800);
-    } else {
-      setError(res.error ?? "Login failed. Try again.");
-    }
-  }
-
-  async function handleSignup(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!signupName.trim())   { setError("Enter your full name."); return; }
-    if (!signupEmail.trim())  { setError("Enter your email address."); return; }
-    if (signupPw.length < 6)  { setError("Password must be at least 6 characters."); return; }
-    if (signupPw !== signupConfirm) { setError("Passwords do not match."); return; }
-    setLoading(true);
-    const res = await signUpWithEmail(signupName.trim(), signupEmail.trim(), signupPw);
-    setLoading(false);
-    if (res.demo) setInDemoMode(true);
-    if (res.success && res.uid) {
-      setSuccess(true);
-      setTimeout(() => onLogin?.(res.uid!, signupEmail.trim(), true), 800);
-    } else {
-      setError(res.error ?? "Sign up failed. Try again.");
-    }
-  }
-
-  async function handleGoogleLogin() {
-    setSocialLoading("google");
-    setError("");
-    const res = await signInWithGoogle();
-    setSocialLoading(null);
+  function finishLogin(res: AuthResult) {
     if (res.demo) setInDemoMode(true);
     if (res.success && res.uid) {
       setSuccess(true);
@@ -121,27 +73,35 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     setError("");
     const res = await signInWithFacebook();
     setSocialLoading(null);
-    if (res.demo) setInDemoMode(true);
-    if (res.success && res.uid) {
-      setSuccess(true);
-      setTimeout(() => onLogin?.(res.uid!, "", res.isNewUser), 800);
-    } else if (res.error) {
-      setError(res.error);
+    if (res.link) {
+      // Existing account with the same email — never create a duplicate.
+      // Route to the one-time link flow instead.
+      setLinkInfo(res.link);
+      setLinkEmail(res.link.email);
+      setMode("link");
+      return;
     }
+    finishLogin(res);
   }
 
-  async function handleForgot(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleLinkGoogle() {
+    if (!linkInfo) return;
+    setSocialLoading("link");
     setError("");
-    if (!forgotEmail.trim()) { setError("Enter your email address."); return; }
-    setLoading(true);
-    const res = await resetPassword(forgotEmail.trim());
-    setLoading(false);
-    if (res.success) {
-      setResetSent(true);
-    } else {
-      setError(res.error ?? "Failed to send reset email.");
-    }
+    const res = await linkOldAccountGoogle(linkInfo.fbCred);
+    setSocialLoading(null);
+    finishLogin(res);
+  }
+
+  async function handleLinkPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!linkInfo) return;
+    if (!linkPw) { setError("Enter your old password."); return; }
+    setSocialLoading("link");
+    setError("");
+    const res = await linkOldAccountPassword(linkEmail.trim(), linkPw, linkInfo.fbCred);
+    setSocialLoading(null);
+    finishLogin(res);
   }
 
   const inputBase = {
@@ -151,8 +111,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     color: "#fff",
     caretColor: "#FFD700",
   };
-  const inputFocusBorder = "rgba(255,215,0,0.5)";
-  const errorBorder      = "rgba(231,76,60,0.5)";
+  const errorBorder = "rgba(231,76,60,0.5)";
 
   return (
     <motion.div
@@ -204,24 +163,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           </p>
         </div>
 
-        {/* Tab switcher (login / signup) */}
-        {mode !== "forgot" && (
-          <div className="flex mb-5 rounded-xl overflow-hidden"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            {(["login", "signup"] as const).map((m) => (
-              <button key={m} onClick={() => switchMode(m)}
-                className="flex-1 py-2.5 text-sm font-black uppercase tracking-wide transition-all cursor-pointer"
-                style={{
-                  background: mode === m ? "linear-gradient(135deg,#FFD700,#ff8c00)" : "transparent",
-                  color:      mode === m ? "#000" : "rgba(255,255,255,0.4)",
-                  borderRadius: "10px",
-                }}>
-                {m === "login" ? "Login" : "Sign Up"}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Demo mode banner */}
         <AnimatePresence>
           {inDemoMode && !success && (
@@ -237,9 +178,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   <span className="text-xs font-black" style={{ color: "#FFA500" }}>Demo Mode</span>
                 </div>
                 <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
-                  Firebase not connected. Use any email.{" "}
-                  {mode === "login" && <span>Password: <strong style={{ color: "#FFD700" }}>demo1234</strong></span>}
-                  {mode === "signup" && <span>Any password ≥ 6 chars.</span>}
+                  Firebase not connected — tapping Facebook runs a demo login.
                 </p>
               </div>
             </motion.div>
@@ -248,55 +187,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
         <AnimatePresence mode="wait">
 
-          {/* ─── LOGIN ─── */}
+          {/* ─── FACEBOOK LOGIN ─── */}
           {mode === "login" && !success && (
-            <motion.form key="login" onSubmit={handleLogin} className="space-y-3.5"
+            <motion.div key="login" className="space-y-3.5"
               initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}
               transition={{ duration: 0.22 }}>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Email Address
-                </label>
-                <input
-                  type="email" autoComplete="email" placeholder="you@example.com"
-                  value={loginEmail}
-                  onChange={(e) => { setLoginEmail(e.target.value); setError(""); }}
-                  className="w-full h-12 px-4 text-sm outline-none placeholder:text-zinc-700"
-                  style={{ ...inputBase, border: `1px solid ${error && !loginEmail ? errorBorder : "rgba(255,255,255,0.1)"}` }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPw ? "text" : "password"} autoComplete="current-password"
-                    placeholder="Enter password"
-                    value={loginPw}
-                    onChange={(e) => { setLoginPw(e.target.value); setError(""); }}
-                    className="w-full h-12 px-4 pr-12 text-sm outline-none placeholder:text-zinc-700"
-                    style={{ ...inputBase, border: `1px solid ${error && !loginPw ? errorBorder : "rgba(255,255,255,0.1)"}` }}
-                  />
-                  <button type="button" onClick={() => setShowPw(!showPw)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base cursor-pointer"
-                    style={{ color: "rgba(255,255,255,0.3)" }}>
-                    {showPw ? "🙈" : "👁️"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Forgot password */}
-              <div className="flex justify-end">
-                <button type="button" onClick={() => { switchMode("forgot"); setForgotEmail(loginEmail); }}
-                  className="text-xs cursor-pointer" style={{ color: "rgba(255,215,0,0.65)" }}>
-                  Forgot Password?
-                </button>
-              </div>
-
-              {/* Error */}
               {error && (
                 <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
@@ -306,158 +202,18 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </motion.div>
               )}
 
-              <motion.button type="submit" disabled={loading}
+              <motion.button type="button" onClick={handleFacebookLogin}
+                disabled={socialLoading !== null}
                 className="w-full h-13 py-3.5 font-black text-base text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg,#FFD700 0%,#ff8c00 100%)", boxShadow: "0 0 28px rgba(255,215,0,0.35), 0 4px 20px rgba(0,0,0,0.4)" }}
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                {loading ? (
+                {socialLoading === "facebook" ? (
                   <span className="flex items-center justify-center gap-2">
                     <motion.span className="inline-block w-4 h-4 rounded-full border-2 border-black border-t-transparent"
                       animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
-                    Logging in…
+                    Connecting…
                   </span>
-                ) : "LOGIN →"}
-              </motion.button>
-
-              <p className="text-center text-xs pt-1" style={{ color: "rgba(255,255,255,0.3)" }}>
-                New to WINGGO?{" "}
-                <button type="button" onClick={() => switchMode("signup")}
-                  className="cursor-pointer font-bold" style={{ color: "#FFD700" }}>
-                  Create Account →
-                </button>
-              </p>
-
-              {/* ─── Social Login ─── */}
-              <div className="relative flex items-center gap-3">
-                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
-                <span className="text-[10px] font-bold tracking-[0.14em] uppercase whitespace-nowrap"
-                  style={{ color: "rgba(255,255,255,0.22)" }}>or continue with</span>
-                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
-              </div>
-
-              <div className="flex items-center justify-center gap-6 pb-1">
-                <motion.button type="button" onClick={handleGoogleLogin}
-                  disabled={socialLoading !== null}
-                  whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(66,133,244,0.4)" }}
-                  whileTap={{ scale: 0.92 }}
-                  className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer"
-                  style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    boxShadow: socialLoading === "google" ? "0 0 22px rgba(66,133,244,0.5)" : "none",
-                    opacity: socialLoading !== null && socialLoading !== "google" ? 0.45 : 1,
-                  }}>
-                  {socialLoading === "google"
-                    ? <motion.span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent inline-block"
-                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
-                    : <GoogleSVG />
-                  }
-                </motion.button>
-
-                <motion.button type="button" onClick={handleFacebookLogin}
-                  disabled={socialLoading !== null}
-                  whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(24,119,242,0.4)" }}
-                  whileTap={{ scale: 0.92 }}
-                  className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer"
-                  style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    boxShadow: socialLoading === "facebook" ? "0 0 22px rgba(24,119,242,0.5)" : "none",
-                    opacity: socialLoading !== null && socialLoading !== "facebook" ? 0.45 : 1,
-                  }}>
-                  {socialLoading === "facebook"
-                    ? <motion.span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent inline-block"
-                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
-                    : <FacebookSVG />
-                  }
-                </motion.button>
-              </div>
-            </motion.form>
-          )}
-
-          {/* ─── SIGN UP ─── */}
-          {mode === "signup" && !success && (
-            <motion.form key="signup" onSubmit={handleSignup} className="space-y-3"
-              initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }}
-              transition={{ duration: 0.22 }}>
-
-              {[
-                { label: "Full Name",        type: "text",     val: signupName,    set: setSignupName,    ph: "Rahul Sharma",        ac: "name" },
-                { label: "Email Address",    type: "email",    val: signupEmail,   set: setSignupEmail,   ph: "you@example.com",     ac: "email" },
-              ].map(({ label, type, val, set, ph, ac }) => (
-                <div key={label}>
-                  <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    {label}
-                  </label>
-                  <input type={type} autoComplete={ac} placeholder={ph}
-                    value={val} onChange={(e) => { set(e.target.value); setError(""); }}
-                    className="w-full h-12 px-4 text-sm outline-none placeholder:text-zinc-700"
-                    style={inputBase}
-                  />
-                </div>
-              ))}
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Password
-                </label>
-                <div className="relative">
-                  <input type={showPw ? "text" : "password"} autoComplete="new-password"
-                    placeholder="Min. 6 characters"
-                    value={signupPw} onChange={(e) => { setSignupPw(e.target.value); setError(""); }}
-                    className="w-full h-12 px-4 pr-12 text-sm outline-none placeholder:text-zinc-700"
-                    style={inputBase}
-                  />
-                  <button type="button" onClick={() => setShowPw(!showPw)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base cursor-pointer"
-                    style={{ color: "rgba(255,255,255,0.3)" }}>
-                    {showPw ? "🙈" : "👁️"}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input type={showConfirm ? "text" : "password"} autoComplete="new-password"
-                    placeholder="Re-enter password"
-                    value={signupConfirm} onChange={(e) => { setSignupConfirm(e.target.value); setError(""); }}
-                    className="w-full h-12 px-4 pr-12 text-sm outline-none placeholder:text-zinc-700"
-                    style={{ ...inputBase, border: `1px solid ${signupConfirm && signupConfirm !== signupPw ? errorBorder : "rgba(255,255,255,0.1)"}` }}
-                  />
-                  <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base cursor-pointer"
-                    style={{ color: "rgba(255,255,255,0.3)" }}>
-                    {showConfirm ? "🙈" : "👁️"}
-                  </button>
-                </div>
-                {signupConfirm && signupConfirm !== signupPw && (
-                  <p className="text-[11px] mt-1 ml-1" style={{ color: "#e74c3c" }}>Passwords do not match</p>
-                )}
-              </div>
-
-              {error && (
-                <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-                  style={{ background: "rgba(231,76,60,0.08)", border: "1px solid rgba(231,76,60,0.25)" }}>
-                  <span>⚠️</span>
-                  <p className="text-xs font-semibold flex-1" style={{ color: "#e74c3c" }}>{error}</p>
-                </motion.div>
-              )}
-
-              <motion.button type="submit" disabled={loading}
-                className="w-full py-3.5 font-black text-base text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg,#FFD700 0%,#ff8c00 100%)", boxShadow: "0 0 28px rgba(255,215,0,0.35)" }}
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <motion.span className="inline-block w-4 h-4 rounded-full border-2 border-black border-t-transparent"
-                      animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
-                    Creating Account…
-                  </span>
-                ) : "CREATE ACCOUNT →"}
+                ) : "LOGIN WITH FACEBOOK →"}
               </motion.button>
 
               {/* Bonus badge */}
@@ -470,14 +226,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </span>
               </motion.div>
 
-              <p className="text-center text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                Already have an account?{" "}
-                <button type="button" onClick={() => switchMode("login")}
-                  className="cursor-pointer font-bold" style={{ color: "#FFD700" }}>
-                  Login →
-                </button>
-              </p>
-
               {/* ─── Social Login ─── */}
               <div className="relative flex items-center gap-3">
                 <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
@@ -487,24 +235,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               </div>
 
               <div className="flex items-center justify-center gap-6 pb-1">
-                <motion.button type="button" onClick={handleGoogleLogin}
-                  disabled={socialLoading !== null}
-                  whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(66,133,244,0.4)" }}
-                  whileTap={{ scale: 0.92 }}
-                  className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer"
-                  style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    boxShadow: socialLoading === "google" ? "0 0 22px rgba(66,133,244,0.5)" : "none",
-                    opacity: socialLoading !== null && socialLoading !== "google" ? 0.45 : 1,
-                  }}>
-                  {socialLoading === "google"
-                    ? <motion.span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent inline-block"
-                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
-                    : <GoogleSVG />
-                  }
-                </motion.button>
-
                 <motion.button type="button" onClick={handleFacebookLogin}
                   disabled={socialLoading !== null}
                   whileHover={{ scale: 1.09, boxShadow: "0 0 24px rgba(24,119,242,0.4)" }}
@@ -523,72 +253,84 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   }
                 </motion.button>
               </div>
-            </motion.form>
+            </motion.div>
           )}
 
-          {/* ─── FORGOT PASSWORD ─── */}
-          {mode === "forgot" && !success && (
-            <motion.form key="forgot" onSubmit={handleForgot} className="space-y-4"
-              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+          {/* ─── ONE-TIME OLD-ACCOUNT LINK (edge case) ─── */}
+          {mode === "link" && !success && linkInfo && (
+            <motion.div key="link" className="space-y-3.5"
+              initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }}
               transition={{ duration: 0.22 }}>
 
-              <div className="text-center mb-2">
-                <span className="text-3xl">🔑</span>
-                <p className="font-black text-white text-base mt-2">Reset Password</p>
-                <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Enter your email and we'll send a reset link
+              <div className="text-center mb-1">
+                <span className="text-3xl">🔒</span>
+                <p className="font-black text-white text-base mt-2">Your Old Account is Safe</p>
+                <p className="text-xs mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <strong style={{ color: "#FFD700" }}>{linkInfo.email}</strong> already has a WINGGO
+                  account with your wallet, KYC &amp; game history. Sign in once below and we'll
+                  link Facebook to it — no duplicate account, nothing lost.
                 </p>
               </div>
 
-              {resetSent ? (
-                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center gap-3 py-4 text-center">
-                  <span className="text-4xl">📧</span>
-                  <p className="font-bold text-white">Reset link sent!</p>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    Check your inbox at <strong style={{ color: "#FFD700" }}>{forgotEmail}</strong>
-                  </p>
-                  <button type="button" onClick={() => switchMode("login")}
-                    className="mt-2 text-xs font-bold cursor-pointer" style={{ color: "#FFD700" }}>
-                    ← Back to Login
-                  </button>
+              {error && (
+                <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                  style={{ background: "rgba(231,76,60,0.08)", border: "1px solid rgba(231,76,60,0.25)" }}>
+                  <span>⚠️</span>
+                  <p className="text-xs font-semibold flex-1" style={{ color: "#e74c3c" }}>{error}</p>
                 </motion.div>
-              ) : (
-                <>
+              )}
+
+              {linkInfo.methods.includes("google.com") && (
+                <motion.button type="button" onClick={handleLinkGoogle}
+                  disabled={socialLoading !== null}
+                  className="w-full py-3.5 font-black text-base text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg,#FFD700 0%,#ff8c00 100%)", boxShadow: "0 0 28px rgba(255,215,0,0.35), 0 4px 20px rgba(0,0,0,0.4)" }}
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                  {socialLoading === "link" ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <motion.span className="inline-block w-4 h-4 rounded-full border-2 border-black border-t-transparent"
+                        animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
+                      Linking…
+                    </span>
+                  ) : "VERIFY OLD ACCOUNT →"}
+                </motion.button>
+              )}
+
+              {linkInfo.methods.includes("password") && (
+                <form onSubmit={handleLinkPassword} className="space-y-3">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      Email Address
+                      Old Account Password
                     </label>
-                    <input type="email" placeholder="you@example.com"
-                      value={forgotEmail} onChange={(e) => { setForgotEmail(e.target.value); setError(""); }}
-                      className="w-full h-12 px-4 text-sm outline-none placeholder:text-zinc-700"
-                      style={inputBase}
+                    <input type="password" autoComplete="current-password"
+                      placeholder="Enter your old password"
+                      value={linkPw}
+                      onChange={(e) => { setLinkPw(e.target.value); setError(""); }}
+                      className="w-full h-12 px-4 pr-12 text-sm outline-none placeholder:text-zinc-700"
+                      style={{ ...inputBase, border: `1px solid ${error && !linkPw ? errorBorder : "rgba(255,255,255,0.1)"}` }}
                     />
                   </div>
-
-                  {error && (
-                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-                      style={{ background: "rgba(231,76,60,0.08)", border: "1px solid rgba(231,76,60,0.25)" }}>
-                      <span>⚠️</span>
-                      <p className="text-xs font-semibold flex-1" style={{ color: "#e74c3c" }}>{error}</p>
-                    </motion.div>
-                  )}
-
-                  <motion.button type="submit" disabled={loading}
+                  <motion.button type="submit" disabled={socialLoading !== null}
                     className="w-full py-3.5 font-black text-base text-black rounded-2xl tracking-wide cursor-pointer disabled:opacity-50"
-                    style={{ background: "linear-gradient(135deg,#FFD700 0%,#ff8c00 100%)", boxShadow: "0 0 28px rgba(255,215,0,0.35)" }}
+                    style={{ background: "linear-gradient(135deg,#FFD700 0%,#ff8c00 100%)", boxShadow: "0 0 28px rgba(255,215,0,0.35), 0 4px 20px rgba(0,0,0,0.4)" }}
                     whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                    {loading ? "Sending…" : "SEND RESET LINK →"}
+                    {socialLoading === "link" ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <motion.span className="inline-block w-4 h-4 rounded-full border-2 border-black border-t-transparent"
+                          animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }} />
+                        Linking…
+                      </span>
+                    ) : "SIGN IN & LINK FACEBOOK →"}
                   </motion.button>
-
-                  <button type="button" onClick={() => switchMode("login")}
-                    className="w-full text-center text-xs cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}>
-                    ← Back to Login
-                  </button>
-                </>
+                </form>
               )}
-            </motion.form>
+
+              <button type="button" onClick={() => { setMode("login"); setLinkInfo(null); setError(""); }}
+                className="w-full text-center text-xs cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}>
+                ← Back
+              </button>
+            </motion.div>
           )}
 
           {/* ─── SUCCESS ─── */}
