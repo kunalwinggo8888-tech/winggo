@@ -997,10 +997,6 @@ export async function rejectKYC(uid: string, adminUid: string, reason: string): 
 
 export interface AppConfig {
   maintenanceMode: boolean;
-  forceUpdateVersion: string;
-  forceUpdateEnabled: boolean;
-  updateMessage: string;
-  updateButtonText: string;
   depositBonusPct: number;
   maxWithdrawPerDay: number;
   referralBonusAmount: number;
@@ -1044,10 +1040,6 @@ export async function updateSupportConfig(data: Partial<SupportConfig>): Promise
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
   maintenanceMode: false,
-  forceUpdateVersion: "1.0.0",
-  forceUpdateEnabled: false,
-  updateMessage: "",
-  updateButtonText: "Update Now",
   depositBonusPct: 15,
   maxWithdrawPerDay: 10000,
   referralBonusAmount: 50,
