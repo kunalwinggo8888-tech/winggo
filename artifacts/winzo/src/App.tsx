@@ -23,6 +23,8 @@ import NotificationsScreen from "@/pages/NotificationsScreen";
 import SupportScreen from "@/pages/SupportScreen";
 import TermsScreen from "@/pages/TermsScreen";
 import FirebaseSetupGuide from "@/pages/FirebaseSetupGuide";
+import PrivacyPolicyScreen from "@/pages/PrivacyPolicyScreen";
+import DataDeletionScreen from "@/pages/DataDeletionScreen";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
 import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
@@ -96,6 +98,13 @@ type Screen =
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
+  // ── Public legal pages — served WITHOUT login, splash or auth wait ─────────
+  // Checked before anything else; pathname never changes during a session
+  // (the app has no router), so hook order stays stable.
+  const publicPath = window.location.pathname.replace(/\/+$/, "").toLowerCase();
+  if (publicPath.endsWith("/privacy-policy")) return <PrivacyPolicyScreen />;
+  if (publicPath.endsWith("/data-deletion")) return <DataDeletionScreen />;
+
   const { user, loading, login, logout } = useAuth();
 
   const [screen, setScreen]           = useState<Screen>("splash");

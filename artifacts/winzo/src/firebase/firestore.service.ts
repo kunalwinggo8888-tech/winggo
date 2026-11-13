@@ -1020,9 +1020,9 @@ export interface SupportConfig {
 }
 
 export const DEFAULT_SUPPORT_CONFIG: SupportConfig = {
-  gmail: "support@winggo.com",
-  instagramUrl: "https://instagram.com/winggo",
-  instagramUsername: "winggo_official",
+  gmail: "winggokunal8888@gmail.com",
+  instagramUrl: "https://instagram.com/___kunal._03",
+  instagramUsername: "___kunal._03",
   supportText: "For support, contact us via email or Instagram. We typically respond within 24 hours.",
 };
 

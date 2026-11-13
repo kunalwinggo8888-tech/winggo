@@ -149,6 +149,17 @@ async function upsertSocialProfile(user: User, isNewUser: boolean): Promise<void
 /**
  * Facebook Sign-In via popup — the app's ONLY login / signup method.
  *
+ * SCOPES — public_profile ONLY (email is never requested):
+ *  We deliberately request ONLY "public_profile". Requesting "email" makes
+ *  Facebook reject the OAuth dialog with "Invalid Scopes: email" whenever the
+ *  Meta app has not been granted that permission — so email stays OPTIONAL:
+ *  login must never fail because of it. public_profile always provides the
+ *  user's real name and profile photo, which is everything the Winggo profile
+ *  sync needs. If the Meta app ever grants email (Meta Dashboard → Use cases
+ *  → Facebook Login use case → Customize → Permissions → Add → email), it can
+ *  be re-added later to enable matching old accounts by email — but the app
+ *  is fully functional without it.
+ *
  * PROFILE SYNC (required behaviour):
  *  Firebase populates displayName + photoURL from the Facebook public_profile
  *  automatically. upsertSocialProfile() then saves those into the user's
@@ -156,20 +167,21 @@ async function upsertSocialProfile(user: User, isNewUser: boolean): Promise<void
  *  and picture on every login without any manual upload.
  *
  * EXISTING ACCOUNTS:
- *  If the Facebook email matches an existing Firebase account created with a
- *  different provider, we do NOT create a duplicate. We return the pending
- *  credential + sign-in methods so LoginScreen can run the one-time "link your
- *  old account" flow (see linkOldAccountGoogle / linkOldAccountPassword).
- *  Linking preserves the original UID — wallet, KYC, referral and game data
- *  all stay exactly where they are.
+ *  If Firebase still reports an existing account for the credential
+ *  (auth/account-exists-with-different-credential), we do NOT create a
+ *  duplicate. We return the pending credential + sign-in methods so
+ *  LoginScreen can run the one-time "link your old account" flow (see
+ *  linkOldAccountGoogle / linkOldAccountPassword). Linking preserves the
+ *  original UID — wallet, KYC, referral and game data all stay exactly where
+ *  they are.
  */
 export async function signInWithFacebook(): Promise<AuthResult> {
   if (isDemoMode()) {
     return { success: true, uid: `demo-fb-${Date.now()}`, isNewUser: false, demo: true };
   }
   try {
+    // public_profile ONLY — email is optional and never requested.
     const provider  = new FacebookAuthProvider();
-    provider.addScope("email");
     provider.addScope("public_profile");
     const cred      = await signInWithPopup(auth!, provider);
     const extra     = getAdditionalUserInfo(cred);
@@ -187,7 +199,7 @@ export async function signInWithFacebook(): Promise<AuthResult> {
     if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
       return { success: false, error: "" };
     }
-    // Email already registered with a different provider → offer one-time linking
+    // Existing account under a different provider → offer one-time linking
     if (code === "auth/account-exists-with-different-credential") {
       const fbCred = FacebookAuthProvider.credentialFromError(err as AuthError);
       const email  = ((err as AuthError).customData?.email as string) || "";

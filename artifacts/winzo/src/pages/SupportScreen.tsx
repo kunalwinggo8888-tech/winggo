@@ -21,9 +21,9 @@ export default function SupportScreen({ onBack }: SupportScreenProps) {
     };
   }, []);
 
-  const supportEmail = supportConfig?.gmail || "support@winggo.com";
-  const instagramLink = supportConfig?.instagramUrl || "https://instagram.com/winggo_official";
-  const instagramUsername = supportConfig?.instagramUsername || "winggo_official";
+  const supportEmail = supportConfig?.gmail || "winggokunal8888@gmail.com";
+  const instagramLink = supportConfig?.instagramUrl || "https://instagram.com/___kunal._03";
+  const instagramUsername = supportConfig?.instagramUsername || "___kunal._03";
   const supportText = supportConfig?.supportText || "For support, contact us via email or Instagram. We typically respond within 24 hours.";
 
   return (

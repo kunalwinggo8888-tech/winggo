@@ -17,8 +17,8 @@ export default function TermsScreen({ onBack }: TermsScreenProps) {
     return unsub;
   }, []);
 
-  const instagramLink = supportConfig?.instagramUrl || "https://instagram.com/winggo_official";
-  const supportEmail = supportConfig?.gmail || "support@winggo.com";
+  const instagramLink = supportConfig?.instagramUrl || "https://instagram.com/___kunal._03";
+  const supportEmail = supportConfig?.gmail || "winggokunal8888@gmail.com";
 
   return (
     <motion.div

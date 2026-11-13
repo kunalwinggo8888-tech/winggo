@@ -363,11 +363,13 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       </motion.div>
 
       {/* Footer */}
-      <motion.div className="mt-5 flex items-center gap-3 text-xs text-zinc-700 relative z-10"
+      <motion.div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-zinc-700 relative z-10"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
         <a href="#" className="hover:text-yellow-400 transition-colors">Terms &amp; Conditions</a>
         <span className="w-px h-3 bg-zinc-800" />
-        <a href="#" className="hover:text-yellow-400 transition-colors">Privacy Policy</a>
+        <a href="/privacy-policy" className="hover:text-yellow-400 transition-colors">Privacy Policy</a>
+        <span className="w-px h-3 bg-zinc-800" />
+        <a href="/data-deletion" className="hover:text-yellow-400 transition-colors">Data Deletion</a>
       </motion.div>
     </motion.div>
   );
