@@ -37,6 +37,9 @@ export interface AuthUser {
   kycStatus: "pending" | "submitted" | "approved" | "rejected";
   referralCode: string;
   isDemo: boolean;
+  /** One-time welcome/avatar onboarding flags (new users only) */
+  onboardingStarted?: boolean;
+  onboardingCompleted?: boolean;
 }
 
 export interface AuthContextType {
@@ -45,7 +48,7 @@ export interface AuthContextType {
   isLoggedIn: boolean;
   login: (uid: string, email: string, isNewUser?: boolean) => void;
   logout: () => Promise<void>;
-  updateProfile: (data: Partial<Pick<AuthUser, "displayName" | "photoURL">>) => Promise<void>;
+  updateProfile: (data: Partial<Pick<AuthUser, "displayName" | "photoURL" | "onboardingStarted" | "onboardingCompleted">>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -84,6 +87,8 @@ function profileToAuthUser(uid: string, p: UserProfile): AuthUser {
     kycStatus:    p.kycStatus,
     referralCode: p.referralCode,
     isDemo:       false,
+    onboardingStarted:   p.onboardingStarted   ?? false,
+    onboardingCompleted: p.onboardingCompleted ?? false,
   };
 }
 
@@ -190,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateProfileFn = useCallback(async (
-    data: Partial<Pick<AuthUser, "displayName" | "photoURL">>
+    data: Partial<Pick<AuthUser, "displayName" | "photoURL" | "onboardingStarted" | "onboardingCompleted">>
   ) => {
     if (!user) return;
     setUser((prev) => prev ? { ...prev, ...data } : prev);

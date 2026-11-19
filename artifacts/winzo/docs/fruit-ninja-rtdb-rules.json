@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "what": "Fruit Ninja 2P (real-time 1v1) — Firebase Realtime Database security rules fragment",
+    "how": "MERGE these nodes into your existing rules in Firebase Console → Realtime Database → Rules. Do NOT replace existing rules (Ludo/wallet rules must stay).",
+    "guarantee": "A player can ONLY write fnRooms/{roomId}/players/{ownUid}/* and fnPlayer/{ownUid}/* — i.e. a player can only update their OWN score. Timers and the result node are write-once (first write wins), so no client can extend the 2-minute match or overwrite a result.",
+    "notes": [
+      "fnQueue/waiting: names/photos of queueing players are public to any signed-in user; entries contain no private data.",
+      "fnRooms room-root writes are only allowed for: (a) creating the room, (b) flipping status to 'finished' when a result exists, (c) deleting a finished room (cleanup).",
+      "fnQueue/waiting is indexed on ts for stale-entry scans."
+    ]
+  },
+  "rules": {
+    "fnQueue": {
+      "waiting": {
+        ".read": "auth != null",
+        ".indexOn": ["ts"],
+        "$roomId": {
+          ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid || newData.child(auth.uid).exists() || (!newData.exists() && data.child(auth.uid).exists()))",
+          ".read": "auth != null"
+        }
+      }
+    },
+    "fnRooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('status').val() == 'countdown') || (data.exists() && data.child('status').val() != 'finished' && newData.child('status').val() == 'finished') || (data.exists() && data.child('status').val() == 'finished'))",
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".read": "auth != null"
+          }
+        },
+        "timers": {
+          ".write": "auth != null && !data.exists()",
+          ".read": "auth != null"
+        },
+        "result": {
+          ".write": "auth != null && !data.exists()",
+          ".read": "auth != null"
+        }
+      }
+    },
+    "fnPlayer": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
+  }
+}

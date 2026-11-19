@@ -130,6 +130,9 @@ async function upsertSocialProfile(user: User, isNewUser: boolean): Promise<void
       referredBy:         null,
       deviceInfo:         navigator.userAgent,
       signupBonusClaimed: true,
+      // Brand-new users go through the one-time welcome + avatar onboarding
+      onboardingStarted:   false,
+      onboardingCompleted: false,
     }, { merge: true });
     // Initialize wallet — ₹25 signup bonus goes to wallet.bonus ONLY (deposit = 0)
     // initWallet is idempotent: if wallet already exists it does nothing.

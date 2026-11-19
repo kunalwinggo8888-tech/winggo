@@ -23,10 +23,11 @@ import NotificationsScreen from "@/pages/NotificationsScreen";
 import SupportScreen from "@/pages/SupportScreen";
 import TermsScreen from "@/pages/TermsScreen";
 import FirebaseSetupGuide from "@/pages/FirebaseSetupGuide";
+import WelcomeAvatarScreen from "@/pages/WelcomeAvatarScreen";
 import PrivacyPolicyScreen from "@/pages/PrivacyPolicyScreen";
 import DataDeletionScreen from "@/pages/DataDeletionScreen";
 import BottomNav, { SCREENS_WITH_NAV } from "@/components/BottomNav";
-import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER } from "@/firebase/firestore.service";
+import { subscribeAppConfig, AppConfig, DEFAULT_APP_CONFIG, subscribeAppBanner, AppBannerConfig, DEFAULT_APP_BANNER, getUserProfile } from "@/firebase/firestore.service";
 import { FIREBASE_ENABLED } from "@/firebase/config";
 import AppBannerModal from "@/components/AppBannerModal";
 import { captureReferralFromUrl, trackReferralClick } from "@/firebase/referral.service";
@@ -79,6 +80,7 @@ const SheepBattleGame = lazy(() => import("@/pages/SheepBattleGame"));
 const Hexa2048Game = lazy(() => import("@/pages/Hexa2048Game"));
 const SuperSubwayGame = lazy(() => import("@/pages/SuperSubwayGame"));
 const SuperFruitNinjaGame = lazy(() => import("@/pages/SuperFruitNinjaGame"));
+const FruitNinja2P = lazy(() => import("@/pages/FruitNinja2P"));
 const Ludo2PGame = lazy(() => import("@/pages/Ludo2PGame"));
 
 const queryClient = new QueryClient();
@@ -94,8 +96,9 @@ type Screen =
   | "liquidsort" | "bottleshoot" | "flyme"
   | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
   | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
-  | "supersubway" | "superfruitninja" | "ludo2p"
-  | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications" | "support" | "terms";
+  | "supersubway" | "superfruitninja" | "fruitninja2p" | "ludo2p"
+  | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications" | "support" | "terms"
+  | "onboarding";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
 function AppInner() {
@@ -215,16 +218,29 @@ function AppInner() {
    * only see the login screen if they have never logged in or after logout.
    */
   useEffect(() => {
-    if (!splashDone) return;      // still showing splash
-    if (screen !== "splash") return; // already navigated
+    if (!splashDone) return undefined;      // still showing splash
+    if (screen !== "splash") return undefined; // already navigated
 
-    if (FIREBASE_ENABLED && loading) return; // still resolving Firebase auth state
+    if (FIREBASE_ENABLED && loading) return undefined; // still resolving Firebase auth state
 
     if (user) {
-      // User already authenticated — skip login entirely
-      setScreen("dashboard");
+      // User already authenticated — skip login entirely. Brand-new users who
+      // abandoned mid-onboarding resume the welcome/avatar screen; everyone
+      // else (incl. all old users) goes straight to the dashboard.
+      let cancelled = false;
+      (async () => {
+        try {
+          const profile = await getUserProfile(user.uid).catch(() => null);
+          if (cancelled) return;
+          setScreen(profile?.onboardingStarted && !profile.onboardingCompleted ? "onboarding" : "dashboard");
+        } catch {
+          if (!cancelled) setScreen("dashboard");
+        }
+      })();
+      return () => { cancelled = true; };
     } else {
       setScreen("login");
+      return undefined;
     }
   }, [splashDone, loading, user, screen]);
 
@@ -235,16 +251,24 @@ function AppInner() {
     setScreen("transition");
   }
 
-  // Called by LoginTransitionScreen when its animation finishes
+  // Called by LoginTransitionScreen when its animation finishes.
+  // Brand-new users get the one-time welcome + avatar onboarding BEFORE the
+  // dashboard; returning users (and all old users) go straight to the dashboard.
   function handleTransitionComplete() {
-    setScreen("dashboard");
     if (pendingIsNewUser.current) {
-      // Capture display name at transition time so popup can greet by name
-      const name = user?.displayName ?? "";
-      setNewUserName(name);
-      setShowWelcome(true);
       pendingIsNewUser.current = false;
+      setScreen("onboarding");
+    } else {
+      setScreen("dashboard");
     }
+  }
+
+  // Called by WelcomeAvatarScreen after the avatar is saved successfully.
+  // The ₹50 welcome-bonus popup greets the user on the dashboard right after.
+  function handleOnboardingComplete() {
+    setNewUserName(user?.displayName ?? "");
+    setShowWelcome(true);
+    setScreen("dashboard");
   }
 
   // Logout — clear auth, go back to login
@@ -325,6 +349,11 @@ function AppInner() {
           />
         )}
 
+        {/* One-time welcome + avatar selection for first-time users */}
+        {screen === "onboarding" && (
+          <WelcomeAvatarScreen key="onboarding" onComplete={handleOnboardingComplete} />
+        )}
+
         {screen === "dashboard" && (
           <Dashboard
             key="dashboard"
@@ -379,6 +408,7 @@ function AppInner() {
             onGoldMiner3D={(fee) => { setGoldminer3dFee(fee ?? 10); setScreen("goldminer3d"); }}
             onSuperSubway={(fee) => { setSupersubwayFee(fee ?? 10); setScreen("supersubway"); }}
             onSuperFruitNinja={(fee) => { setSuperfruitninjaFee(fee ?? 10); setScreen("superfruitninja"); }}
+            onFruitNinja2P={() => setScreen("fruitninja2p")}
             onLudo2P={() => setScreen("ludo2p")}
             onWallet={() => setScreen("wallet")}
             onHistory={() => setScreen("history")}
@@ -400,6 +430,18 @@ function AppInner() {
       {screen === "superludo" && (
         <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <SuperLudoGame key="superludo" onBack={() => setScreen("dashboard")} initialFee={superLudoFee} />
+        </Suspense>
+      )}
+
+      {screen === "fruitninja2p" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
+          <FruitNinja2P key="fruitninja2p" onBack={() => setScreen("dashboard")} />
+        </Suspense>
+      )}
+
+      {screen === "ludo2p" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
+          <Ludo2PGame key="ludo2p" onBack={() => setScreen("dashboard")} />
         </Suspense>
       )}
 
@@ -670,12 +712,6 @@ function AppInner() {
       {screen === "superfruitninja" && (
         <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <SuperFruitNinjaGame key="superfruitninja" onBack={() => setScreen("dashboard")} initialFee={superfruitninjaFee} />
-        </Suspense>
-      )}
-
-      {screen === "ludo2p" && (
-        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
-          <Ludo2PGame key="ludo2p" onBack={() => setScreen("dashboard")} />
         </Suspense>
       )}
 

@@ -40,6 +40,9 @@ export interface UserProfile {
   totalReferralEarnings?: number;
   totalFriendsJoined?: number;
   pendingReferralBonus?: number;
+  /** First-time onboarding (welcome + avatar pick) — new users only */
+  onboardingStarted?: boolean;
+  onboardingCompleted?: boolean;
 }
 
 export interface ReferralStats {

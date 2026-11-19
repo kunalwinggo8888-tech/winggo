@@ -1,11 +1,13 @@
 import { motion } from "framer-motion";
 
+// Home sits dead-center (3rd of 5) and carries the featured big glowing
+// circular button; Leaderboard is now a normal item.
 const NAV_ITEMS = [
-  { id: "home",        label: "Home",       icon: "🏠",  screen: "dashboard" },
-  { id: "history",     label: "History",    icon: "📋",  screen: "history" },
-  { id: "leaderboard", label: "Leaderboard", icon: "🏆",  screen: "leaderboard", featured: true },
-  { id: "wallet",      label: "Wallet",     icon: "💰",  screen: "wallet" },
-  { id: "profile",     label: "Profile",    icon: "👤",  screen: "profile" },
+  { id: "leaderboard", label: "Leaderboard", icon: "🏆",  screen: "leaderboard" },
+  { id: "history",     label: "History",     icon: "📋",  screen: "history" },
+  { id: "home",        label: "Home",        icon: "🏠",  screen: "dashboard", featured: true },
+  { id: "wallet",      label: "Wallet",      icon: "💰",  screen: "wallet" },
+  { id: "profile",     label: "Profile",     icon: "👤",  screen: "profile" },
 ] as const;
 
 interface BottomNavProps {
@@ -43,36 +45,46 @@ export default function BottomNav({ activeScreen, onNavigate }: BottomNavProps) 
     >
       {NAV_ITEMS.map((item) =>
         "featured" in item && item.featured ? (
+          /* HOME — dead-center, biggest & most attractive: raised circular
+             gold/orange gradient button with a soft pulsing glow (stronger
+             when active, subtle golden when inactive). */
           <motion.button
             key={item.id}
             whileTap={{ scale: 0.88 }}
             onClick={() => onNavigate(item.screen)}
-            className="flex flex-col items-center -mt-6 cursor-pointer"
+            className="flex flex-col items-center -mt-7 cursor-pointer"
             style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
           >
             <motion.div
-              className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
+              className="w-16 h-16 rounded-full flex items-center justify-center text-3xl"
               style={{
-                background: "linear-gradient(135deg, #ff4e00, #ec9f05)",
-                border: "3px solid rgba(255,255,255,0.15)",
+                background: "linear-gradient(135deg, #FFD700, #ff8c00)",
+                border: "3px solid rgba(255,255,255,0.22)",
               }}
               animate={{
                 boxShadow:
                   activeId === item.id
                     ? [
-                        "0 0 20px rgba(255,100,0,0.7), 0 -4px 14px rgba(255,100,0,0.4)",
-                        "0 0 32px rgba(255,100,0,0.95), 0 -4px 22px rgba(255,100,0,0.6)",
-                        "0 0 20px rgba(255,100,0,0.7), 0 -4px 14px rgba(255,100,0,0.4)",
+                        "0 0 26px rgba(255,200,0,0.85), 0 -6px 18px rgba(255,170,0,0.55)",
+                        "0 0 42px rgba(255,200,0,1), 0 -6px 28px rgba(255,170,0,0.75)",
+                        "0 0 26px rgba(255,200,0,0.85), 0 -6px 18px rgba(255,170,0,0.55)",
                       ]
-                    : "0 0 18px rgba(255,100,0,0.5), 0 -4px 10px rgba(255,100,0,0.25)",
+                    : [
+                        "0 0 16px rgba(255,200,0,0.5), 0 -4px 10px rgba(255,170,0,0.3)",
+                        "0 0 24px rgba(255,200,0,0.7), 0 -4px 14px rgba(255,170,0,0.4)",
+                        "0 0 16px rgba(255,200,0,0.5), 0 -4px 10px rgba(255,170,0,0.3)",
+                      ],
               }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
             >
               {item.icon}
             </motion.div>
             <span
-              className="text-[10px] mt-1 font-semibold"
-              style={{ color: activeId === item.id ? "#ff8c00" : "#52525b" }}
+              className="text-[10px] mt-1 font-bold"
+              style={{
+                color: activeId === item.id ? "#FFD700" : "#7a7a85",
+                textShadow: activeId === item.id ? "0 0 8px rgba(255,215,0,0.8)" : "none",
+              }}
             >
               {item.label}
             </span>

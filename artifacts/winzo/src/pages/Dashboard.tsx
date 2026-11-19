@@ -67,6 +67,7 @@ const GAME_CATALOG = [
   { id: "saanpsidi",    name: "Snakes & Ladders", icon: "🐍", gradient: "linear-gradient(135deg,#134e5e,#71b280)", category: "Popular", players: "4.2L playing", minFee: "₹2" },
   { id: "supersubway", name: "Super Subway Surfers", icon: "🚇", gradient: "linear-gradient(135deg,#38bdf8,#0ea5e9)", category: "Arcade", players: "3.6L playing", minFee: "₹2" },
   { id: "superfruitninja", name: "Super Fruit Ninja", icon: "🍉", gradient: "linear-gradient(135deg,#22c55e,#16a34a)", category: "Arcade", players: "4.1L playing", minFee: "₹2" },
+  { id: "fruitninja2p", name: "Fruit Ninja 2P", icon: "🍍", gradient: "linear-gradient(135deg,#f97316,#ef4444)", category: "Arcade", players: "1.8L playing", minFee: "FREE" },
   { id: "ludo2p", name: "2 Player Ludo Game", icon: "🎲", gradient: "linear-gradient(135deg,#2eafff,#ff4757)", category: "Popular", players: "NEW!", minFee: "FREE" },
 ] as const;
 
@@ -162,6 +163,7 @@ interface DashboardProps {
   onGoldMiner3D?: (fee?: number) => void;
   onSuperSubway?: (fee?: number) => void;
   onSuperFruitNinja?: (fee?: number) => void;
+  onFruitNinja2P?: () => void;
   onLudo2P?: () => void;
   onWallet?: () => void;
   onHistory?: () => void;
@@ -171,9 +173,9 @@ interface DashboardProps {
 }
 
 // Only Ludo Classic, Super Ludo and Snakes & Ladders are active — all other games show "Coming Soon"
-const IMPLEMENTED_GAMES = new Set(["ludo", "superludo", "saanpsidi", "supersubway", "superfruitninja", "ludo2p"]);
+const IMPLEMENTED_GAMES = new Set(["ludo", "superludo", "saanpsidi", "supersubway", "superfruitninja", "fruitninja2p", "ludo2p"]);
 
-export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onSuperSubway, onSuperFruitNinja, onLudo2P, onWallet, onHistory, onLeaderboard, onNotifications, onSuperLudo, appConfig }: DashboardProps) {
+export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onWorldWar, onSnakes, onCarrom, onBubble, onCandy, onChess, onDiscFootball, onRummy, onCallBreak, onPoker, onSolitaire, onTwenty1, onAxeMaster, onMrRacer, onBricksBreaker, onSlapFest, onFruitChop, onAlienFusion, onPool3D, onCricketTD20, onSheepBattle, onHexa2048, onMetroSurfer, onKnifeUp, onAngryMonsters, onBearRun, onArchery, onBasketball, onPenalty, onStumpIt, onBikeRacing, onGearUp, onHillClimber, onLiquidSort, onBottleShoot, onFlyMe, onStreetFight, onShadowFighter, onGolfMaster, onArcheryKing, onTileMatch3D, onPipeConnect, onJellyShift, onGoldMiner3D, onSuperSubway, onSuperFruitNinja, onFruitNinja2P, onLudo2P, onWallet, onHistory, onLeaderboard, onNotifications, onSuperLudo, appConfig }: DashboardProps) {
   const { total } = useWallet();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [showSpinModal, setShowSpinModal] = useState(false);
@@ -274,8 +276,8 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
   // Empty array (config/app.homeVisibleGames = []) => show ALL games again.
   const homeVisibleIds = appConfig?.homeVisibleGames ?? ["superludo"];
   const isHomeVisible = (id?: string) =>
-    // 2 Player Ludo Game is a first-party FREE game — always shown on Home
-    id === "ludo2p" || homeVisibleIds.length === 0 || (id != null && homeVisibleIds.includes(id));
+    // Fruit Ninja 2P & 2 Player Ludo are first-party FREE games — always shown on Home
+    id === "fruitninja2p" || id === "ludo2p" || homeVisibleIds.length === 0 || (id != null && homeVisibleIds.includes(id));
   const visiblePopular = POPULAR_STRIP.filter((g) => isHomeVisible(g.id));
 
   return (
@@ -730,7 +732,9 @@ export default function Dashboard({ onSpin, onLudo, onLudoFast, onSaanpSidi, onW
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       onClick={() => {
-                        // 2 Player Ludo Game is free-entry — separate original game
+                        // Fruit Ninja 2P is free-entry — go straight to the game
+                        if (game.id === "fruitninja2p") { onFruitNinja2P?.(); return; }
+                        // 2 Player Ludo Game is free-entry too — separate original game
                         if (game.id === "ludo2p") { onLudo2P?.(); return; }
                         openEntrySheet({ id: game.id, name: game.name, icon: game.icon, gradient: game.gradient, players: game.players });
                       }}

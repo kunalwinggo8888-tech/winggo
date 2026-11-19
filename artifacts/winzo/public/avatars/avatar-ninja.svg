@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#4c1d95"/>
+      <stop offset="100%" stop-color="#1e1040"/>
+    </radialGradient>
+    <linearGradient id="hood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="100" fill="url(#bg)"/>
+  <!-- glow -->
+  <ellipse cx="100" cy="88" rx="66" ry="60" fill="#8b5cf6" opacity="0.18"/>
+  <!-- hood -->
+  <path d="M100 34 C148 34 158 76 156 108 C154 138 146 156 100 156 C54 156 46 138 44 108 C42 76 52 34 100 34 Z" fill="url(#hood)"/>
+  <path d="M100 34 C148 34 158 76 156 108 C155 124 152 136 144 144 C150 116 146 84 100 84 C54 84 50 116 56 144 C48 136 45 124 44 108 C42 76 52 34 100 34 Z" fill="#4338ca" opacity="0.55"/>
+  <!-- mask band -->
+  <rect x="52" y="88" width="96" height="34" rx="17" fill="#0b0b18"/>
+  <!-- glowing eyes -->
+  <ellipse cx="78" cy="105" rx="10" ry="7" fill="#22d3ee"/>
+  <ellipse cx="122" cy="105" rx="10" ry="7" fill="#22d3ee"/>
+  <ellipse cx="76" cy="103" rx="4" ry="2.6" fill="#cffafe"/>
+  <ellipse cx="120" cy="103" rx="4" ry="2.6" fill="#cffafe"/>
+  <!-- headband knot -->
+  <path d="M44 96 L26 88 L30 100 L26 112 L44 104 Z" fill="#a855f7"/>
+  <rect x="52" y="92" width="96" height="7" rx="3.5" fill="#a855f7"/>
+  <!-- scarf -->
+  <path d="M62 152 C74 160 126 160 138 152 L142 168 C126 178 74 178 58 168 Z" fill="#7c3aed"/>
+  <circle cx="146" cy="166" r="7" fill="#a855f7"/>
+</svg>

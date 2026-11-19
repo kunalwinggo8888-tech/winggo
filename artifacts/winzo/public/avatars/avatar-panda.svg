@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#064e3b"/>
+      <stop offset="100%" stop-color="#022c22"/>
+    </radialGradient>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="100" fill="url(#bg)"/>
+  <ellipse cx="100" cy="92" rx="64" ry="58" fill="#34d399" opacity="0.12"/>
+  <!-- ears -->
+  <circle cx="56" cy="52" r="20" fill="#111827"/>
+  <circle cx="144" cy="52" r="20" fill="#111827"/>
+  <circle cx="56" cy="52" r="9" fill="#f472b6"/>
+  <circle cx="144" cy="52" r="9" fill="#f472b6"/>
+  <!-- head -->
+  <ellipse cx="100" cy="102" rx="62" ry="56" fill="url(#fur)"/>
+  <!-- eye patches -->
+  <ellipse cx="76" cy="96" rx="17" ry="20" fill="#111827" transform="rotate(-12 76 96)"/>
+  <ellipse cx="124" cy="96" rx="17" ry="20" fill="#111827" transform="rotate(12 124 96)"/>
+  <!-- eyes -->
+  <circle cx="78" cy="96" r="6.5" fill="#fff"/>
+  <circle cx="122" cy="96" r="6.5" fill="#fff"/>
+  <circle cx="79.5" cy="96.5" r="3.2" fill="#111827"/>
+  <circle cx="123.5" cy="96.5" r="3.2" fill="#111827"/>
+  <circle cx="77" cy="94.5" r="1.5" fill="#fff"/>
+  <circle cx="121" cy="94.5" r="1.5" fill="#fff"/>
+  <!-- nose + smile -->
+  <ellipse cx="100" cy="114" rx="7" ry="5.5" fill="#111827"/>
+  <path d="M100 120 C96 128 88 128 84 124 M100 120 C104 128 112 128 116 124" stroke="#111827" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- bamboo -->
+  <rect x="164" y="120" width="7" height="52" rx="3.5" fill="#4ade80" transform="rotate(14 164 120)"/>
+  <rect x="158" y="132" width="19" height="5" rx="2.5" fill="#22c55e" transform="rotate(14 158 132)"/>
+</svg>
