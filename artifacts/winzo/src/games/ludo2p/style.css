@@ -1,0 +1,358 @@
+/**
+ * style.css — copy of the original game's stylesheet (owner: Kunal).
+ * Source: C:\Users\Kunal\Desktop\game\ludo-game-using-html-css-and-javascript
+ *
+ * INTEGRATION CHANGE (the only one): the two global selectors — `*` (reset)
+ * and `body` (viewport centering) — are scoped under `.ludo2p-root` so the
+ * Winggo app shell is unaffected. Every other rule is byte-for-byte original.
+ */
+.ludo2p-root, .ludo2p-root * {
+    box-sizing: border-box;
+}
+
+.ludo2p-root .ludo-container {
+    width: 450px;
+    margin: 20px auto;
+    /* background-color: red; */
+}
+
+.ludo2p-root .ludo-container .ludo {
+    height: 450px;
+    width: 100%;
+    /* background-image: url('./ludo-bg.jpg'); */
+    background-image: url(./ludo-bggg.png);
+    background-size: contain;
+    position: relative;
+
+}
+
+
+.ludo2p-root .player-pieces {
+    height: 100%;
+    width: 100%;
+    /* background-color: red; */
+}
+
+.ludo2p-root .player-piece {
+    width: 3%;
+    height: 3%;
+    border: 2px solid;
+    border-radius: 10px;
+    position: absolute;
+    transform: translate(50%, 50%);
+    transition: all .2s;
+    z-index: 1;
+}
+
+.ludo2p-root .player-piece.highlight {
+    cursor: pointer;
+    border: 2px dashed;
+    animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+    0% {
+        transform: translate(50%, 50%) rotate(0deg);
+    }
+    50% {
+        transform: translate(50%, 50%) rotate(180deg) scale(1.4);
+
+    }
+    100% {
+        transform: translate(50%, 50%) rotate(360deg);
+    }
+}
+
+.ludo2p-root [player-id="P1"].player-piece {
+    background-color: #2eafff;
+
+}
+
+.ludo2p-root [player-id="P2"].player-piece {
+    background-color: #00b550;
+}
+
+.ludo2p-root [player-id="P3"].player-piece {
+    background-color: #ff4757;
+    
+}
+
+.ludo2p-root [player-id="P4"].player-piece {
+    background-color: #ffa502;
+}
+
+.ludo2p-root .player-base {
+    width: 40%;
+    height: 40%;
+    border: 30px solid;
+    position: absolute;
+    
+}
+
+.ludo2p-root .player-bases [player-id="P1"].player-base {
+    /* bottom: 0; */
+    /* left: 0; */
+    
+    border-color: #1295e7;
+    height: 38%;
+    width: 38.5%;
+    margin-top: -177px;
+    margin-left: 6px;
+    border-width: 22px;
+    border-right-width: 26px;
+    border-top-width: 24px;
+    
+    
+     
+    
+}
+
+.ludo2p-root .player-bases [player-id="P2"].player-base {
+    /* top: 0; */
+    /* right: 0; */
+    border-color: #049645;
+    margin-top: -445px;
+    margin-left: 275px;
+    height: 38%;
+    width: 37.5%;
+    border-width: 22px;
+    border-top-width: 24px;
+}
+
+.ludo2p-root .player-bases [player-id="P3"].player-base {
+    /* bottom: 0;
+    right: 0; */
+    height: 38%;
+    width: 38%;
+    border-width: 22px;
+    border-top-width: 24px;
+    border-color: #d63031;
+    margin-left: 273px;
+    margin-top: -178px;
+    border-left-width: 24px;
+    border-bottom-width: 23px;
+}
+
+.ludo2p-root .player-bases [player-id="P4"].player-base {
+    /* top: 0;
+    left: 0; */
+    border-color: #f39c12;
+    height: 38.5%;
+    width: 38.5%;
+    margin-top: -444.6px;
+    margin-left: 6px;
+    border-width: 22px;
+    border-right-width: 27px;
+    border-top-width: 23px;
+    border-bottom-width: 24px;
+}
+
+.ludo2p-root .player-base.highlight {
+    animation: border-blink .7s infinite ease-in-out;
+}
+
+@keyframes border-blink {
+    50% {
+        border-color: rgba(255, 255, 255, 0.8);
+    }
+}
+
+.ludo2p-root .btn {
+    padding: 8px 20px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    display: none;
+}
+
+.ludo2p-root .btn:disabled {
+    opacity: 0.5;
+    display: none;
+}
+
+.ludo2p-root .btn-dice {
+    background-color: #009d60;
+    color: white;
+    display: none;
+}
+
+.ludo2p-root .row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+.ludo2p-root .dice-value {
+    font-size: 24px;
+    font-weight: bold;
+    display: none;
+}
+
+
+/* scoped global reset (was `*`) */
+.ludo2p-root, .ludo2p-root * {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    box-sizing: border-box;
+}
+
+/* was `body` (viewport centering) — scoped to the game root */
+.ludo2p-root {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* background: #b33951; */
+}
+
+.ludo2p-root .containeer {
+    display: grid;
+    place-items: center;
+    width: 250px;
+    padding: 60px 0 40px;
+    border-radius: 30px;
+    background: #eeeeee;
+    box-shadow: 0 0 20px rgba(0, 0, 0, .1);
+    margin-left: 1000px;
+    position: absolute;
+}
+
+.ludo2p-root .result {
+    margin-top: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #b33951;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.ludo2p-root .dice {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    transform-style: preserve-3d;
+    transition: 1s ease;
+    /* margin-left: -100px; */
+}
+
+@keyframes rolling {
+    50% {
+        transform: rotateX(455deg) rotateY(455deg);
+    }
+}
+
+.ludo2p-root .face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    border: 5px solid #f6f3f0;
+    transform-style: preserve-3d;
+    background: linear-gradient(
+        145deg, #dddbd8, #fff
+    );
+}
+
+.ludo2p-root .face::before {
+    position: absolute;
+    content: '';
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    background: #f6f3f0;
+    transform: translateZ(-1px);
+}
+
+.ludo2p-root .face::after {
+    position: absolute;
+    content: '';
+    top: 50%;
+    left: 50%;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #131210;
+}
+
+.ludo2p-root .front {
+    transform: translateZ(50px);
+}
+
+.ludo2p-root .back {
+    transform: rotateX(180deg) translateZ(50px);
+}
+
+.ludo2p-root .top {
+    transform: rotateX(90deg) translateZ(50px);
+}
+
+.ludo2p-root .bottom {
+    transform: rotateX(-90deg) translateZ(50px);
+}
+
+.ludo2p-root .right {
+    transform: rotateY(90deg) translateZ(50px);
+}
+
+.ludo2p-root .left {
+    transform: rotateY(-90deg) translateZ(50px);
+}
+
+.ludo2p-root .front::after {
+    width: 30px;
+    height: 30px;
+    background: #f63330;
+    margin: -15px 0 0 -15px;
+}
+
+.ludo2p-root .back::after {
+    margin: -35px 0 0 -30px;
+    box-shadow: 40px 0,
+                0 25px,
+                40px 25px,
+                0 50px,
+                40px 50px;
+}
+
+.ludo2p-root .top::after {
+    margin: -30px 0 0 -30px;
+    box-shadow: 40px 40px;
+}
+
+.ludo2p-root .bottom::after {
+    margin: -36px 0 0 -36px;
+    box-shadow: 26px 26px,
+                52px 52px,
+                52px 0,
+                0 52px;
+}
+
+.ludo2p-root .right::after {
+    margin: -30px 0 0 -30px;
+    box-shadow: 40px 0,
+    0 40px,
+    40px 40px;
+}
+
+.ludo2p-root .left::after {
+    margin: -35px 0 0 -35px;
+    box-shadow: 25px 25px,
+                50px 50px;
+}
+
+.ludo2p-root .roll {
+    cursor: pointer;
+    color: #b33951;
+    margin-top: 60px;
+    padding: 6px 12px;
+    border-radius: 3px;
+    font: 700 16px 'Montserrat';
+    border: 2px solid #b33951;
+    transition: .4s;
+}
+
+.ludo2p-root .roll:hover {
+    color: #fff;
+    background: #b33951;
+}

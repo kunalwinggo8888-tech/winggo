@@ -79,6 +79,7 @@ const SheepBattleGame = lazy(() => import("@/pages/SheepBattleGame"));
 const Hexa2048Game = lazy(() => import("@/pages/Hexa2048Game"));
 const SuperSubwayGame = lazy(() => import("@/pages/SuperSubwayGame"));
 const SuperFruitNinjaGame = lazy(() => import("@/pages/SuperFruitNinjaGame"));
+const Ludo2PGame = lazy(() => import("@/pages/Ludo2PGame"));
 
 const queryClient = new QueryClient();
 
@@ -93,7 +94,7 @@ type Screen =
   | "liquidsort" | "bottleshoot" | "flyme"
   | "streetfight" | "shadowfighter" | "golfmaster" | "archeryking"
   | "tilematch3d" | "pipeconnect" | "jellyshift" | "goldminer3d"
-  | "supersubway" | "superfruitninja"
+  | "supersubway" | "superfruitninja" | "ludo2p"
   | "refer" | "wallet" | "history" | "profile" | "kyc" | "leaderboard" | "notifications" | "support" | "terms";
 
 // ── Inner app — has access to AuthContext ─────────────────────────────────────
@@ -378,6 +379,7 @@ function AppInner() {
             onGoldMiner3D={(fee) => { setGoldminer3dFee(fee ?? 10); setScreen("goldminer3d"); }}
             onSuperSubway={(fee) => { setSupersubwayFee(fee ?? 10); setScreen("supersubway"); }}
             onSuperFruitNinja={(fee) => { setSuperfruitninjaFee(fee ?? 10); setScreen("superfruitninja"); }}
+            onLudo2P={() => setScreen("ludo2p")}
             onWallet={() => setScreen("wallet")}
             onHistory={() => setScreen("history")}
             onLeaderboard={() => setScreen("leaderboard")}
@@ -668,6 +670,12 @@ function AppInner() {
       {screen === "superfruitninja" && (
         <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
           <SuperFruitNinjaGame key="superfruitninja" onBack={() => setScreen("dashboard")} initialFee={superfruitninjaFee} />
+        </Suspense>
+      )}
+
+      {screen === "ludo2p" && (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen" style={{background: "#0a0a0f"}}><span className="text-2xl">Loading...</span></div>}>
+          <Ludo2PGame key="ludo2p" onBack={() => setScreen("dashboard")} />
         </Suspense>
       )}
 

@@ -1,0 +1,165 @@
+/*
+ * integration-overrides.css — additive layer for the ORIGINAL ludo2p
+ * stylesheet (style.css is otherwise byte-identical to the owner's original).
+ *
+ * 2-PLAYER ADAPTATIONS (visuals unchanged everywhere else):
+ *  - The original page has ONE big dice panel beside the board. The 2-player
+ *    mode has TWO compact dice widgets placed OUTSIDE the board, right beside
+ *    each player's home (owner's marked screenshot): green at the top-right
+ *    corner, blue at the bottom-left corner. The board itself is untouched.
+ *  - P3 (red) / P4 (yellow) never play in the 2-player mode: their tokens
+ *    are hidden so their homes sit empty on the original board image.
+ *  - Active-player glow: the current player's home + own dice pulse in their
+ *    color (blue/green); the other side stays normal.
+ */
+
+/* composite = board + one dice gutter per side (72px) — see COMPOSITE_W */
+.ludo2p-root {
+    width: 610px;
+    position: relative;
+}
+
+.ludo2p-root .ludo-container {
+    flex-shrink: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* ── compact dice widgets, OUTSIDE the board at the home corners ───────────── */
+.ludo2p-dice-mini {
+    position: absolute;
+    width: 72px;
+    height: 72px;
+    z-index: 5;
+    border-radius: 18px;
+    cursor: pointer;
+}
+
+.ludo2p-dice-blue {
+    left: -80px;   /* outside the board's left edge */
+    bottom: 0;     /* level with the blue home (bottom-left) */
+}
+
+.ludo2p-dice-green {
+    right: -80px;  /* outside the board's right edge */
+    top: 0;        /* level with the green home (top-right) */
+}
+
+/* the original 100px 3D cube, scaled down as ONE piece (design unchanged) */
+.ludo2p-dice-shrink {
+    width: 100px;
+    height: 100px;
+    transform: scale(0.72);
+    transform-origin: top left;
+    position: relative;
+    pointer-events: none;
+}
+
+/* transparent click surface over the cube — the original .roll button, so the
+   engine's enable/disable states keep working exactly as before */
+.ludo2p-root .ludo2p-dice-mini .roll {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: transparent;
+    font-size: 0;
+    z-index: 2;
+    cursor: pointer;
+}
+
+/* result number near the dice — compact, player-colored. Blue's sits ABOVE
+   its dice (bottom-left corner), green's BELOW (top-right corner), so neither
+   collides with the board footer. */
+.ludo2p-root .ludo2p-dice-mini .result {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: #b33951;
+}
+
+.ludo2p-root .ludo2p-dice-blue .result {
+    bottom: 76px;
+}
+
+.ludo2p-root .ludo2p-dice-green .result {
+    top: 76px;
+}
+
+.ludo2p-root .containeer-p1 .result {
+    color: #1295e7;
+}
+
+.ludo2p-root .containeer-p2 .result {
+    color: #049645;
+}
+
+/* not this player's turn: dice dimmed + not clickable */
+.ludo2p-root .ludo2p-dice-mini:has(.roll:disabled) {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.ludo2p-root .ludo2p-dice-mini:has(.roll:disabled) .roll {
+    cursor: not-allowed;
+}
+
+/* ── empty homes: red (P3) and yellow (P4) never play in the 2-player mode ─── */
+.ludo2p-root .player-piece[player-id="P3"],
+.ludo2p-root .player-piece[player-id="P4"] {
+    display: none;
+}
+
+/* ── active-player glow (pulsing, auto-switches with the turn) ─────────────── */
+@keyframes ludo2p-glow-p1 {
+    0%, 100% {
+        box-shadow: 0 0 12px 2px rgba(18, 149, 231, 0.55);
+    }
+    50% {
+        box-shadow: 0 0 30px 8px rgba(18, 149, 231, 0.95);
+    }
+}
+
+@keyframes ludo2p-glow-p2 {
+    0%, 100% {
+        box-shadow: 0 0 12px 2px rgba(4, 150, 69, 0.55);
+    }
+    50% {
+        box-shadow: 0 0 30px 8px rgba(4, 150, 69, 0.95);
+    }
+}
+
+/* blue's turn: blue home + blue dice pulse (original border-blink kept) */
+.ludo2p-root.turn-p1 .player-bases [player-id="P1"].player-base {
+    animation: border-blink .7s infinite ease-in-out,
+               ludo2p-glow-p1 1.3s ease-in-out infinite;
+}
+
+.ludo2p-root.turn-p1 .ludo2p-dice-blue {
+    animation: ludo2p-glow-p1 1.3s ease-in-out infinite;
+}
+
+/* green's turn: green home + green dice pulse */
+.ludo2p-root.turn-p2 .player-bases [player-id="P2"].player-base {
+    animation: border-blink .7s infinite ease-in-out,
+               ludo2p-glow-p2 1.3s ease-in-out infinite;
+}
+
+.ludo2p-root.turn-p2 .ludo2p-dice-green {
+    animation: ludo2p-glow-p2 1.3s ease-in-out infinite;
+}
+
+/* the original page centered content in the viewport (body rule); inside
+   Winggo the page scrolls naturally, so allow auto height */
+.ludo2p-root {
+    height: auto;
+    min-height: 100%;
+}

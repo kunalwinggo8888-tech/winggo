@@ -1,0 +1,23 @@
+{
+  "_comment": "2 Player Ludo Game (ld2p*) RTDB rules fragment — MERGE these rules into the existing Firebase Realtime Database rules (do NOT replace the whole file). Same pattern as docs/fruit-ninja-rtdb-rules.json: authenticated users only; each room readable/writable only by its two participants; free-entry game with no money flows.",
+  "rules": {
+    "ld2pQueue": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null"
+      }
+    },
+    "ld2pRooms": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null && (!data.exists() || data.child('players').child(auth.uid).exists())"
+      }
+    },
+    "ld2pPlayer": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "$uid === auth.uid"
+      }
+    }
+  }
+}
